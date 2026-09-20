@@ -12,7 +12,7 @@ struct MainView: View {
         @Bindable var model = model
         HStack(spacing: 0) {
             if model.sidePane {
-                SidePane()
+                SidePane(active: active)
                     .transition(.move(edge: .leading))
                 Divider()
             }

@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The memo list beside the editor: a search field, then pinned memos and the rest by recency.
+/// The memo list beside the editor: a search field, then favorites and the rest by recency.
 struct SidePane: View {
     @Environment(AppModel.self) private var model
+    let active: Bool
     @State private var query = ""
     @State private var memos: [Memo] = []
 
@@ -44,7 +45,7 @@ struct SidePane: View {
             }
         }
         .frame(width: Chrome.paneWidth)
-        // The store changes only on save and on pinning, so those and the query drive the list; the title
+        // The store changes only on save and on favoriting, so those and the query drive the list; the title
         // of the memo being edited comes from the model until then.
         .task(id: RefreshKey(query: query, memo: model.current)) {
             let listed = await model.memos(matching: query)
@@ -57,22 +58,22 @@ struct SidePane: View {
         let query: String
         let id: Memo.ID?
         let updatedAt: Date?
-        let pinned: Bool?
+        let favorite: Bool?
 
         init(query: String, memo: Memo?) {
             self.query = query
             id = memo?.id
             updatedAt = memo?.updatedAt
-            pinned = memo?.pinned
+            favorite = memo?.favorite
         }
     }
 
     private func row(_ memo: Memo) -> some View {
         let isCurrent = memo.id == model.current?.id
         return HStack(spacing: 8) {
-            Image(systemName: memo.pinned ? "pin.fill" : "doc.text")
+            Image(systemName: memo.favorite ? "star.fill" : "doc.text")
                 .frame(width: 16)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(memo.favorite && active ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(isCurrent ? model.title : memo.title)

@@ -7,12 +7,22 @@ struct TopRow: View {
 
     var body: some View {
         ZStack {
-            Text(model.title)
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .padding(.horizontal, 120)
+            HStack(spacing: 5) {
+                if model.current?.favorite == true {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 10))
+                        // The accent in the chrome goes gray with the rest while the window is not key.
+                        .foregroundStyle(active ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                        .animation(.easeOut(duration: 0.15), value: active)
+                        .accessibilityLabel("Favorite")
+                }
+                Text(model.title)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .font(.system(size: 13))
+            .padding(.horizontal, 120)
             HStack(spacing: 2) {
                 action("command", "Command Palette") { model.toggle(.palette) }
                 action("square.stack", "Browse Memos") { model.toggle(.browse) }

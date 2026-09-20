@@ -151,10 +151,10 @@ final class AppModel {
         }
     }
 
-    func togglePin() async {
+    func toggleFavorite() async {
         guard let current else { return }
         do {
-            self.current = try await store.setPinned(current.id, !current.pinned)
+            self.current = try await store.setFavorite(current.id, !current.favorite)
         } catch {
             report(error)
         }

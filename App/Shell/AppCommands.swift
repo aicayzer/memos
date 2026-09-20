@@ -9,8 +9,8 @@ struct AppCommands: Commands {
                 .keyboardShortcut("n")
             Button("Duplicate Memo") { Task { await model.duplicate() } }
                 .keyboardShortcut("d")
-            Button(model.current?.pinned == true ? "Unpin Memo" : "Pin Memo") { Task { await model.togglePin() } }
-                .keyboardShortcut("p", modifiers: [.command, .shift])
+            Button(model.current?.favorite == true ? "Unfavorite Memo" : "Favorite Memo") { Task { await model.toggleFavorite() } }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
             Divider()
             Button("Browse Memos") { model.toggle(.browse) }
                 .keyboardShortcut("p")

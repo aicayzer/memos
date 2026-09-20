@@ -30,11 +30,19 @@ import Testing
         #expect(listed.first?.markdown == "First again\n")
     }
 
-    @Test func pinnedMemosSortFirst() async throws {
+    @Test func favoriteSurvivesReopening() async throws {
+        let (store, url) = try makeStore()
+        let memo = try await store.create(markdown: "Keep\n")
+        _ = try await store.setFavorite(memo.id, true)
+        let reopened = try JSONMemoStore(fileURL: url)
+        #expect(try await reopened.get(memo.id)?.favorite == true)
+    }
+
+    @Test func favoritesSortFirst() async throws {
         let (store, _) = try makeStore()
         let old = try await store.create(markdown: "Old\n")
         _ = try await store.create(markdown: "New\n")
-        _ = try await store.setPinned(old.id, true)
+        _ = try await store.setFavorite(old.id, true)
         let listed = try await store.list(matching: nil)
         #expect(listed.first?.id == old.id)
     }

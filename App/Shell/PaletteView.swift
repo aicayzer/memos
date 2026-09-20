@@ -6,6 +6,7 @@ struct PaletteItem: Identifiable {
     var subtitle: String? = nil
     var symbol: String? = nil
     var shortcut: String? = nil
+    var accented = false
     var section = 0
     var enabled = true
     let action: () -> Void
@@ -94,7 +95,7 @@ struct PaletteView: View {
             if let symbol = item.symbol {
                 Image(systemName: symbol)
                     .frame(width: 18)
-                    .foregroundStyle(item.subtitle == nil ? .primary : .secondary)
+                    .foregroundStyle(item.accented ? AnyShapeStyle(.tint) : AnyShapeStyle(item.subtitle == nil ? .primary : .secondary))
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.title).lineLimit(1)
