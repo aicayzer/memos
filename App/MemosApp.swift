@@ -4,7 +4,7 @@ import SwiftUI
 struct MemosApp: App {
     var body: some Scene {
         Window(Bundle.main.displayName, id: "main") {
-            Text("Memo")
+            MainView()
                 .frame(minWidth: 320, minHeight: 240)
         }
         .defaultSize(width: 520, height: 640)
