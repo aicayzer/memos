@@ -64,6 +64,7 @@ import Testing
 
     @Test func fencesAndRulesAreSkipped() {
         #expect(Memo.title(for: "```swift\nlet x = 1\n```\n") == "let x = 1")
+        #expect(Memo.title(for: "> ```\n> quoted code\n> ```\n") == "quoted code")
         #expect(Memo.title(for: "---\nAfter the rule\n") == "After the rule")
         #expect(Memo.title(for: "-\n- \nItem\n") == "Item")
     }

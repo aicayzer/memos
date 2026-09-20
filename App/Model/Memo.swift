@@ -22,9 +22,9 @@ struct Memo: Identifiable, Codable, Equatable, Sendable {
 
     private static func plainText(of line: Substring) -> String {
         var text = Substring(line.trimmingCharacters(in: .whitespaces))
-        if text.hasPrefix("```") || text.hasPrefix("~~~") { return "" }
         // Quotes and lists nest, as in `> - [ ] **Call**`; a heading's text is then plain.
         while let inner = withoutContainerMarker(text) { text = inner }
+        if text.hasPrefix("```") || text.hasPrefix("~~~") { return "" }
         if text.first == "#" { text = withoutHeadingMarks(text) }
         if !text.isEmpty, text.allSatisfy({ "-*_".contains($0) }) { return "" }
         return withoutInlineMarks(String(text)).trimmingCharacters(in: .whitespaces)
