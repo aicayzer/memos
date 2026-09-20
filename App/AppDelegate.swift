@@ -1,4 +1,5 @@
 import AppKit
+import KeyboardShortcuts
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -17,6 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             fatalError("memo store unavailable: \(error)")
         }
         super.init()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
