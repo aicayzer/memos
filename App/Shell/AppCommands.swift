@@ -24,6 +24,12 @@ struct AppCommands: Commands {
             Button("Copy as Markdown") { model.copyAsMarkdown() }
                 .keyboardShortcut("c", modifiers: [.command, .shift])
         }
+        CommandGroup(after: .saveItem) {
+            Divider()
+            Button("Save As…") { Task { await model.saveAs() } }
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+            Button("Share…") { Task { await model.share() } }
+        }
         CommandGroup(after: .pasteboard) {
             Divider()
             Button("Find in Memo") { model.toggle(.find) }

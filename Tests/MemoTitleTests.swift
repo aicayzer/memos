@@ -83,3 +83,31 @@ import Testing
         #expect(Memo.title(for: "> \n") == Memo.untitled)
     }
 }
+
+@Suite struct MemoFileNameTests {
+    @Test func titleBecomesMarkdownFileName() {
+        #expect(Memo.fileName(for: "Weekly plan") == "Weekly plan.md")
+    }
+
+    @Test func separatorsBecomeDashes() {
+        #expect(Memo.fileName(for: "Q3: costs / income") == "Q3- costs - income.md")
+    }
+
+    @Test func emptyAndDotLeadingTitlesFallBack() {
+        #expect(Memo.fileName(for: "") == "Untitled.md")
+        #expect(Memo.fileName(for: ".hidden") == "Untitled.md")
+    }
+
+    @Test func longTitlesAreCut() {
+        let name = Memo.fileName(for: String(repeating: "a", count: 200))
+        #expect(name == String(repeating: "a", count: 80) + ".md")
+        let cutAtSpace = Memo.fileName(for: String(repeating: "a", count: 79) + " b c")
+        #expect(cutAtSpace == String(repeating: "a", count: 79) + ".md")
+        let emoji = Memo.fileName(for: String(repeating: "🏳️‍🌈", count: 80))
+        #expect(emoji.utf8.count <= 203)
+    }
+
+    @Test func outerWhitespaceIsTrimmed() {
+        #expect(Memo.fileName(for: "  Plan  ") == "Plan.md")
+    }
+}

@@ -52,6 +52,8 @@ targets:
         com.apple.security.app-sandbox: true
         # WebKit's helper processes refuse to launch in a sandbox without it; the page itself loads nothing remote.
         com.apple.security.network.client: true
+        # Save As writes wherever the save panel points.
+        com.apple.security.files.user-selected.read-write: true
     settings:
       base:
         PRODUCT_NAME: Memos

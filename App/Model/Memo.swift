@@ -18,6 +18,17 @@ struct Memo: Identifiable, Codable, Equatable, Sendable {
 
     static let untitled = "Untitled"
 
+    /// The title as a file name: path separators become dashes and long titles are cut, with the markdown extension.
+    static func fileName(for title: String) -> String {
+        var name = title.replacing(/[\/:]/, with: "-").trimmingCharacters(in: .whitespaces)
+        // 80 characters reads as a name; the byte bound keeps a run of emoji inside the file system's 255.
+        if name.count > 80 { name = String(name.prefix(80)) }
+        while name.utf8.count > 200 { name.removeLast() }
+        name = name.trimmingCharacters(in: .whitespaces)
+        if name.isEmpty || name.first == "." { name = untitled }
+        return name + ".md"
+    }
+
     /// The first line as it reads, without its markdown: a quote or a list item titles the memo by its words.
     static func title(for markdown: String) -> String {
         for line in markdown.split(whereSeparator: \.isNewline) {
