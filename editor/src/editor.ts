@@ -45,6 +45,7 @@ import {
 import { $prose, callCommand, replaceAll } from '@milkdown/kit/utils'
 import { codeCopyPlugin, placeholderPlugin } from './decorations'
 import { dialect, serialize, stringifyOptions } from './dialect'
+import { highlightPlugin } from './highlight'
 import { taskListPlugin, toggleTaskList } from './tasks'
 
 export type Mark = 'bold' | 'italic' | 'strikethrough' | 'code' | 'link'
@@ -245,6 +246,7 @@ export class MemoEditor {
       .use(quoteBackspace)
       .use(codeCopyPlugin((text) => events.copy(text)))
       .use(placeholderPlugin)
+      .use(highlightPlugin)
       .create()
     root.addEventListener('click', (event) => {
       const anchor = (event.target as HTMLElement).closest('a[href]')

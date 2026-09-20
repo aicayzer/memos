@@ -169,3 +169,13 @@ test('backspace at the start of a quote leaves it', async () => {
     expect(serialize(ctxOf(editor))).toBe('A line\n')
   })
 })
+
+test('a fenced block with a known language is colored, one without stays plain', async () => {
+  await withMemoEditor('```js\nconst x = 1\n```\n\n```\nplain\n```\n', (editor) => {
+    const view = ctxOf(editor).get(editorViewCtx)
+    const spans = view.dom.querySelectorAll('pre [class*="hljs-"]')
+    expect(spans.length).toBeGreaterThan(0)
+    expect(view.dom.querySelectorAll('pre')[1]?.querySelector('[class*="hljs-"]')).toBeNull()
+    expect(serialize(ctxOf(editor))).toBe('```js\nconst x = 1\n```\n\n```\nplain\n```\n')
+  })
+})
