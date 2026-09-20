@@ -4,6 +4,9 @@ struct FormatBar: View {
     let editor: EditorController
     let hide: () -> Void
 
+    @State private var linkPopover = false
+    @State private var linkURL = ""
+
     private var caret: CaretState { editor.caret }
 
     var body: some View {
@@ -29,7 +32,25 @@ struct FormatBar: View {
             .menuIndicator(.visible)
             .tint(caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough]) ? .secondary : .accentColor)
 
-            button("link", active: caret.marks.contains(.link)) { editor.format(.link) }
+            button("link", active: caret.marks.contains(.link)) {
+                if caret.marks.contains(.link) {
+                    editor.format(.link)
+                } else {
+                    linkURL = ""
+                    linkPopover = true
+                }
+            }
+            .popover(isPresented: $linkPopover, arrowEdge: .top) {
+                TextField("https://", text: $linkURL)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 260)
+                    .padding(12)
+                    .onSubmit {
+                        linkPopover = false
+                        let url = linkURL.trimmingCharacters(in: .whitespaces)
+                        if !url.isEmpty { editor.format(.link, argument: url) }
+                    }
+            }
             button("chevron.left.forwardslash.chevron.right", active: caret.marks.contains(.code)) { editor.format(.code) }
 
             divider
