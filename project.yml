@@ -50,6 +50,8 @@ targets:
       path: App/Memos.entitlements
       properties:
         com.apple.security.app-sandbox: true
+        # WebKit's helper processes refuse to launch in a sandbox without it; the page itself loads nothing.
+        com.apple.security.network.client: true
     settings:
       base:
         PRODUCT_NAME: Memos
