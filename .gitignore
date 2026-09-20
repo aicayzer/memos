@@ -1,9 +1,11 @@
 # macOS
 .DS_Store
 
-# Xcode: the project is generated from project.yml by XcodeGen
+# Generated from project.yml by XcodeGen
 *.xcodeproj/
-build/
+App/Info.plist
+App/*.entitlements
+build*/
 DerivedData/
 xcuserdata/
 *.xcresult
@@ -15,7 +17,6 @@ xcuserdata/
 # Editor build and dependencies
 editor/node_modules/
 editor/dist/
-App/Resources/Editor/
 
 # Local scratch
 _tmp/

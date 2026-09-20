@@ -1,0 +1,35 @@
+{
+  "name": "editor",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.0.9",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@milkdown/kit": "^7.22.1",
+    "@types/mdast": "^4.0.4",
+    "mdast-util-gfm-autolink-literal": "^2.0.1",
+    "mdast-util-gfm-strikethrough": "^2.0.0",
+    "mdast-util-gfm-task-list-item": "^2.0.0",
+    "micromark-extension-gfm-autolink-literal": "^2.1.0",
+    "micromark-extension-gfm-strikethrough": "^2.1.0",
+    "micromark-extension-gfm-task-list-item": "^2.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "jsdom": "^30.1.0",
+    "mdast-util-to-markdown": "^2.1.2",
+    "prettier": "^3.9.8",
+    "typescript": "^7.0.2",
+    "unified": "^11.0.5",
+    "vite": "^8.3.0",
+    "vite-plugin-singlefile": "^2.3.3",
+    "vitest": "^5.0.1"
+  }
+}
