@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FormatBar: View {
     let editor: EditorController
+    let accent: Color
 
     @State private var linkPopover = false
     @State private var linkURL = ""
@@ -20,7 +21,7 @@ struct FormatBar: View {
             }
             .accessibilityLabel("Heading")
             .menuIndicator(.visible)
-            .tint(caret.block.isHeading ? .accentColor : .secondary)
+            .tint(caret.block.isHeading ? accent : .secondary)
 
             Menu {
                 Button("Bold") { editor.format(.bold) }
@@ -31,7 +32,7 @@ struct FormatBar: View {
             }
             .accessibilityLabel("Text Style")
             .menuIndicator(.visible)
-            .tint(caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough]) ? .secondary : .accentColor)
+            .tint(caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough]) ? .secondary : accent)
 
             button("link", "Link", active: caret.marks.contains(.link)) {
                 if caret.marks.contains(.link) {
@@ -72,15 +73,17 @@ struct FormatBar: View {
             }
             .accessibilityLabel("List")
             .menuIndicator(.visible)
-            .tint(caret.block.isList ? .accentColor : .secondary)
+            .tint(caret.block.isList ? accent : .secondary)
         }
         .menuStyle(.button)
         .buttonStyle(.borderless)
         .imageScale(.medium)
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .frame(height: FormatBar.height)
         .glassEffect(.regular, in: .capsule)
     }
+
+    static let height: CGFloat = 40
 
     private var divider: some View {
         Divider().frame(height: 16).padding(.horizontal, 6)
@@ -93,7 +96,7 @@ struct FormatBar: View {
         }
         .accessibilityLabel(label)
         .help(label)
-        .tint(active ? .accentColor : .secondary)
+        .tint(active ? accent : .secondary)
     }
 
     private var headingSymbol: String {

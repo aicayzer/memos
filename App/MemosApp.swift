@@ -18,6 +18,7 @@ struct MemosApp: App {
 
         Settings {
             SettingsView()
+                .environment(model)
         }
     }
 }
