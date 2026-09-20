@@ -11,6 +11,8 @@ struct MainView: View {
         @Bindable var model = model
         EditorView(controller: model.editor)
             .background(WindowReader { model.attach($0) })
+            .containerBackground(for: .window) { WindowBackdrop(opacity: model.windowOpacity) }
+            .tint(model.accentColor)
             .navigationTitle(model.title)
             .toolbarTitleDisplayMode(.inline)
             .task { await model.start() }
@@ -21,24 +23,24 @@ struct MainView: View {
             }
             .overlay(alignment: .bottom) {
                 if !model.formatBarHidden {
-                    FormatBar(editor: model.editor)
-                        .padding(.bottom, 12)
-                }
-            }
-            .overlay(alignment: .bottomTrailing) {
-                if !model.formatBarHidden {
-                    Button {
-                        model.formatBarHidden = true
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                            .frame(width: 28, height: 28)
-                            .glassEffect(.regular, in: .circle)
+                    ZStack(alignment: .trailing) {
+                        FormatBar(editor: model.editor, accent: model.accentColor)
+                            .frame(maxWidth: .infinity)
+                        Button {
+                            model.formatBarHidden = true
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: FormatBar.height, height: FormatBar.height)
+                                .glassEffect(.regular, in: .circle)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Hide Formatting Bar")
+                        .help("Hide Formatting Bar")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Hide Formatting Bar")
-                    .help("Hide Formatting Bar")
-                    .padding(12)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 12)
                 }
             }
             .overlay(alignment: .topTrailing) {

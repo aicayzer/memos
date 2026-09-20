@@ -1,6 +1,7 @@
 import AppKit
 import Observation
 import OSLog
+import SwiftUI
 import WebKit
 
 private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "app")
@@ -28,6 +29,21 @@ final class AppModel {
         didSet { defaults.set(formatBarHidden, forKey: Self.formatBarHiddenKey) }
     }
 
+    /// 1 is the plain window background, 0 is glass alone.
+    var windowOpacity: Double {
+        didSet { defaults.set(windowOpacity, forKey: Self.windowOpacityKey) }
+    }
+
+    /// nil follows the system accent.
+    var accent: NSColor? {
+        didSet {
+            defaults.set(accent?.hexString, forKey: Self.accentKey)
+            editor.accentOverride = accent
+        }
+    }
+
+    var accentColor: Color { accent.map(Color.init(nsColor:)) ?? .accentColor }
+
     var title: String { current?.title ?? Memo.untitled }
 
     /// Set by the main view, so the window can be reopened after it was closed.
@@ -39,12 +55,17 @@ final class AppModel {
     private static let lastMemoKey = "lastMemoID"
     private static let floatingKey = "floating"
     private static let formatBarHiddenKey = "formatBarHidden"
+    private static let windowOpacityKey = "windowOpacity"
+    private static let accentKey = "accent"
 
     init(store: any MemoStore, defaults: UserDefaults = .standard) {
         self.store = store
         self.defaults = defaults
         floating = defaults.object(forKey: Self.floatingKey) as? Bool ?? true
         formatBarHidden = defaults.bool(forKey: Self.formatBarHiddenKey)
+        windowOpacity = defaults.object(forKey: Self.windowOpacityKey) as? Double ?? 0.7
+        accent = defaults.string(forKey: Self.accentKey).flatMap(NSColor.init(hexString:))
+        editor.accentOverride = accent
         editor.onChanged = { [weak self] markdown in self?.changed(markdown) }
         editor.onOpenLink = { NSWorkspace.shared.open($0) }
     }

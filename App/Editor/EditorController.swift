@@ -13,6 +13,9 @@ final class EditorController: NSObject {
 
     var onChanged: (String) -> Void = { _ in }
     var onOpenLink: (URL) -> Void = { _ in }
+    var accentOverride: NSColor? {
+        didSet { applyAccent() }
+    }
 
     @ObservationIgnored let webView: WKWebView
     @ObservationIgnored private var pendingMarkdown: String?
@@ -112,17 +115,14 @@ final class EditorController: NSObject {
     }
 
     private func applyAccent() {
-        var resolved: NSColor?
-        NSApp.effectiveAppearance.performAsCurrentDrawingAppearance {
-            resolved = NSColor.controlAccentColor.usingColorSpace(.sRGB)
+        guard isReady else { return }
+        var resolved = accentOverride
+        if resolved == nil {
+            NSApp.effectiveAppearance.performAsCurrentDrawingAppearance {
+                resolved = NSColor.controlAccentColor
+            }
         }
-        guard let color = resolved else { return }
-        let hex = String(
-            format: "#%02X%02X%02X",
-            Int(round(color.redComponent * 255)),
-            Int(round(color.greenComponent * 255)),
-            Int(round(color.blueComponent * 255))
-        )
+        guard let hex = resolved?.hexString else { return }
         call("setAccent", json(hex))
     }
 
