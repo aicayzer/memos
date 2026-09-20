@@ -10,7 +10,9 @@
 
 html,
 body {
+  height: 100%;
   margin: 0;
+  overflow: hidden;
   background: transparent;
   color: var(--text);
   font:
@@ -22,14 +24,21 @@ body {
   -webkit-text-size-adjust: none;
 }
 
+/* The page scrolls inside #editor so the fade under the formatting bar stays put. */
 #editor {
-  min-height: 100vh;
+  height: 100%;
+  overflow-y: auto;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    black calc(100% - 96px),
+    transparent calc(100% - 16px)
+  );
 }
 
 .ProseMirror {
-  min-height: 100vh;
+  min-height: 100%;
   box-sizing: border-box;
-  padding: 12px 24px 80px;
+  padding: 8px 24px 96px;
   outline: none;
   white-space: pre-wrap;
   word-wrap: break-word;

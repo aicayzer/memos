@@ -2,11 +2,13 @@ import SwiftUI
 
 struct WindowBackdrop: View {
     let opacity: Double
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ZStack {
             Glass()
-            Color(nsColor: .windowBackgroundColor).opacity(opacity)
+            // Black rather than the system window color, so the blur's own tint comes through.
+            (colorScheme == .dark ? Color.black : Color.white).opacity(opacity)
         }
     }
 

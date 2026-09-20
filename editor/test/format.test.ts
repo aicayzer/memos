@@ -91,3 +91,32 @@ test('a selection reaching out of a quote is not reported as quoted', async () =
     expect(states.at(-1)?.quoted).toBe(false)
   })
 })
+
+test('inline code at a caret applies to what is typed next', async () => {
+  await withMemoEditor('A line\n', (editor, states) => {
+    placeCaret(editor, 3)
+    editor.format('code')
+    expect(states.at(-1)?.marks).toEqual(['code'])
+    const view = ctxOf(editor).get(editorViewCtx)
+    view.dispatch(view.state.tr.insertText('xy'))
+    expect(serialize(ctxOf(editor))).toBe('A `xy`line\n')
+    // The mark is not inclusive, so typing on leaves the code span.
+    expect(states.at(-1)?.marks).toEqual([])
+    placeCaret(editor, 4)
+    expect(states.at(-1)?.marks).toEqual(['code'])
+    editor.format('code')
+    expect(serialize(ctxOf(editor))).toBe('A xyline\n')
+  })
+})
+
+test('inline code toggled on and off again at a caret leaves nothing behind', async () => {
+  await withMemoEditor('A line\n', (editor, states) => {
+    placeCaret(editor, 3)
+    editor.format('code')
+    editor.format('code')
+    expect(states.at(-1)?.marks).toEqual([])
+    const view = ctxOf(editor).get(editorViewCtx)
+    view.dispatch(view.state.tr.insertText('x'))
+    expect(serialize(ctxOf(editor))).toBe('A xline\n')
+  })
+})

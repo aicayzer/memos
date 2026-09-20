@@ -12,6 +12,8 @@ import { cursor } from '@milkdown/kit/plugin/cursor'
 import {
   blockquoteSchema,
   createCodeBlockCommand,
+  inlineCodeSchema,
+  linkSchema,
   toggleEmphasisCommand,
   toggleInlineCodeCommand,
   toggleLinkCommand,
@@ -22,7 +24,12 @@ import {
   wrapInOrderedListCommand,
 } from '@milkdown/kit/preset/commonmark'
 import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm'
-import { NodeRange, type Node as ProseNode, type ResolvedPos } from '@milkdown/kit/prose/model'
+import {
+  NodeRange,
+  type MarkType,
+  type Node as ProseNode,
+  type ResolvedPos,
+} from '@milkdown/kit/prose/model'
 import { findWrapping, liftTarget } from '@milkdown/kit/prose/transform'
 import {
   AllSelection,
@@ -226,14 +233,12 @@ export class MemoEditor {
     this.editor.ctx.get(editorViewCtx).focus()
   }
 
-  // toggleMark on a caret only clears the stored mark, so removing a link
-  // needs the whole link selected first.
-  private selectLinkAtCaret(): void {
+  // Removing a mark at a caret only clears the stored mark, so the whole
+  // marked run is selected first. Returns false when the caret is not in one.
+  private selectMarkAtCaret(mark: MarkType): boolean {
     const view = this.editor.ctx.get(editorViewCtx)
-    const { selection, schema, doc } = view.state
-    if (!selection.empty) return
-    const link = schema.marks.link
-    if (!link) return
+    const { selection, doc } = view.state
+    if (!selection.empty) return false
     const $pos = selection.$from
     const parent = $pos.parent
     const start = $pos.start()
@@ -242,13 +247,30 @@ export class MemoEditor {
     parent.forEach((child, offset) => {
       const childFrom = start + offset
       const childTo = childFrom + child.nodeSize
-      if (!link.isInSet(child.marks)) return
+      if (!mark.isInSet(child.marks)) return
       if (childTo >= $pos.pos && childFrom <= to) {
         from = Math.min(from, childFrom)
         to = Math.max(to, childTo)
       }
     })
-    if (from < to) view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, from, to)))
+    if (from === to) return false
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, from, to)))
+    return true
+  }
+
+  // Milkdown's inline code command ignores a caret; a stored mark makes the
+  // next typed text code, the way bold and italic behave.
+  private toggleInlineCode(): void {
+    const view = this.editor.ctx.get(editorViewCtx)
+    const type = inlineCodeSchema.type(this.editor.ctx)
+    const run = () => {
+      this.editor.action(callCommand(toggleInlineCodeCommand.key))
+    }
+    if (!view.state.selection.empty) return run()
+    const active = type.isInSet(view.state.storedMarks ?? view.state.selection.$from.marks())
+    if (!active) view.dispatch(view.state.tr.addStoredMark(type.create()))
+    else if (this.selectMarkAtCaret(type)) run()
+    else view.dispatch(view.state.tr.removeStoredMark(type))
   }
 
   private quote(): void {
@@ -308,7 +330,7 @@ export class MemoEditor {
         run(toggleStrikethroughCommand.key)
         break
       case 'code':
-        run(toggleInlineCodeCommand.key)
+        this.toggleInlineCode()
         break
       case 'codeBlock':
         if (state.block.type === 'codeBlock') run(turnIntoTextCommand.key)
@@ -328,7 +350,7 @@ export class MemoEditor {
         toggleTaskList(this.editor.ctx)
         break
       case 'link':
-        if (state.marks.includes('link')) this.selectLinkAtCaret()
+        if (state.marks.includes('link')) this.selectMarkAtCaret(linkSchema.type(this.editor.ctx))
         run(toggleLinkCommand.key, typeof arg === 'string' ? { href: arg } : {})
         break
     }

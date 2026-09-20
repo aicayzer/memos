@@ -29,7 +29,7 @@ Called with `evaluateJavaScript` on `window.editor`.
 | `focus()`                    | Focus the editor.                                                                                                                                                     |
 | `setAccent(color)`           | Set the accent color used for links, markers and the caret.                                                                                                           |
 
-`command` is one of `heading` (with `arg` 1 to 3; the same level again turns the block back into a paragraph), `paragraph`, `bold`, `italic`, `strikethrough`, `code`, `codeBlock` (with `arg` an optional language), `quote` (lifts out of the quote when already inside one), `bulletList`, `orderedList`, `taskList`, `link` (with `arg` the URL).
+`command` is one of `heading` (with `arg` 1 to 3; the same level again turns the block back into a paragraph), `paragraph`, `bold`, `italic`, `strikethrough`, `code` (at a caret, what is typed next), `codeBlock` (with `arg` an optional language), `quote` (lifts out of the quote when already inside one), `bulletList`, `orderedList`, `taskList`, `link` (with `arg` the URL).
 
 ## Markdown
 
