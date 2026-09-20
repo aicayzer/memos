@@ -12,6 +12,63 @@ import Testing
         #expect(Memo.title(for: "# C#") == "C#")
     }
 
+    @Test func blockMarkersAreStripped() {
+        #expect(Memo.title(for: "> Markdown Reference\n") == "Markdown Reference")
+        #expect(Memo.title(for: "> > Nested\n") == "Nested")
+        #expect(Memo.title(for: "- milk\n- eggs\n") == "milk")
+        #expect(Memo.title(for: "* milk\n") == "milk")
+        #expect(Memo.title(for: "1. First step\n") == "First step")
+        #expect(Memo.title(for: "12) Twelfth\n") == "Twelfth")
+        #expect(Memo.title(for: "- [ ] Call the bank\n") == "Call the bank")
+        #expect(Memo.title(for: "- [x] Done\n") == "Done")
+        #expect(Memo.title(for: "> - [ ] **Call**\n") == "Call")
+    }
+
+    @Test func inlineMarksAreStripped() {
+        #expect(Memo.title(for: "**Bold** and *italic* and ~~gone~~ and `code`") == "Bold and italic and gone and code")
+        #expect(Memo.title(for: "***Both***") == "Both")
+        #expect(Memo.title(for: "[Site](https://example.com) and <https://example.com/page>") == "Site and https://example.com/page")
+        #expect(Memo.title(for: "![Photo](photo.png) of the day") == "Photo of the day")
+        #expect(Memo.title(for: "_Quiet_ start") == "Quiet start")
+    }
+
+    @Test func headingTextIsPlain() {
+        #expect(Memo.title(for: "# 1. Introduction") == "1. Introduction")
+        #expect(Memo.title(for: "# - dash") == "- dash")
+        #expect(Memo.title(for: "> # Quoted heading") == "Quoted heading")
+    }
+
+    // The store holds remark's output, which escapes punctuation that could read as markdown.
+    @Test func escapesAndCodeAreLiteral() {
+        #expect(Memo.title(for: "2 \\* 3 = 6") == "2 * 3 = 6")
+        #expect(Memo.title(for: "a \\*\\* b \\*\\* c") == "a ** b ** c")
+        #expect(Memo.title(for: "\\#hashtag") == "#hashtag")
+        #expect(Memo.title(for: "`a*b*c` and *x*") == "a*b*c and x")
+        #expect(Memo.title(for: "\\[not a link](x)") == "[not a link](x)")
+    }
+
+    @Test func wordsAreLeftAlone() {
+        #expect(Memo.title(for: "snake_case_name") == "snake_case_name")
+        #expect(Memo.title(for: "2 * 3 = 6") == "2 * 3 = 6")
+        #expect(Memo.title(for: "-not a list") == "-not a list")
+        #expect(Memo.title(for: "2024 in review") == "2024 in review")
+        #expect(Memo.title(for: "١. Arabic digits are words") == "١. Arabic digits are words")
+    }
+
+    @Test func longLinesAreBounded() {
+        let brackets = String(repeating: "[", count: 20_000)
+        #expect(Memo.title(for: brackets).count == 300)
+        let links = String(repeating: "<https://", count: 2_000)
+        #expect(Memo.title(for: links).count == 300)
+    }
+
+    @Test func fencesAndRulesAreSkipped() {
+        #expect(Memo.title(for: "```swift\nlet x = 1\n```\n") == "let x = 1")
+        #expect(Memo.title(for: "> ```\n> quoted code\n> ```\n") == "quoted code")
+        #expect(Memo.title(for: "---\nAfter the rule\n") == "After the rule")
+        #expect(Memo.title(for: "-\n- \nItem\n") == "Item")
+    }
+
     @Test func windowsLineEndingsSplitLines() {
         #expect(Memo.title(for: "First\r\nSecond\r\n") == "First")
     }
@@ -23,5 +80,6 @@ import Testing
     @Test func emptyMemoIsUntitled() {
         #expect(Memo.title(for: "") == Memo.untitled)
         #expect(Memo.title(for: "\n#\n") == Memo.untitled)
+        #expect(Memo.title(for: "> \n") == Memo.untitled)
     }
 }

@@ -8,7 +8,6 @@ enum Block: Equatable, Sendable {
     case paragraph
     case heading(Int)
     case codeBlock
-    case quote
     case bulletList
     case orderedList
     case taskList
@@ -17,6 +16,8 @@ enum Block: Equatable, Sendable {
 struct CaretState: Equatable, Sendable {
     var marks: Set<Mark> = []
     var block: Block = .paragraph
+    /// Inside a quote at any depth; `block` is what sits inside it.
+    var quoted = false
 }
 
 enum FormatCommand: String, Sendable {
@@ -42,7 +43,7 @@ enum EditorMessage: Sendable {
         case "state":
             let marks = (dict["marks"] as? [String] ?? []).compactMap(Mark.init(rawValue:))
             guard let block = Block(dict["block"]) else { return nil }
-            self = .state(CaretState(marks: Set(marks), block: block))
+            self = .state(CaretState(marks: Set(marks), block: block, quoted: dict["quoted"] as? Bool ?? false))
         case "openLink":
             guard let href = dict["href"] as? String else { return nil }
             self = .openLink(href)
@@ -63,7 +64,6 @@ extension Block {
             guard let level = dict["level"] as? Int else { return nil }
             self = .heading(level)
         case "codeBlock": self = .codeBlock
-        case "quote": self = .quote
         case "bulletList": self = .bulletList
         case "orderedList": self = .orderedList
         case "taskList": self = .taskList
