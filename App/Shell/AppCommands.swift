@@ -29,6 +29,13 @@ struct AppCommands: Commands {
             Button("Find in Memo") { model.toggle(.find) }
                 .keyboardShortcut("f")
         }
+        // The editor's own keys (⌘B, ⌘I) reach the web view first; these are the ones it does not have.
+        CommandMenu("Format") {
+            Button("Bulleted List") { model.editor.format(.bulletList) }
+                .keyboardShortcut("l")
+            Button("Task List") { model.editor.format(.taskList) }
+                .keyboardShortcut("l", modifiers: [.command, .shift])
+        }
         // Replacing drops Show/Hide Toolbar, which would collapse the title bar the top row is drawn in.
         CommandGroup(replacing: .toolbar) {
             Button("Command Palette") { model.toggle(.palette) }

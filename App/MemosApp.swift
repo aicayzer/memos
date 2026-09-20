@@ -26,7 +26,11 @@ struct MemosApp: App {
             get: { model.menuBarItem }, set: { model.menuBarItem = $0 }
         )) {
             Button("Open \(Bundle.main.displayName)") { model.showWindow() }
-            Button("New Memo") { Task { await model.newMemo() } }
+            Button("New Memo") {
+                // A status item click does not activate the app, and a hidden app cannot open a window.
+                model.showWindow()
+                Task { await model.newMemo() }
+            }
             Divider()
             SettingsLink { Text("Settings…") }
             Divider()

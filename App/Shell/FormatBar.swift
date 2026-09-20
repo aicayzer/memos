@@ -17,7 +17,7 @@ struct FormatBar: View {
                     })
                 }
             } label: {
-                Image(nsImage: Self.headingGlyph)
+                Image(nsImage: Self.headingGlyph(active: caret.block.isHeading))
             }
 
             menu("Text Style", active: !caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough])) {
@@ -25,7 +25,7 @@ struct FormatBar: View {
                 Toggle("Italic", isOn: toggle(caret.marks.contains(.italic)) { editor.format(.italic) })
                 Toggle("Strikethrough", isOn: toggle(caret.marks.contains(.strikethrough)) { editor.format(.strikethrough) })
             } label: {
-                Image(nsImage: Self.styleGlyph)
+                Image(nsImage: Self.styleGlyph(active: !caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough])))
             }
 
             button("link", "Link", size: Chrome.iconSize - 1, active: caret.marks.contains(.link)) {
@@ -83,19 +83,24 @@ struct FormatBar: View {
         Binding(get: { on }, set: { _ in action() })
     }
 
-    // A text label in a borderless menu ignores tint, foreground style and opacity; a template image takes the tint.
-    private static let headingGlyph = glyph("H", .systemFont(ofSize: Chrome.iconSize + 1, weight: .semibold).withDesign(.rounded))
-    private static let styleGlyph = glyph("I", .systemFont(ofSize: Chrome.iconSize, weight: .medium).withDesign(.serif))
+    // A borderless menu draws a text label, and a template image, in the label color whatever the tint,
+    // so the glyph is drawn in the label color it should have. The drawing handler runs at draw time,
+    // so the dynamic colors follow the appearance.
+    private static let headingFont = NSFont.systemFont(ofSize: Chrome.iconSize + 1, weight: .semibold).withDesign(.rounded)
+    private static let styleFont = NSFont.systemFont(ofSize: Chrome.iconSize, weight: .medium).withDesign(.serif)
+    private static let headingGlyphs = (on: glyph("H", headingFont, .labelColor), off: glyph("H", headingFont, .secondaryLabelColor))
+    private static let styleGlyphs = (on: glyph("I", styleFont, .labelColor), off: glyph("I", styleFont, .secondaryLabelColor))
 
-    private static func glyph(_ text: String, _ font: NSFont) -> NSImage {
-        let attributed = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor.black])
+    private static func headingGlyph(active: Bool) -> NSImage { active ? headingGlyphs.on : headingGlyphs.off }
+    private static func styleGlyph(active: Bool) -> NSImage { active ? styleGlyphs.on : styleGlyphs.off }
+
+    private static func glyph(_ text: String, _ font: NSFont, _ color: NSColor) -> NSImage {
+        let attributed = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: color])
         let size = attributed.size()
-        let image = NSImage(size: NSSize(width: ceil(size.width), height: ceil(size.height)), flipped: false) { rect in
+        return NSImage(size: NSSize(width: ceil(size.width), height: ceil(size.height)), flipped: false) { rect in
             attributed.draw(at: NSPoint(x: (rect.width - size.width) / 2, y: 0))
             return true
         }
-        image.isTemplate = true
-        return image
     }
 
     // The borderless menu button reads its label as icon plus title, so the label stays a single glyph.

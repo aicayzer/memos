@@ -186,10 +186,11 @@ final class AppModel {
     func applyActivationPolicy() {
         let policy: NSApplication.ActivationPolicy = showInDock ? .regular : .accessory
         guard NSApp.activationPolicy() != policy else { return }
+        let key = NSApp.keyWindow
         NSApp.setActivationPolicy(policy)
-        // The change drops the app's active state; the window would otherwise go behind.
+        // The change drops the app's active state; whichever window was in use would otherwise go behind.
         NSApp.activate()
-        window?.makeKeyAndOrderFront(nil)
+        key?.makeKeyAndOrderFront(nil)
     }
 
     func showWindow() {
