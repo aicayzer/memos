@@ -68,8 +68,13 @@ struct MainView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(model.formatBarHidden ? "Show Formatting Bar" : "Hide Formatting Bar")
                 .help(model.formatBarHidden ? "Show Formatting Bar" : "Hide Formatting Bar")
+                // The bar stays while the window is not key, as its close does; the Aa alone goes with the actions.
+                .opacity(model.formatBarHidden && !active ? 0 : 1)
+                .allowsHitTesting(!model.formatBarHidden || active)
+                .animation(.easeOut(duration: 0.15), value: active)
             }
-            .frame(maxWidth: .infinity, alignment: .trailing)
+            // A fixed height, or the corner button sits a point lower whenever the taller bar is gone.
+            .frame(maxWidth: .infinity, minHeight: Chrome.barHeight, alignment: .trailing)
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 12)

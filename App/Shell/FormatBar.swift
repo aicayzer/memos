@@ -17,7 +17,7 @@ struct FormatBar: View {
                     })
                 }
             } label: {
-                Text("H").font(.system(size: Chrome.iconSize + 1, weight: .semibold, design: .rounded))
+                Image(nsImage: Self.headingGlyph)
             }
 
             menu("Text Style", active: !caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough])) {
@@ -25,10 +25,10 @@ struct FormatBar: View {
                 Toggle("Italic", isOn: toggle(caret.marks.contains(.italic)) { editor.format(.italic) })
                 Toggle("Strikethrough", isOn: toggle(caret.marks.contains(.strikethrough)) { editor.format(.strikethrough) })
             } label: {
-                Image(systemName: "italic").font(.system(size: Chrome.iconSize, weight: .medium))
+                Image(nsImage: Self.styleGlyph)
             }
 
-            button("link", "Link", active: caret.marks.contains(.link)) {
+            button("link", "Link", size: Chrome.iconSize - 1, active: caret.marks.contains(.link)) {
                 if caret.marks.contains(.link) {
                     editor.format(.link)
                 } else {
@@ -47,7 +47,7 @@ struct FormatBar: View {
                         if !url.isEmpty { editor.format(.link, argument: url) }
                     }
             }
-            button("chevron.left.forwardslash.chevron.right", "Inline Code", active: caret.marks.contains(.code)) {
+            button("chevron.left.forwardslash.chevron.right", "Inline Code", size: Chrome.iconSize - 2, active: caret.marks.contains(.code)) {
                 editor.format(.code)
             }
 
@@ -83,8 +83,22 @@ struct FormatBar: View {
         Binding(get: { on }, set: { _ in action() })
     }
 
-    // The borderless menu button reads its label as icon plus title, so the label stays a single glyph
-    // and the state shows through the tint, which is what that style colors with.
+    // A text label in a borderless menu ignores tint, foreground style and opacity; a template image takes the tint.
+    private static let headingGlyph = glyph("H", .systemFont(ofSize: Chrome.iconSize + 1, weight: .semibold).withDesign(.rounded))
+    private static let styleGlyph = glyph("I", .systemFont(ofSize: Chrome.iconSize, weight: .medium).withDesign(.serif))
+
+    private static func glyph(_ text: String, _ font: NSFont) -> NSImage {
+        let attributed = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor.black])
+        let size = attributed.size()
+        let image = NSImage(size: NSSize(width: ceil(size.width), height: ceil(size.height)), flipped: false) { rect in
+            attributed.draw(at: NSPoint(x: (rect.width - size.width) / 2, y: 0))
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
+
+    // The borderless menu button reads its label as icon plus title, so the label stays a single glyph.
     private func menu<Items: View, Glyph: View>(
         _ label: String, active: Bool, @ViewBuilder _ items: () -> Items, @ViewBuilder label glyph: () -> Glyph
     ) -> some View {
@@ -96,11 +110,13 @@ struct FormatBar: View {
         }
     }
 
-    private func button(_ symbol: String, _ label: String, active: Bool, action: @escaping () -> Void) -> some View {
+    private func button(
+        _ symbol: String, _ label: String, size: CGFloat = Chrome.iconSize, active: Bool, action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             HoverHighlight {
                 Image(systemName: symbol)
-                    .font(.system(size: Chrome.iconSize, weight: .medium))
+                    .font(.system(size: size, weight: .medium))
                     .frame(width: 28, height: 26)
             }
         }
@@ -129,5 +145,11 @@ extension Block {
         case .bulletList, .orderedList, .taskList: true
         default: false
         }
+    }
+}
+
+private extension NSFont {
+    func withDesign(_ design: NSFontDescriptor.SystemDesign) -> NSFont {
+        fontDescriptor.withDesign(design).flatMap { NSFont(descriptor: $0, size: pointSize) } ?? self
     }
 }

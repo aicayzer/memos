@@ -36,7 +36,8 @@ body {
 }
 
 .ProseMirror {
-  min-height: 100%;
+  /* The viewport, not the wrapper Milkdown adds, so a click below the text still places the caret. */
+  min-height: 100vh;
   box-sizing: border-box;
   padding: 8px 24px 96px;
   outline: none;

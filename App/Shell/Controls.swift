@@ -20,4 +20,5 @@ enum Chrome {
     static let barHeight: CGFloat = 32
     static let closeSize: CGFloat = 30
     static let iconSize: CGFloat = 15
+    static let cornerRadius: CGFloat = 16
 }

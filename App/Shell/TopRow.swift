@@ -31,7 +31,7 @@ struct TopRow: View {
         .frame(maxWidth: .infinity)
         .contentShape(.rect)
         .gesture(WindowDragGesture())
-        .onTapGesture(count: 2) { model.window?.performZoom(nil) }
+        .onTapGesture(count: 2) { model.window?.performTitleBarDoubleClick() }
     }
 
     private func action(_ symbol: String, _ label: String, action: @escaping () -> Void) -> some View {
@@ -46,5 +46,17 @@ struct TopRow: View {
         .tint(.primary)
         .accessibilityLabel(label)
         .help(label)
+    }
+}
+
+extension NSWindow {
+    /// What System Settings says a double-click on the title bar does.
+    func performTitleBarDoubleClick() {
+        let action = UserDefaults.standard.persistentDomain(forName: UserDefaults.globalDomain)?["AppleActionOnDoubleClick"]
+        switch action as? String {
+        case "Minimize": performMiniaturize(nil)
+        case "None": break
+        default: performZoom(nil)
+        }
     }
 }

@@ -10,6 +10,7 @@ struct WindowBackdrop: View {
             // Black rather than the system window color, so the blur's own tint comes through.
             (colorScheme == .dark ? Color.black : Color.white).opacity(opacity)
         }
+        .clipShape(.rect(cornerRadius: Chrome.cornerRadius))
     }
 
     // SwiftUI materials go flat while the window is inactive, which for a floating window is most of the time.
@@ -19,6 +20,16 @@ struct WindowBackdrop: View {
             view.material = .underWindowBackground
             view.blendingMode = .behindWindow
             view.state = .active
+            // The blur is shaped by its own mask; a clip on the hosting layer does not reach it.
+            let radius = Chrome.cornerRadius
+            let side = radius * 2 + 1
+            let mask = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+                NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+                return true
+            }
+            mask.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+            mask.resizingMode = .stretch
+            view.maskImage = mask
             return view
         }
 

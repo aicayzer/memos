@@ -49,6 +49,7 @@ final class AppModel {
     @ObservationIgnored var openMainWindow: (() -> Void)?
     @ObservationIgnored private(set) weak var window: NSWindow?
     @ObservationIgnored private let chrome = WindowChrome()
+    @ObservationIgnored private var windowBehavior: NSWindow.CollectionBehavior = []
     @ObservationIgnored private var unsaved: String?
     @ObservationIgnored private var saveTask: Task<Void, Never>?
 
@@ -156,6 +157,7 @@ final class AppModel {
     func attach(_ window: NSWindow) {
         self.window = window
         window.setFrameAutosaveName("main")
+        windowBehavior = window.collectionBehavior
         chrome.attach(window)
         applyWindowLevel()
     }
@@ -182,8 +184,13 @@ final class AppModel {
     private func applyWindowLevel() {
         guard let window else { return }
         window.level = floating ? .floating : .normal
-        // On top means on every space too, including over full-screen apps.
-        window.collectionBehavior = floating ? [.canJoinAllSpaces, .fullScreenAuxiliary] : []
+        // On top means on every space too, including over full-screen apps; the flags SwiftUI set stay.
+        var behavior = windowBehavior
+        if floating {
+            behavior.remove(.fullScreenPrimary)
+            behavior.formUnion([.canJoinAllSpaces, .fullScreenAuxiliary])
+        }
+        window.collectionBehavior = behavior
     }
 
     func goBack() async {

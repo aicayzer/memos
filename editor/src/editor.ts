@@ -2,6 +2,7 @@ import {
   Editor,
   defaultValueCtx,
   editorViewCtx,
+  editorViewOptionsCtx,
   remarkStringifyOptionsCtx,
   rootCtx,
 } from '@milkdown/kit/core'
@@ -13,6 +14,7 @@ import {
   blockquoteSchema,
   createCodeBlockCommand,
   inlineCodeSchema,
+  liftListItemCommand,
   linkSchema,
   toggleEmphasisCommand,
   toggleInlineCodeCommand,
@@ -30,6 +32,7 @@ import {
   type Node as ProseNode,
   type ResolvedPos,
 } from '@milkdown/kit/prose/model'
+import { keymap } from '@milkdown/kit/prose/keymap'
 import { findWrapping, liftTarget } from '@milkdown/kit/prose/transform'
 import {
   AllSelection,
@@ -140,6 +143,27 @@ function blockAt(parent: ProseNode, $from: EditorState['selection']['$from']): B
   return { type: 'paragraph' }
 }
 
+// Backspace at the start of a quote's first block is left alone by the preset;
+// leaving the quote is what a Backspace there means.
+const quoteBackspace = $prose(() =>
+  keymap({
+    Backspace: (state, dispatch) => {
+      const { $from, empty } = state.selection
+      if (!empty || $from.parentOffset > 0 || $from.depth < 2) return false
+      if (
+        $from.node($from.depth - 1).type.name !== 'blockquote' ||
+        $from.index($from.depth - 1) > 0
+      )
+        return false
+      const range = $from.blockRange($from, (node) => node.type.name === 'blockquote')
+      const target = range && liftTarget(range)
+      if (!range || target == null) return false
+      dispatch?.(state.tr.lift(range, target).scrollIntoView())
+      return true
+    },
+  }),
+)
+
 // The listener plugin reports selection changes from inside state.apply, before
 // the view holds the new state, so the caret state is read from the view instead.
 function caretStatePlugin(events: EditorEvents) {
@@ -165,10 +189,20 @@ function caretStatePlugin(events: EditorEvents) {
 
 function outermostListDepth($pos: ResolvedPos): number | null {
   for (let depth = 1; depth <= $pos.depth; depth++) {
-    const name = $pos.node(depth).type.name
-    if (name === 'bullet_list' || name === 'ordered_list') return depth
+    if (isList($pos.node(depth))) return depth
   }
   return null
+}
+
+function innermostListDepth($pos: ResolvedPos): number | null {
+  for (let depth = $pos.depth; depth >= 1; depth--) {
+    if (isList($pos.node(depth))) return depth
+  }
+  return null
+}
+
+function isList(node: ProseNode): boolean {
+  return node.type.name === 'bullet_list' || node.type.name === 'ordered_list'
 }
 
 export class MemoEditor {
@@ -186,6 +220,12 @@ export class MemoEditor {
         ctx.set(rootCtx, root)
         ctx.set(defaultValueCtx, '')
         ctx.set(remarkStringifyOptionsCtx, stringifyOptions)
+        // The caret is kept above the fade under the formatting bar.
+        ctx.update(editorViewOptionsCtx, (options) => ({
+          ...options,
+          scrollThreshold: { top: 8, right: 0, bottom: 112, left: 0 },
+          scrollMargin: { top: 8, right: 0, bottom: 112, left: 0 },
+        }))
         ctx.get(listenerCtx).updated((ctx, doc) => {
           const markdown = serialize(ctx, doc)
           if (markdown === instance.lastMarkdown) return
@@ -200,6 +240,7 @@ export class MemoEditor {
       .use(clipboard)
       .use(cursor)
       .use(taskListPlugin)
+      .use(quoteBackspace)
       .create()
     root.addEventListener('click', (event) => {
       const anchor = (event.target as HTMLElement).closest('a[href]')
@@ -233,9 +274,9 @@ export class MemoEditor {
     this.editor.ctx.get(editorViewCtx).focus()
   }
 
-  // Removing a mark at a caret only clears the stored mark, so the whole
-  // marked run is selected first. Returns false when the caret is not in one.
-  private selectMarkAtCaret(mark: MarkType): boolean {
+  // Removing a mark at a caret only clears the stored mark, so the whole marked
+  // run is selected for the command and the caret put back after it.
+  private withMarkRunSelected(mark: MarkType, command: () => void): boolean {
     const view = this.editor.ctx.get(editorViewCtx)
     const { selection, doc } = view.state
     if (!selection.empty) return false
@@ -255,6 +296,9 @@ export class MemoEditor {
     })
     if (from === to) return false
     view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, from, to)))
+    command()
+    const caret = Math.min($pos.pos, view.state.doc.content.size)
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, caret)))
     return true
   }
 
@@ -266,11 +310,50 @@ export class MemoEditor {
     const run = () => {
       this.editor.action(callCommand(toggleInlineCodeCommand.key))
     }
-    if (!view.state.selection.empty) return run()
-    const active = type.isInSet(view.state.storedMarks ?? view.state.selection.$from.marks())
-    if (!active) view.dispatch(view.state.tr.addStoredMark(type.create()))
-    else if (this.selectMarkAtCaret(type)) run()
-    else view.dispatch(view.state.tr.removeStoredMark(type))
+    const { selection, storedMarks } = view.state
+    if (!selection.empty) return run()
+    // A pending stored mark is only that; the span next to the caret is left alone.
+    if (storedMarks) {
+      const tr = type.isInSet(storedMarks)
+        ? view.state.tr.removeStoredMark(type)
+        : view.state.tr.addStoredMark(type.create())
+      return view.dispatch(tr)
+    }
+    if (!type.isInSet(selection.$from.marks()))
+      view.dispatch(view.state.tr.addStoredMark(type.create()))
+    else this.withMarkRunSelected(type, run)
+  }
+
+  private list(kind: 'bulletList' | 'orderedList'): void {
+    const view = this.editor.ctx.get(editorViewCtx)
+    const { state } = view
+    const { $from } = textBounds(state)
+    const wanted = kind === 'bulletList' ? 'bullet_list' : 'ordered_list'
+    const depth = innermostListDepth($from)
+    if (depth == null) {
+      const command = kind === 'bulletList' ? wrapInBulletListCommand : wrapInOrderedListCommand
+      this.editor.action(callCommand(command.key))
+      return
+    }
+    const list = $from.node(depth)
+    if (list.type.name === wanted) {
+      this.editor.action(callCommand(liftListItemCommand.key))
+      return
+    }
+    // The items carry the list kind too, and a bullet list whose items say
+    // ordered is turned back into one by the preset.
+    const pos = $from.before(depth)
+    const ordered = wanted === 'ordered_list'
+    const attrs = ordered ? { order: 1, spread: list.attrs.spread } : { spread: list.attrs.spread }
+    let tr = state.tr.setNodeMarkup(pos, state.schema.nodes[wanted], attrs)
+    list.forEach((item, offset) => {
+      tr = tr.setNodeMarkup(pos + 1 + offset, undefined, {
+        ...item.attrs,
+        listType: ordered ? 'ordered' : 'bullet',
+        label: ordered ? '1.' : '•',
+      })
+    })
+    view.dispatch(tr)
   }
 
   private quote(): void {
@@ -341,18 +424,22 @@ export class MemoEditor {
         else this.quote()
         break
       case 'bulletList':
-        run(wrapInBulletListCommand.key)
-        break
       case 'orderedList':
-        run(wrapInOrderedListCommand.key)
+        this.list(command)
         break
       case 'taskList':
         toggleTaskList(this.editor.ctx)
         break
-      case 'link':
-        if (state.marks.includes('link')) this.selectMarkAtCaret(linkSchema.type(this.editor.ctx))
-        run(toggleLinkCommand.key, typeof arg === 'string' ? { href: arg } : {})
+      case 'link': {
+        const payload = typeof arg === 'string' ? { href: arg } : {}
+        const toggle = () => run(toggleLinkCommand.key, payload)
+        if (
+          !state.marks.includes('link') ||
+          !this.withMarkRunSelected(linkSchema.type(this.editor.ctx), toggle)
+        )
+          toggle()
         break
+      }
     }
     this.focus()
   }

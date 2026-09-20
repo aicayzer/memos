@@ -120,3 +120,51 @@ test('inline code toggled on and off again at a caret leaves nothing behind', as
     expect(serialize(ctxOf(editor))).toBe('A xline\n')
   })
 })
+
+test('cancelling a pending code mark leaves the span next to the caret alone', async () => {
+  await withMemoEditor('A `foo` b\n', (editor, states) => {
+    placeCaret(editor, 6)
+    editor.format('code')
+    expect(states.at(-1)?.marks).toEqual(['code'])
+    editor.format('code')
+    expect(states.at(-1)?.marks).toEqual([])
+    expect(serialize(ctxOf(editor))).toBe('A `foo` b\n')
+  })
+})
+
+test('code off inside a span puts the caret back', async () => {
+  await withMemoEditor('A `foo` b\n', (editor) => {
+    placeCaret(editor, 5)
+    editor.format('code')
+    expect(serialize(ctxOf(editor))).toBe('A foo b\n')
+    const view = ctxOf(editor).get(editorViewCtx)
+    expect(view.state.selection.empty).toBe(true)
+    expect(view.state.selection.from).toBe(5)
+  })
+})
+
+test('a list command toggles its own kind and converts the other', async () => {
+  await withMemoEditor('- one\n- two\n', (editor, states) => {
+    placeCaret(editor, 3)
+    expect(states.at(-1)?.block).toEqual({ type: 'bulletList' })
+    editor.format('orderedList')
+    expect(serialize(ctxOf(editor))).toBe('1. one\n2. two\n')
+    expect(states.at(-1)?.block).toEqual({ type: 'orderedList' })
+    editor.format('bulletList')
+    expect(serialize(ctxOf(editor))).toBe('- one\n- two\n')
+    editor.format('bulletList')
+    expect(serialize(ctxOf(editor))).toBe('one\n\n- two\n')
+    expect(states.at(-1)?.block).toEqual({ type: 'paragraph' })
+  })
+})
+
+test('backspace at the start of a quote leaves it', async () => {
+  await withMemoEditor('> A line\n', (editor) => {
+    placeCaret(editor, 2)
+    const view = ctxOf(editor).get(editorViewCtx)
+    const event = new KeyboardEvent('keydown', { key: 'Backspace', code: 'Backspace' })
+    const handled = view.someProp('handleKeyDown', (handler) => handler(view, event))
+    expect(handled).toBe(true)
+    expect(serialize(ctxOf(editor))).toBe('A line\n')
+  })
+})
