@@ -6,12 +6,12 @@ The app hosts the built `index.html`, copied into its `Resources/Editor/` by the
 
 Posted with `window.webkit.messageHandlers.host.postMessage(message)`. Without a host (a browser during development) messages go to `console.debug`.
 
-| `type`     | Fields                                    | When                                                                                                                    |
-| ---------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `ready`    |                                           | The editor is mounted and `window.editor` exists.                                                                       |
-| `changed`  | `markdown: string`, `generation: number`  | The document changed by an edit, debounced by 200ms. `generation` is the value given to the `load` the edit belongs to. |
-| `state`    | `marks: Mark[]`, `block: Block`, `quoted` | The caret moved or the document changed. `quoted` is true inside a quote at any depth; `block` is what sits inside it.  |
-| `openLink` | `href: string`                            | A link was ⌘-clicked. The app opens it; the page never navigates.                                                       |
+| `type`     | Fields                                             | When                                                                                                                    |
+| ---------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `ready`    |                                                    | The editor is mounted and `window.editor` exists.                                                                       |
+| `changed`  | `markdown: string`, `generation: number`           | The document changed by an edit, debounced by 200ms. `generation` is the value given to the `load` the edit belongs to. |
+| `state`    | `marks: Mark[]`, `block: Block`, `quoted: boolean` | The caret moved or the document changed. `quoted` is true inside a quote at any depth; `block` is what sits inside it.  |
+| `openLink` | `href: string`                                     | A link was ⌘-clicked. The app opens it; the page never navigates.                                                       |
 
 `Mark` is one of `bold`, `italic`, `strikethrough`, `code`, `link`.
 

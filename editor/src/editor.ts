@@ -10,21 +10,22 @@ import { history } from '@milkdown/kit/plugin/history'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { cursor } from '@milkdown/kit/plugin/cursor'
 import {
+  blockquoteSchema,
   createCodeBlockCommand,
   toggleEmphasisCommand,
   toggleInlineCodeCommand,
   toggleLinkCommand,
   toggleStrongCommand,
   turnIntoTextCommand,
-  wrapInBlockquoteCommand,
   wrapInBulletListCommand,
   wrapInHeadingCommand,
   wrapInOrderedListCommand,
 } from '@milkdown/kit/preset/commonmark'
 import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm'
-import type { Node as ProseNode } from '@milkdown/kit/prose/model'
-import { liftTarget } from '@milkdown/kit/prose/transform'
+import { NodeRange, type Node as ProseNode, type ResolvedPos } from '@milkdown/kit/prose/model'
+import { findWrapping, liftTarget } from '@milkdown/kit/prose/transform'
 import {
+  AllSelection,
   Plugin,
   PluginKey,
   Selection,
@@ -80,8 +81,17 @@ const markNames: Record<string, Mark> = {
   link: 'link',
 }
 
+// Select All resolves at the document level, where no block can be read.
+function textBounds(state: EditorState): { $from: ResolvedPos; $to: ResolvedPos } {
+  const { selection, doc } = state
+  if (selection instanceof AllSelection)
+    return TextSelection.between(doc.resolve(0), doc.resolve(doc.content.size))
+  return selection
+}
+
 function caretState(state: EditorState): CaretState {
-  const { $from, $to, empty } = state.selection
+  const { empty } = state.selection
+  const { $from, $to } = textBounds(state)
   const active = new Set<Mark>()
   const marks = empty ? (state.storedMarks ?? $from.marks()) : []
   for (const mark of marks) {
@@ -94,14 +104,12 @@ function caretState(state: EditorState): CaretState {
       if (type && state.doc.rangeHasMark($from.pos, $to.pos, type)) active.add(mark)
     }
   }
-  return { marks: [...active], block: blockAt($from.parent, $from), quoted: quoted($from) }
+  return { marks: [...active], block: blockAt($from.parent, $from), quoted: quoted($from, $to) }
 }
 
-function quoted($from: EditorState['selection']['$from']): boolean {
-  for (let depth = $from.depth; depth > 0; depth--) {
-    if ($from.node(depth).type.name === 'blockquote') return true
-  }
-  return false
+// True only when one quote holds the whole selection, so the state matches what the command can lift.
+function quoted($from: ResolvedPos, $to: ResolvedPos): boolean {
+  return $from.blockRange($to, (node) => node.type.name === 'blockquote') != null
 }
 
 function blockAt(parent: ProseNode, $from: EditorState['selection']['$from']): Block {
@@ -146,6 +154,14 @@ function caretStatePlugin(events: EditorEvents) {
         }),
       }),
   )
+}
+
+function outermostListDepth($pos: ResolvedPos): number | null {
+  for (let depth = 1; depth <= $pos.depth; depth++) {
+    const name = $pos.node(depth).type.name
+    if (name === 'bullet_list' || name === 'ordered_list') return depth
+  }
+  return null
 }
 
 export class MemoEditor {
@@ -235,10 +251,31 @@ export class MemoEditor {
     if (from < to) view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, from, to)))
   }
 
-  // Lifts the selected blocks out of the nearest quote around them.
+  private quote(): void {
+    const view = this.editor.ctx.get(editorViewCtx)
+    const type = blockquoteSchema.type(this.editor.ctx)
+    const { $from, $to } = textBounds(view.state)
+    let range = $from.blockRange($to)
+    let wrapping = range && findWrapping(range, type)
+    if (!wrapping) {
+      // A list item cannot hold a quote, so the whole list is quoted instead.
+      const depth = outermostListDepth($from)
+      if (depth == null) return
+      const doc = view.state.doc
+      range = new NodeRange(
+        doc.resolve($from.before(depth)),
+        doc.resolve($from.after(depth)),
+        depth - 1,
+      )
+      wrapping = findWrapping(range, type)
+    }
+    if (!range || !wrapping) return
+    view.dispatch(view.state.tr.wrap(range, wrapping))
+  }
+
   private unquote(): void {
     const view = this.editor.ctx.get(editorViewCtx)
-    const { $from, $to } = view.state.selection
+    const { $from, $to } = textBounds(view.state)
     const range = $from.blockRange($to, (node) => node.type.name === 'blockquote')
     if (!range) return
     const target = liftTarget(range)
@@ -279,7 +316,7 @@ export class MemoEditor {
         break
       case 'quote':
         if (state.quoted) this.unquote()
-        else run(wrapInBlockquoteCommand.key)
+        else this.quote()
         break
       case 'bulletList':
         run(wrapInBulletListCommand.key)

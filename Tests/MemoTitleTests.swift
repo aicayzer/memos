@@ -28,7 +28,23 @@ import Testing
         #expect(Memo.title(for: "**Bold** and *italic* and ~~gone~~ and `code`") == "Bold and italic and gone and code")
         #expect(Memo.title(for: "***Both***") == "Both")
         #expect(Memo.title(for: "[Site](https://example.com) and <https://example.com/page>") == "Site and https://example.com/page")
+        #expect(Memo.title(for: "![Photo](photo.png) of the day") == "Photo of the day")
         #expect(Memo.title(for: "_Quiet_ start") == "Quiet start")
+    }
+
+    @Test func headingTextIsPlain() {
+        #expect(Memo.title(for: "# 1. Introduction") == "1. Introduction")
+        #expect(Memo.title(for: "# - dash") == "- dash")
+        #expect(Memo.title(for: "> # Quoted heading") == "Quoted heading")
+    }
+
+    // The store holds remark's output, which escapes punctuation that could read as markdown.
+    @Test func escapesAndCodeAreLiteral() {
+        #expect(Memo.title(for: "2 \\* 3 = 6") == "2 * 3 = 6")
+        #expect(Memo.title(for: "a \\*\\* b \\*\\* c") == "a ** b ** c")
+        #expect(Memo.title(for: "\\#hashtag") == "#hashtag")
+        #expect(Memo.title(for: "`a*b*c` and *x*") == "a*b*c and x")
+        #expect(Memo.title(for: "\\[not a link](x)") == "[not a link](x)")
     }
 
     @Test func wordsAreLeftAlone() {
@@ -36,6 +52,14 @@ import Testing
         #expect(Memo.title(for: "2 * 3 = 6") == "2 * 3 = 6")
         #expect(Memo.title(for: "-not a list") == "-not a list")
         #expect(Memo.title(for: "2024 in review") == "2024 in review")
+        #expect(Memo.title(for: "١. Arabic digits are words") == "١. Arabic digits are words")
+    }
+
+    @Test func longLinesAreBounded() {
+        let brackets = String(repeating: "[", count: 20_000)
+        #expect(Memo.title(for: brackets).count == 300)
+        let links = String(repeating: "<https://", count: 2_000)
+        #expect(Memo.title(for: links).count == 300)
     }
 
     @Test func fencesAndRulesAreSkipped() {
