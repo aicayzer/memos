@@ -61,7 +61,7 @@ export type Block =
 export interface CaretState {
   marks: Mark[]
   block: Block
-  /** Inside a blockquote at any depth; the block is what sits inside it. */
+  /** One quote holds the whole selection; the block is what sits inside it. */
   quoted: boolean
 }
 
