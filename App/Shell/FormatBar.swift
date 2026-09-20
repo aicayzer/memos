@@ -2,7 +2,6 @@ import SwiftUI
 
 struct FormatBar: View {
     let editor: EditorController
-    let hide: () -> Void
 
     @State private var linkPopover = false
     @State private var linkURL = ""
@@ -19,6 +18,7 @@ struct FormatBar: View {
             } label: {
                 Image(systemName: headingSymbol)
             }
+            .accessibilityLabel("Heading")
             .menuIndicator(.visible)
             .tint(caret.block.isHeading ? .accentColor : .secondary)
 
@@ -29,10 +29,11 @@ struct FormatBar: View {
             } label: {
                 Image(systemName: "italic")
             }
+            .accessibilityLabel("Text Style")
             .menuIndicator(.visible)
             .tint(caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough]) ? .secondary : .accentColor)
 
-            button("link", active: caret.marks.contains(.link)) {
+            button("link", "Link", active: caret.marks.contains(.link)) {
                 if caret.marks.contains(.link) {
                     editor.format(.link)
                 } else {
@@ -51,12 +52,14 @@ struct FormatBar: View {
                         if !url.isEmpty { editor.format(.link, argument: url) }
                     }
             }
-            button("chevron.left.forwardslash.chevron.right", active: caret.marks.contains(.code)) { editor.format(.code) }
+            button("chevron.left.forwardslash.chevron.right", "Inline Code", active: caret.marks.contains(.code)) {
+                editor.format(.code)
+            }
 
             divider
 
-            button("curlybraces", active: caret.block == .codeBlock) { editor.format(.codeBlock) }
-            button("text.quote", active: caret.block == .quote) { editor.format(.quote) }
+            button("curlybraces", "Code Block", active: caret.block == .codeBlock) { editor.format(.codeBlock) }
+            button("text.quote", "Quote", active: caret.block == .quote) { editor.format(.quote) }
 
             divider
 
@@ -67,6 +70,7 @@ struct FormatBar: View {
             } label: {
                 Image(systemName: listSymbol)
             }
+            .accessibilityLabel("List")
             .menuIndicator(.visible)
             .tint(caret.block.isList ? .accentColor : .secondary)
         }
@@ -82,11 +86,13 @@ struct FormatBar: View {
         Divider().frame(height: 16).padding(.horizontal, 6)
     }
 
-    private func button(_ symbol: String, active: Bool, action: @escaping () -> Void) -> some View {
+    private func button(_ symbol: String, _ label: String, active: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .frame(width: 28, height: 24)
         }
+        .accessibilityLabel(label)
+        .help(label)
         .tint(active ? .accentColor : .secondary)
     }
 

@@ -12,6 +12,7 @@ struct MainView: View {
         EditorView(controller: model.editor)
             .background(WindowReader { model.attach($0) })
             .navigationTitle(model.title)
+            .toolbarTitleDisplayMode(.inline)
             .task { await model.start() }
             .onAppear { model.openMainWindow = { openWindow(id: "main") } }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { note in
@@ -20,7 +21,7 @@ struct MainView: View {
             }
             .overlay(alignment: .bottom) {
                 if !model.formatBarHidden {
-                    FormatBar(editor: model.editor) { model.formatBarHidden = true }
+                    FormatBar(editor: model.editor)
                         .padding(.bottom, 12)
                 }
             }
@@ -35,6 +36,8 @@ struct MainView: View {
                             .glassEffect(.regular, in: .circle)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Hide Formatting Bar")
+                    .help("Hide Formatting Bar")
                     .padding(12)
                 }
             }
@@ -53,9 +56,11 @@ struct MainView: View {
                         dismiss: model.dismissOverlay
                     )
                     .padding(.top, 24)
+                    .padding(.horizontal, 16)
                 case .browse:
                     PaletteView(placeholder: "Search memos", items: browseItems, query: $browseQuery, dismiss: model.dismissOverlay)
                         .padding(.top, 24)
+                        .padding(.horizontal, 16)
                         .task(id: browseQuery) { browseItems = await model.browseItems(browseQuery) }
                 default:
                     EmptyView()

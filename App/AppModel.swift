@@ -132,6 +132,7 @@ final class AppModel {
 
     func attach(_ window: NSWindow) {
         self.window = window
+        window.setFrameAutosaveName("main")
         applyWindowLevel()
     }
 

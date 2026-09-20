@@ -1,5 +1,8 @@
 import AppKit
 import KeyboardShortcuts
+import OSLog
+
+private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "app")
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -21,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        log.info("launched")
         KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
     }
 

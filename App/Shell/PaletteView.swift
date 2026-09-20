@@ -64,7 +64,7 @@ struct PaletteView: View {
                 }
             }
         }
-        .frame(width: 440)
+        .frame(maxWidth: 440)
         .glassEffect(.regular, in: .rect(cornerRadius: 14))
         .shadow(color: .black.opacity(0.18), radius: 24, y: 8)
         .onAppear { focused = true }
