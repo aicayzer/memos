@@ -56,7 +56,9 @@ extension Block {
         guard let dict = value as? [String: Any], let type = dict["type"] as? String else { return nil }
         switch type {
         case "paragraph": self = .paragraph
-        case "heading": self = .heading(dict["level"] as? Int ?? 1)
+        case "heading":
+            guard let level = dict["level"] as? Int else { return nil }
+            self = .heading(level)
         case "codeBlock": self = .codeBlock
         case "quote": self = .quote
         case "bulletList": self = .bulletList

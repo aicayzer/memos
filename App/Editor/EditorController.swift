@@ -3,7 +3,7 @@ import Observation
 import OSLog
 import WebKit
 
-private let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "memos", category: "editor")
+private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "editor")
 
 @MainActor
 @Observable
@@ -22,12 +22,13 @@ final class EditorController: NSObject {
     override init() {
         let configuration = WKWebViewConfiguration()
         configuration.preferences.isElementFullscreenEnabled = false
-        #if DEBUG
-        configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
-        #endif
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
-        configuration.userContentController.add(self, name: "host")
+        #if DEBUG
+        webView.isInspectable = true
+        #endif
+        // The content controller retains its handlers, so a proxy keeps the cycle out.
+        configuration.userContentController.add(MessageProxy(target: self), name: "host")
         webView.navigationDelegate = self
         webView.allowsMagnification = false
         webView.allowsBackForwardNavigationGestures = false
@@ -37,6 +38,9 @@ final class EditorController: NSObject {
         appearanceObservation = NSApplication.shared.observe(\.effectiveAppearance) { [weak self] _, _ in
             MainActor.assumeIsolated { self?.applyAccent() }
         }
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(systemColorsDidChange), name: NSColor.systemColorsDidChangeNotification, object: nil
+        )
 
         guard let url = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "Editor") else {
             preconditionFailure("Editor/index.html missing from the bundle")
@@ -75,7 +79,11 @@ final class EditorController: NSObject {
     }
 
     private func call(_ function: String, _ arguments: String...) {
-        webView.evaluateJavaScript("window.editor.\(function)(\(arguments.joined(separator: ", ")))") { _, _ in }
+        webView.evaluateJavaScript("window.editor.\(function)(\(arguments.joined(separator: ", ")))") { _, error in
+            if let error {
+                log.error("\(function, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     private func json(_ string: String) -> String {
@@ -83,8 +91,16 @@ final class EditorController: NSObject {
         return String(decoding: data, as: UTF8.self)
     }
 
+    @objc private func systemColorsDidChange() {
+        applyAccent()
+    }
+
     private func applyAccent() {
-        guard let color = NSColor.controlAccentColor.usingColorSpace(.sRGB) else { return }
+        var resolved: NSColor?
+        NSApp.effectiveAppearance.performAsCurrentDrawingAppearance {
+            resolved = NSColor.controlAccentColor.usingColorSpace(.sRGB)
+        }
+        guard let color = resolved else { return }
         let hex = String(
             format: "#%02X%02X%02X",
             Int(round(color.redComponent * 255)),
@@ -94,7 +110,7 @@ final class EditorController: NSObject {
         call("setAccent", json(hex))
     }
 
-    private func receive(_ message: EditorMessage) {
+    fileprivate func receive(_ message: EditorMessage) {
         switch message {
         case .ready:
             log.info("editor ready")
@@ -116,13 +132,19 @@ final class EditorController: NSObject {
     }
 }
 
-extension EditorController: WKScriptMessageHandler {
+private final class MessageProxy: NSObject, WKScriptMessageHandler {
+    weak var target: EditorController?
+
+    init(target: EditorController) {
+        self.target = target
+    }
+
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let parsed = EditorMessage(body: message.body) else {
             log.error("unreadable editor message: \(String(describing: message.body), privacy: .public)")
             return
         }
-        receive(parsed)
+        target?.receive(parsed)
     }
 }
 

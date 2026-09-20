@@ -9,6 +9,11 @@ import Testing
     @Test func headingMarksAreStripped() {
         #expect(Memo.title(for: "## Plan ##\nbody") == "Plan")
         #expect(Memo.title(for: "#Tight") == "Tight")
+        #expect(Memo.title(for: "# C#") == "C#")
+    }
+
+    @Test func windowsLineEndingsSplitLines() {
+        #expect(Memo.title(for: "First\r\nSecond\r\n") == "First")
     }
 
     @Test func leadingBlankLinesAreSkipped() {
