@@ -60,7 +60,7 @@ struct FormatBar: View {
             divider
 
             button("curlybraces", "Code Block", active: caret.block == .codeBlock) { editor.format(.codeBlock) }
-            button("text.quote", "Quote", active: caret.block == .quote) { editor.format(.quote) }
+            button("text.quote", "Quote", active: caret.quoted) { editor.format(.quote) }
 
             divider
 
