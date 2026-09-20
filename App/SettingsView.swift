@@ -25,7 +25,7 @@ struct SettingsView: View {
             Section("Accent") {
                 Picker("Color", selection: Binding(
                     get: { model.accent == nil },
-                    set: { followsSystem in model.accent = followsSystem ? nil : NSColor.controlAccentColor }
+                    set: { followsSystem in model.accent = followsSystem ? nil : Self.systemAccentSnapshot() }
                 )) {
                     Text("System").tag(true)
                     Text("Custom").tag(false)
@@ -44,5 +44,14 @@ struct SettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
         // Otherwise the always-on-top memo window covers it.
         .background(WindowReader { $0.level = .floating })
+    }
+
+    // A custom color starts as a frozen copy of the system accent, resolved in the current appearance.
+    private static func systemAccentSnapshot() -> NSColor? {
+        var color: NSColor?
+        NSApp.effectiveAppearance.performAsCurrentDrawingAppearance {
+            color = NSColor.controlAccentColor.usingColorSpace(.sRGB)
+        }
+        return color
     }
 }

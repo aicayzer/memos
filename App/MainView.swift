@@ -12,7 +12,6 @@ struct MainView: View {
         EditorView(controller: model.editor)
             .background(WindowReader { model.attach($0) })
             .containerBackground(for: .window) { WindowBackdrop(opacity: model.windowOpacity) }
-            .tint(model.accentColor)
             .navigationTitle(model.title)
             .toolbarTitleDisplayMode(.inline)
             .task { await model.start() }
@@ -23,9 +22,11 @@ struct MainView: View {
             }
             .overlay(alignment: .bottom) {
                 if !model.formatBarHidden {
+                    GlassEffectContainer {
                     ZStack(alignment: .trailing) {
                         FormatBar(editor: model.editor, accent: model.accentColor)
                             .frame(maxWidth: .infinity)
+                            .padding(.horizontal, FormatBar.height + 8)
                         Button {
                             model.formatBarHidden = true
                         } label: {
@@ -38,6 +39,7 @@ struct MainView: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("Hide Formatting Bar")
                         .help("Hide Formatting Bar")
+                    }
                     }
                     .padding(.horizontal, 12)
                     .padding(.bottom, 12)
@@ -81,5 +83,6 @@ struct MainView: View {
                     Button { Task { await model.newMemo() } } label: { Label("New Memo", systemImage: "plus") }
                 }
             }
+            .tint(model.accentColor)
     }
 }

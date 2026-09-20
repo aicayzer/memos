@@ -3,12 +3,9 @@ import AppKit
 extension NSColor {
     var hexString: String? {
         guard let color = usingColorSpace(.sRGB) else { return nil }
-        return String(
-            format: "#%02X%02X%02X",
-            Int(round(color.redComponent * 255)),
-            Int(round(color.greenComponent * 255)),
-            Int(round(color.blueComponent * 255))
-        )
+        // Wide-gamut picks land outside 0...1 in sRGB.
+        let channel = { (value: CGFloat) in Int(round(min(max(value, 0), 1) * 255)) }
+        return String(format: "#%02X%02X%02X", channel(color.redComponent), channel(color.greenComponent), channel(color.blueComponent))
     }
 
     convenience init?(hexString: String) {
