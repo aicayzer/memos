@@ -36,7 +36,10 @@ struct MainView: View {
             if (note.object as? NSWindow) === model.window { active = true }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { note in
-            if (note.object as? NSWindow) === model.window { active = false }
+            guard (note.object as? NSWindow) === model.window else { return }
+            active = false
+            // A palette left open in a window that lost focus would still take the next keystrokes.
+            if model.overlay == .palette || model.overlay == .browse { model.overlay = nil }
         }
         .onChange(of: model.overlay) { _, overlay in
             paletteQuery = ""
