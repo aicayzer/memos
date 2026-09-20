@@ -24,8 +24,8 @@ import {
 import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm'
 import type { Node as ProseNode } from '@milkdown/kit/prose/model'
 import { Selection, type EditorState } from '@milkdown/kit/prose/state'
-import { callCommand, getMarkdown, replaceAll } from '@milkdown/kit/utils'
-import { dialect, stringifyOptions } from './dialect'
+import { callCommand, replaceAll } from '@milkdown/kit/utils'
+import { dialect, serialize, stringifyOptions } from './dialect'
 import { taskListPlugin, toggleTaskList } from './tasks'
 
 export type Mark = 'bold' | 'italic' | 'strikethrough' | 'code' | 'link'
@@ -126,12 +126,13 @@ export class MemoEditor {
         ctx.set(defaultValueCtx, '')
         ctx.set(remarkStringifyOptionsCtx, stringifyOptions)
         const listeners = ctx.get(listenerCtx)
-        listeners.markdownUpdated((_, markdown) => {
+        listeners.updated((ctx, doc) => {
+          events.stateChanged(caretState(ctx.get(editorViewCtx).state))
+          const markdown = serialize(ctx, doc)
           if (markdown === instance.lastMarkdown) return
           instance.lastMarkdown = markdown
           events.changed(markdown)
         })
-        listeners.updated((ctx) => events.stateChanged(caretState(ctx.get(editorViewCtx).state)))
         listeners.selectionUpdated((ctx) =>
           events.stateChanged(caretState(ctx.get(editorViewCtx).state)),
         )
@@ -162,7 +163,7 @@ export class MemoEditor {
   }
 
   markdown(): string {
-    return this.editor.action(getMarkdown())
+    return serialize(this.editor.ctx)
   }
 
   focus(): void {

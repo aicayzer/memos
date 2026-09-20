@@ -1,10 +1,7 @@
-import { editorViewCtx } from '@milkdown/kit/core'
-import type { MilkdownPlugin } from '@milkdown/kit/ctx'
-import {
-  commonmark,
-  paragraphSchema,
-  remarkPreserveEmptyLinePlugin,
-} from '@milkdown/kit/preset/commonmark'
+import { editorViewCtx, serializerCtx } from '@milkdown/kit/core'
+import type { Ctx, MilkdownPlugin } from '@milkdown/kit/ctx'
+import type { Node as ProseNode } from '@milkdown/kit/prose/model'
+import { commonmark, remarkPreserveEmptyLinePlugin } from '@milkdown/kit/preset/commonmark'
 import {
   extendListItemSchemaForTask,
   strikethroughAttr,
@@ -53,31 +50,13 @@ function remarkDialect(this: Processor) {
 
 export const remarkDialectPlugin = $remark('remarkDialect', () => remarkDialect)
 
-// Empty paragraphs are not content: they are left out of the markdown instead of
-// being written as `<br />`, which the dialect forbids.
+// Without it an empty paragraph is written as `<br />`, which the dialect forbids.
 const commonmarkWithoutEmptyLines = commonmark.filter(
   (plugin) => !(remarkPreserveEmptyLinePlugin as MilkdownPlugin[]).includes(plugin),
 )
 
-const paragraphSchemaSkippingEmpty = paragraphSchema.extendSchema((prev) => (ctx) => {
-  const base = prev(ctx)
-  return {
-    ...base,
-    toMarkdown: {
-      match: base.toMarkdown.match,
-      runner: (state, node) => {
-        // The last block stays so the document is never empty of nodes.
-        const isLast = node === ctx.get(editorViewCtx).state.doc.lastChild
-        if (node.content.size === 0 && !isLast) return
-        base.toMarkdown.runner(state, node)
-      },
-    },
-  }
-})
-
 export const dialect: MilkdownPlugin[] = [
   commonmarkWithoutEmptyLines,
-  paragraphSchemaSkippingEmpty,
   extendListItemSchemaForTask,
   strikethroughAttr,
   strikethroughSchema,
@@ -96,4 +75,18 @@ export const stringifyOptions: StringifyOptions = {
   fences: true,
   listItemIndent: 'one',
   rule: '-',
+}
+
+// Empty paragraphs are spacing, not content, so they are left out of the markdown.
+function withoutEmptyParagraphs(doc: ProseNode): ProseNode {
+  const blocks: ProseNode[] = []
+  doc.forEach((block) => {
+    if (block.type.name !== 'paragraph' || block.content.size > 0) blocks.push(block)
+  })
+  if (blocks.length === doc.childCount) return doc
+  return doc.type.create(doc.attrs, blocks.length > 0 ? blocks : [doc.child(0)])
+}
+
+export function serialize(ctx: Ctx, doc: ProseNode = ctx.get(editorViewCtx).state.doc): string {
+  return ctx.get(serializerCtx)(withoutEmptyParagraphs(doc))
 }

@@ -55,6 +55,7 @@ struct PaletteView: View {
                         }
                         .padding(8)
                     }
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxHeight: 360)
                     .onChange(of: selected) { _, index in
                         if items.indices.contains(index) { proxy.scrollTo(items[index].id) }

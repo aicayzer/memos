@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test } from 'vitest'
 import { editorViewCtx } from '@milkdown/kit/core'
-import { getMarkdown } from '@milkdown/kit/utils'
+import { serialize } from '../src/dialect'
 import { roundTrip, withEditor } from './harness'
 
 const fixture = readFileSync(resolve(__dirname, '../fixtures/dialect.md'), 'utf8')
@@ -37,7 +37,7 @@ test('an empty paragraph is left out rather than written as html', async () => {
     const view = editor.ctx.get(editorViewCtx)
     const paragraph = view.state.schema.nodes.paragraph!
     view.dispatch(view.state.tr.insert(3, paragraph.create()))
-    return editor.action(getMarkdown())
+    return serialize(editor.ctx)
   })
   expect(out).toBe('a\n\nb\n')
 })
