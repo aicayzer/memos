@@ -66,3 +66,24 @@ import Testing
         }
     }
 }
+
+@Suite struct JSONMemoStoreFileTests {
+    @Test func aMissingFileStartsEmpty() async throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "missing-\(UUID().uuidString).json")
+        let store = try JSONMemoStore(fileURL: url)
+        let listed = try await store.list(matching: nil)
+        #expect(listed.isEmpty)
+    }
+
+    @Test func anUnreadableFileIsSetAsideNotOverwritten() async throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "broken-\(UUID().uuidString).json")
+        try Data("not json".utf8).write(to: url)
+        let store = try JSONMemoStore(fileURL: url)
+        _ = try await store.create(markdown: "New\n")
+        let siblings = try FileManager.default.contentsOfDirectory(atPath: url.deletingLastPathComponent().path)
+        let setAside = siblings.filter { $0.hasPrefix(url.lastPathComponent + ".unreadable-") }
+        #expect(setAside.count == 1)
+        let rewritten = try String(contentsOf: url, encoding: .utf8)
+        #expect(rewritten.contains("New"))
+    }
+}

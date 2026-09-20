@@ -6,12 +6,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         do {
-            // The test host must not touch the real memos file.
-            let isTestHost = ProcessInfo.processInfo.environment.keys.contains { $0.hasPrefix("XCTest") }
-            let store = isTestHost
-                ? try JSONMemoStore(fileURL: FileManager.default.temporaryDirectory.appending(path: "memos-tests.json"))
-                : try JSONMemoStore.inApplicationSupport()
-            model = AppModel(store: store)
+            // The test host must not touch the real store or defaults.
+            if ProcessInfo.processInfo.environment.keys.contains(where: { $0.hasPrefix("XCTest") }) {
+                let file = FileManager.default.temporaryDirectory.appending(path: "store-\(UUID().uuidString).json")
+                model = AppModel(store: try JSONMemoStore(fileURL: file), defaults: UserDefaults(suiteName: "tests")!)
+            } else {
+                model = AppModel(store: try JSONMemoStore.inApplicationSupport())
+            }
         } catch {
             fatalError("memo store unavailable: \(error)")
         }
@@ -24,8 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         Task {
-            await model.flush()
-            sender.reply(toApplicationShouldTerminate: true)
+            sender.reply(toApplicationShouldTerminate: await model.flush())
         }
         return .terminateLater
     }

@@ -2,13 +2,14 @@ import AppKit
 import Observation
 import OSLog
 
-private let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "memos", category: "app")
+private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "app")
 
 @MainActor
 @Observable
 final class AppModel {
     let editor = EditorController()
     let store: any MemoStore
+    private let defaults: UserDefaults
 
     private(set) var current: Memo?
     private(set) var history = History()
@@ -20,16 +21,18 @@ final class AppModel {
 
     private static let lastMemoKey = "lastMemoID"
 
-    init(store: any MemoStore) {
+    init(store: any MemoStore, defaults: UserDefaults = .standard) {
         self.store = store
+        self.defaults = defaults
         editor.onChanged = { [weak self] markdown in self?.changed(markdown) }
         editor.onOpenLink = { NSWorkspace.shared.open($0) }
     }
 
     func start() async {
+        guard current == nil else { return }
         do {
             let memos = try await store.list(matching: nil)
-            let last = UserDefaults.standard.string(forKey: Self.lastMemoKey).flatMap(UUID.init(uuidString:))
+            let last = defaults.string(forKey: Self.lastMemoKey).flatMap(UUID.init(uuidString:))
             if let last, let memo = memos.first(where: { $0.id == last }) {
                 show(memo)
             } else if let memo = memos.first {
@@ -42,12 +45,12 @@ final class AppModel {
         }
     }
 
-    func open(_ id: Memo.ID) async {
+    func open(_ id: Memo.ID, recording: Bool = true) async {
         guard id != current?.id else { return }
         await flush()
         do {
             guard let memo = try await store.get(id) else { return }
-            show(memo)
+            show(memo, recording: recording)
         } catch {
             report(error)
         }
@@ -72,29 +75,26 @@ final class AppModel {
         await open(id, recording: false)
     }
 
-    /// Writes any unsaved edit now. Called before switching memo, on window close and on quit.
-    func flush() async {
+    @discardableResult
+    func flush() async -> Bool {
         saveTask?.cancel()
+        await saveTask?.value
         saveTask = nil
-        await save()
-    }
-
-    private func open(_ id: Memo.ID, recording: Bool) async {
-        if recording { await open(id); return }
-        await flush()
-        do {
-            guard let memo = try await store.get(id) else { return }
-            show(memo, recording: false)
-        } catch {
-            report(error)
+        if let current, editor.isReady {
+            let live = await editor.markdown()
+            if live != current.markdown {
+                unsaved = live
+                self.current?.markdown = live
+            }
         }
+        return await save()
     }
 
     private func show(_ memo: Memo, recording: Bool = true) {
         current = memo
         unsaved = nil
         if recording { history.push(memo.id) }
-        UserDefaults.standard.set(memo.id.uuidString, forKey: Self.lastMemoKey)
+        defaults.set(memo.id.uuidString, forKey: Self.lastMemoKey)
         editor.load(memo.markdown)
     }
 
@@ -110,15 +110,18 @@ final class AppModel {
         }
     }
 
-    private func save() async {
-        guard let id = current?.id, let markdown = unsaved else { return }
+    @discardableResult
+    private func save() async -> Bool {
+        guard let id = current?.id, let markdown = unsaved else { return true }
         unsaved = nil
         do {
             let saved = try await store.update(id, markdown: markdown)
             if current?.id == id { current?.updatedAt = saved.updatedAt }
+            return true
         } catch {
-            unsaved = markdown
+            if unsaved == nil { unsaved = markdown }
             report(error)
+            return false
         }
     }
 
