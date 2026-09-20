@@ -1,16 +1,24 @@
 import SwiftUI
 
 struct MainView: View {
-    @State private var editor = EditorController()
-    @State private var title = Memo.untitled
+    @Environment(AppModel.self) private var model
 
     var body: some View {
-        EditorView(controller: editor)
-            .navigationTitle(title)
-            .onAppear {
-                editor.onChanged = { markdown in title = Memo.title(for: markdown) }
-                editor.onOpenLink = { NSWorkspace.shared.open($0) }
-                editor.load("")
+        EditorView(controller: model.editor)
+            .navigationTitle(model.title)
+            .task { await model.start() }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { note in
+                guard (note.object as? NSWindow) === model.editor.webView.window else { return }
+                Task { await model.flush() }
+            }
+            .toolbar {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Button {
+                        Task { await model.newMemo() }
+                    } label: {
+                        Label("New Memo", systemImage: "plus")
+                    }
+                }
             }
     }
 }
