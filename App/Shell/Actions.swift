@@ -21,10 +21,10 @@ extension AppModel {
             PaletteItem(id: "browse", title: "Browse Memos", symbol: "square.stack", shortcut: "⌘P") {
                 self.toggle(.browse)
             },
-            PaletteItem(id: "back", title: "Go Back", symbol: "arrow.left.circle", shortcut: "⌘[") {
+            PaletteItem(id: "back", title: "Go Back", symbol: "arrow.left.circle", shortcut: "⌘[", enabled: history.canGoBack) {
                 Task { await self.goBack() }
             },
-            PaletteItem(id: "forward", title: "Go Forward", symbol: "arrow.right.circle", shortcut: "⌘]") {
+            PaletteItem(id: "forward", title: "Go Forward", symbol: "arrow.right.circle", shortcut: "⌘]", enabled: history.canGoForward) {
                 Task { await self.goForward() }
             },
             PaletteItem(id: "find", title: "Find in Memo", symbol: "text.magnifyingglass", shortcut: "⌘F", section: 1) {
