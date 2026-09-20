@@ -18,6 +18,7 @@ struct PaletteView: View {
     let dismiss: () -> Void
 
     @State private var selected = 0
+    @State private var rowsHeight: CGFloat = 0
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -40,7 +41,7 @@ struct PaletteView: View {
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 0) {
+                        VStack(spacing: 0) {
                             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                                 if index > 0, items[index - 1].section != item.section {
                                     Divider().padding(.vertical, 6)
@@ -54,9 +55,9 @@ struct PaletteView: View {
                             }
                         }
                         .padding(8)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { rowsHeight = $0 }
                     }
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxHeight: 360)
+                    .frame(height: min(rowsHeight, 360))
                     .onChange(of: selected) { _, index in
                         if items.indices.contains(index) { proxy.scrollTo(items[index].id) }
                     }
