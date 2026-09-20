@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# Xcode: the project is generated from project.yml by XcodeGen
+*.xcodeproj/
+build/
+DerivedData/
+xcuserdata/
+*.xcresult
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Editor build and dependencies
+editor/node_modules/
+editor/dist/
+App/Resources/Editor/
+
+# Local scratch
+_tmp/
+_local/
+_ignore/
+*.log
