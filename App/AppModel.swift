@@ -50,9 +50,14 @@ final class AppModel {
     /// The Dock change waits for the app to go inactive; see `applyActivationPolicy`.
     private(set) var policyPending = false
 
-    /// 1 is the plain window background, 0 is glass alone.
+    /// 1 is the window color alone, 0 is glass alone.
     var windowOpacity: Double {
         didSet { defaults.set(windowOpacity, forKey: Self.windowOpacityKey) }
+    }
+
+    /// The window color over the glass; nil is black or white by appearance.
+    var windowTint: NSColor? {
+        didSet { defaults.set(windowTint?.hexString, forKey: Self.windowTintKey) }
     }
 
     var accent: Accent {
@@ -74,6 +79,8 @@ final class AppModel {
     @ObservationIgnored private var unsaved: String?
     @ObservationIgnored private var saveTask: Task<Void, Never>?
 
+    static let defaultWindowOpacity = 0.6
+
     private static let lastMemoKey = "lastMemoID"
     private static let floatingKey = "floating"
     private static let formatBarHiddenKey = "formatBarHidden"
@@ -81,6 +88,7 @@ final class AppModel {
     private static let menuBarItemKey = "menuBarItem"
     private static let showInDockKey = "showInDock"
     private static let windowOpacityKey = "windowOpacity"
+    private static let windowTintKey = "windowTint"
     private static let accentKey = "accent"
 
     init(store: any MemoStore, defaults: UserDefaults = .standard) {
@@ -93,7 +101,8 @@ final class AppModel {
         sidePane = paneAtLaunch
         menuBarItem = defaults.bool(forKey: Self.menuBarItemKey)
         showInDock = defaults.object(forKey: Self.showInDockKey) as? Bool ?? true
-        windowOpacity = defaults.object(forKey: Self.windowOpacityKey) as? Double ?? 0.6
+        windowOpacity = defaults.object(forKey: Self.windowOpacityKey) as? Double ?? Self.defaultWindowOpacity
+        windowTint = defaults.string(forKey: Self.windowTintKey).flatMap(NSColor.init(hexString:))
         accent = Accent(stored: defaults.string(forKey: Self.accentKey))
         editor.accentOverride = accent.color
         editor.onChanged = { [weak self] markdown in self?.changed(markdown) }
@@ -169,6 +178,11 @@ final class AppModel {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+    }
+
+    func resetBackground() {
+        windowOpacity = Self.defaultWindowOpacity
+        windowTint = nil
     }
 
     func toggleSidePane() {
@@ -333,7 +347,7 @@ enum Accent: Equatable {
     case system
     case custom(NSColor)
 
-    static let standardColor = NSColor(srgbRed: 1.0, green: 0.388, blue: 0.388, alpha: 1)
+    static let standardColor = NSColor(hexString: "#FFD60A")!
 
     init(stored: String?) {
         switch stored {
