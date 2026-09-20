@@ -34,21 +34,22 @@ final class AppModel {
         didSet { defaults.set(windowOpacity, forKey: Self.windowOpacityKey) }
     }
 
-    /// nil follows the system accent.
-    var accent: NSColor? {
+    var accent: Accent {
         didSet {
-            defaults.set(accent?.hexString, forKey: Self.accentKey)
-            editor.accentOverride = accent
+            defaults.set(accent.stored, forKey: Self.accentKey)
+            editor.accentOverride = accent.color
         }
     }
 
-    var accentColor: Color { accent.map(Color.init(nsColor:)) ?? .accentColor }
+    var accentColor: Color { accent.color.map(Color.init(nsColor:)) ?? .accentColor }
 
     var title: String { current?.title ?? Memo.untitled }
 
     /// Set by the main view, so the window can be reopened after it was closed.
     @ObservationIgnored var openMainWindow: (() -> Void)?
     @ObservationIgnored private(set) weak var window: NSWindow?
+    @ObservationIgnored private let chrome = WindowChrome()
+    @ObservationIgnored private var windowBehavior: NSWindow.CollectionBehavior = []
     @ObservationIgnored private var unsaved: String?
     @ObservationIgnored private var saveTask: Task<Void, Never>?
 
@@ -63,9 +64,9 @@ final class AppModel {
         self.defaults = defaults
         floating = defaults.object(forKey: Self.floatingKey) as? Bool ?? true
         formatBarHidden = defaults.bool(forKey: Self.formatBarHiddenKey)
-        windowOpacity = defaults.object(forKey: Self.windowOpacityKey) as? Double ?? 0.7
-        accent = defaults.string(forKey: Self.accentKey).flatMap(NSColor.init(hexString:))
-        editor.accentOverride = accent
+        windowOpacity = defaults.object(forKey: Self.windowOpacityKey) as? Double ?? 0.6
+        accent = Accent(stored: defaults.string(forKey: Self.accentKey))
+        editor.accentOverride = accent.color
         editor.onChanged = { [weak self] markdown in self?.changed(markdown) }
         editor.onOpenLink = { NSWorkspace.shared.open($0) }
     }
@@ -156,6 +157,8 @@ final class AppModel {
     func attach(_ window: NSWindow) {
         self.window = window
         window.setFrameAutosaveName("main")
+        windowBehavior = window.collectionBehavior
+        chrome.attach(window)
         applyWindowLevel()
     }
 
@@ -179,7 +182,15 @@ final class AppModel {
     }
 
     private func applyWindowLevel() {
-        window?.level = floating ? .floating : .normal
+        guard let window else { return }
+        window.level = floating ? .floating : .normal
+        // On top means on every space too, including over full-screen apps; the flags SwiftUI set stay.
+        var behavior = windowBehavior
+        if floating {
+            behavior.remove(.fullScreenPrimary)
+            behavior.formUnion([.canJoinAllSpaces, .fullScreenAuxiliary])
+        }
+        window.collectionBehavior = behavior
     }
 
     func goBack() async {
@@ -242,6 +253,39 @@ final class AppModel {
     private func report(_ error: any Error) {
         log.error("\(error.localizedDescription, privacy: .public)")
         NSApp.presentError(error)
+    }
+}
+
+enum Accent: Equatable {
+    case standard
+    case system
+    case custom(NSColor)
+
+    static let standardColor = NSColor(srgbRed: 1.0, green: 0.388, blue: 0.388, alpha: 1)
+
+    init(stored: String?) {
+        switch stored {
+        case nil: self = .standard
+        case "system": self = .system
+        case let hex?: self = NSColor(hexString: hex).map(Accent.custom) ?? .standard
+        }
+    }
+
+    var stored: String? {
+        switch self {
+        case .standard: nil
+        case .system: "system"
+        case .custom(let color): color.hexString
+        }
+    }
+
+    /// nil follows the system accent.
+    var color: NSColor? {
+        switch self {
+        case .standard: Self.standardColor
+        case .system: nil
+        case .custom(let color): color
+        }
     }
 }
 

@@ -29,7 +29,8 @@ struct AppCommands: Commands {
             Button("Find in Memo") { model.toggle(.find) }
                 .keyboardShortcut("f")
         }
-        CommandGroup(after: .toolbar) {
+        // Replacing drops Show/Hide Toolbar, which would collapse the title bar the top row is drawn in.
+        CommandGroup(replacing: .toolbar) {
             Button("Command Palette") { model.toggle(.palette) }
                 .keyboardShortcut("k")
             Toggle("Formatting Bar", isOn: Binding(get: { !model.formatBarHidden }, set: { model.formatBarHidden = !$0 }))

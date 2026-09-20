@@ -2,7 +2,6 @@ import SwiftUI
 
 struct FormatBar: View {
     let editor: EditorController
-    let accent: Color
 
     @State private var linkPopover = false
     @State private var linkURL = ""
@@ -11,30 +10,25 @@ struct FormatBar: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            Menu {
+            menu("Heading", active: caret.block.isHeading) {
                 ForEach(1...3, id: \.self) { level in
-                    Button("Heading \(level)") { editor.format(.heading, argument: String(level)) }
+                    Toggle("Heading \(level)", isOn: toggle(caret.block == .heading(level)) {
+                        editor.format(.heading, argument: String(level))
+                    })
                 }
-                Button("Paragraph") { editor.format(.paragraph) }
             } label: {
-                Image(systemName: headingSymbol)
+                Image(nsImage: Self.headingGlyph)
             }
-            .accessibilityLabel("Heading")
-            .menuIndicator(.visible)
-            .tint(caret.block.isHeading ? accent : .secondary)
 
-            Menu {
-                Button("Bold") { editor.format(.bold) }
-                Button("Italic") { editor.format(.italic) }
-                Button("Strikethrough") { editor.format(.strikethrough) }
+            menu("Text Style", active: !caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough])) {
+                Toggle("Bold", isOn: toggle(caret.marks.contains(.bold)) { editor.format(.bold) })
+                Toggle("Italic", isOn: toggle(caret.marks.contains(.italic)) { editor.format(.italic) })
+                Toggle("Strikethrough", isOn: toggle(caret.marks.contains(.strikethrough)) { editor.format(.strikethrough) })
             } label: {
-                Image(systemName: "italic")
+                Image(nsImage: Self.styleGlyph)
             }
-            .accessibilityLabel("Text Style")
-            .menuIndicator(.visible)
-            .tint(caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough]) ? .secondary : accent)
 
-            button("link", "Link", active: caret.marks.contains(.link)) {
+            button("link", "Link", size: Chrome.iconSize - 1, active: caret.marks.contains(.link)) {
                 if caret.marks.contains(.link) {
                     editor.format(.link)
                 } else {
@@ -53,7 +47,7 @@ struct FormatBar: View {
                         if !url.isEmpty { editor.format(.link, argument: url) }
                     }
             }
-            button("chevron.left.forwardslash.chevron.right", "Inline Code", active: caret.marks.contains(.code)) {
+            button("chevron.left.forwardslash.chevron.right", "Inline Code", size: Chrome.iconSize - 2, active: caret.marks.contains(.code)) {
                 editor.format(.code)
             }
 
@@ -64,44 +58,71 @@ struct FormatBar: View {
 
             divider
 
-            Menu {
-                Button("Bulleted List") { editor.format(.bulletList) }
-                Button("Numbered List") { editor.format(.orderedList) }
-                Button("Task List") { editor.format(.taskList) }
+            menu("List", active: caret.block.isList) {
+                Toggle("Bulleted List", isOn: toggle(caret.block == .bulletList) { editor.format(.bulletList) })
+                Toggle("Numbered List", isOn: toggle(caret.block == .orderedList) { editor.format(.orderedList) })
+                Toggle("Task List", isOn: toggle(caret.block == .taskList) { editor.format(.taskList) })
             } label: {
-                Image(systemName: listSymbol)
+                Image(systemName: listSymbol).font(.system(size: Chrome.iconSize, weight: .medium))
             }
-            .accessibilityLabel("List")
-            .menuIndicator(.visible)
-            .tint(caret.block.isList ? accent : .secondary)
         }
         .menuStyle(.button)
+        .menuIndicator(.visible)
         .buttonStyle(.borderless)
-        .imageScale(.medium)
-        .padding(.horizontal, 12)
-        .frame(height: FormatBar.height)
+        .padding(.horizontal, 8)
+        .frame(height: Chrome.barHeight)
         .glassEffect(.regular, in: .capsule)
     }
 
-    static let height: CGFloat = 40
-
     private var divider: some View {
-        Divider().frame(height: 16).padding(.horizontal, 6)
+        Divider().frame(height: 12).padding(.horizontal, 4)
     }
 
-    private func button(_ symbol: String, _ label: String, active: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .frame(width: 28, height: 24)
+    // A menu item's check mark shows the state; choosing it runs the command either way.
+    private func toggle(_ on: Bool, _ action: @escaping () -> Void) -> Binding<Bool> {
+        Binding(get: { on }, set: { _ in action() })
+    }
+
+    // A text label in a borderless menu ignores tint, foreground style and opacity; a template image takes the tint.
+    private static let headingGlyph = glyph("H", .systemFont(ofSize: Chrome.iconSize + 1, weight: .semibold).withDesign(.rounded))
+    private static let styleGlyph = glyph("I", .systemFont(ofSize: Chrome.iconSize, weight: .medium).withDesign(.serif))
+
+    private static func glyph(_ text: String, _ font: NSFont) -> NSImage {
+        let attributed = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor.black])
+        let size = attributed.size()
+        let image = NSImage(size: NSSize(width: ceil(size.width), height: ceil(size.height)), flipped: false) { rect in
+            attributed.draw(at: NSPoint(x: (rect.width - size.width) / 2, y: 0))
+            return true
         }
+        image.isTemplate = true
+        return image
+    }
+
+    // The borderless menu button reads its label as icon plus title, so the label stays a single glyph.
+    private func menu<Items: View, Glyph: View>(
+        _ label: String, active: Bool, @ViewBuilder _ items: () -> Items, @ViewBuilder label glyph: () -> Glyph
+    ) -> some View {
+        let menu = Menu(content: items) { glyph().frame(height: 26) }
+        return HoverHighlight {
+            menu
+                .tint(active ? .primary : .secondary)
+                .accessibilityLabel(label)
+        }
+    }
+
+    private func button(
+        _ symbol: String, _ label: String, size: CGFloat = Chrome.iconSize, active: Bool, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HoverHighlight {
+                Image(systemName: symbol)
+                    .font(.system(size: size, weight: .medium))
+                    .frame(width: 28, height: 26)
+            }
+        }
+        .tint(active ? .primary : .secondary)
         .accessibilityLabel(label)
         .help(label)
-        .tint(active ? accent : .secondary)
-    }
-
-    private var headingSymbol: String {
-        if case .heading(let level) = caret.block, (1...3).contains(level) { return "\(level).square" }
-        return "textformat.size"
     }
 
     private var listSymbol: String {
@@ -124,5 +145,11 @@ extension Block {
         case .bulletList, .orderedList, .taskList: true
         default: false
         }
+    }
+}
+
+private extension NSFont {
+    func withDesign(_ design: NSFontDescriptor.SystemDesign) -> NSFont {
+        fontDescriptor.withDesign(design).flatMap { NSFont(descriptor: $0, size: pointSize) } ?? self
     }
 }
