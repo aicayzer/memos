@@ -40,6 +40,9 @@ final class AppModel {
         }
     }
 
+    /// The Dock change waits for the app to go inactive; see `applyActivationPolicy`.
+    private(set) var policyPending = false
+
     /// 1 is the plain window background, 0 is glass alone.
     var windowOpacity: Double {
         didSet { defaults.set(windowOpacity, forKey: Self.windowOpacityKey) }
@@ -183,14 +186,20 @@ final class AppModel {
     }
 
     /// Without a Dock icon the app is an accessory: no menu bar, though its key equivalents still work.
+    /// Changing the policy while active hands focus to another app and the system refuses to give it back,
+    /// so a change made in Settings waits until the app is inactive anyway.
     func applyActivationPolicy() {
         let policy: NSApplication.ActivationPolicy = showInDock ? .regular : .accessory
-        guard NSApp.activationPolicy() != policy else { return }
-        let key = NSApp.keyWindow
+        guard NSApp.activationPolicy() != policy else {
+            policyPending = false
+            return
+        }
+        if NSApp.isActive {
+            policyPending = true
+            return
+        }
         NSApp.setActivationPolicy(policy)
-        // The change drops the app's active state; whichever window was in use would otherwise go behind.
-        NSApp.activate()
-        key?.makeKeyAndOrderFront(nil)
+        policyPending = false
     }
 
     func showWindow() {

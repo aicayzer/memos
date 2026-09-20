@@ -32,6 +32,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
     }
 
+    func applicationDidResignActive(_ notification: Notification) {
+        model.applyActivationPolicy()
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }

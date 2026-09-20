@@ -33,10 +33,15 @@ struct SettingsView: View {
             } header: {
                 Text("Show in")
             } footer: {
-                if !model.menuBarItem, !model.showInDock {
-                    Text("With both off, the keyboard shortcut still opens the window.")
-                } else if !hasShortcut, model.menuBarItem != model.showInDock {
-                    Text("Set a shortcut to switch this off as well.")
+                VStack(alignment: .leading, spacing: 4) {
+                    if model.policyPending {
+                        Text("The Dock changes when you switch to another app.")
+                    }
+                    if !model.menuBarItem, !model.showInDock {
+                        Text("With both off, the keyboard shortcut still opens the window.")
+                    } else if !hasShortcut, model.menuBarItem != model.showInDock {
+                        Text("Set a shortcut to switch this off as well.")
+                    }
                 }
             }
             Section("Accent") {
