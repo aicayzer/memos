@@ -36,7 +36,10 @@ struct MainView: View {
             if (note.object as? NSWindow) === model.window { active = true }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { note in
-            if (note.object as? NSWindow) === model.window { active = false }
+            guard (note.object as? NSWindow) === model.window else { return }
+            active = false
+            // A palette left open in a window that lost focus would still take the next keystrokes.
+            if model.overlay == .palette || model.overlay == .browse { model.overlay = nil }
         }
         .onChange(of: model.overlay) { _, overlay in
             paletteQuery = ""
@@ -68,16 +71,17 @@ struct MainView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(model.formatBarHidden ? "Show Formatting Bar" : "Hide Formatting Bar")
                 .help(model.formatBarHidden ? "Show Formatting Bar" : "Hide Formatting Bar")
-                // The bar stays while the window is not key, as its close does; the Aa alone goes with the actions.
-                .opacity(model.formatBarHidden && !active ? 0 : 1)
-                .allowsHitTesting(!model.formatBarHidden || active)
-                .animation(.easeOut(duration: 0.15), value: active)
             }
             // A fixed height, or the corner button sits a point lower whenever the taller bar is gone.
             .frame(maxWidth: .infinity, minHeight: Chrome.barHeight, alignment: .trailing)
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 12)
+        // The bar stays while the window is not key, as its close does; the Aa alone goes with the actions.
+        // Opacity goes on the container: the glass it draws for its children ignores theirs.
+        .opacity(model.formatBarHidden && !active ? 0 : 1)
+        .allowsHitTesting(!model.formatBarHidden || active)
+        .animation(.easeOut(duration: 0.15), value: active)
     }
 
     @ViewBuilder private var palette: some View {

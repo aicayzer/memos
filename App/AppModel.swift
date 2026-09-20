@@ -29,6 +29,20 @@ final class AppModel {
         didSet { defaults.set(formatBarHidden, forKey: Self.formatBarHiddenKey) }
     }
 
+    var menuBarItem: Bool {
+        didSet { defaults.set(menuBarItem, forKey: Self.menuBarItemKey) }
+    }
+
+    var showInDock: Bool {
+        didSet {
+            defaults.set(showInDock, forKey: Self.showInDockKey)
+            applyActivationPolicy()
+        }
+    }
+
+    /// The Dock change waits for the app to go inactive; see `applyActivationPolicy`.
+    private(set) var policyPending = false
+
     /// 1 is the plain window background, 0 is glass alone.
     var windowOpacity: Double {
         didSet { defaults.set(windowOpacity, forKey: Self.windowOpacityKey) }
@@ -56,6 +70,8 @@ final class AppModel {
     private static let lastMemoKey = "lastMemoID"
     private static let floatingKey = "floating"
     private static let formatBarHiddenKey = "formatBarHidden"
+    private static let menuBarItemKey = "menuBarItem"
+    private static let showInDockKey = "showInDock"
     private static let windowOpacityKey = "windowOpacity"
     private static let accentKey = "accent"
 
@@ -64,6 +80,8 @@ final class AppModel {
         self.defaults = defaults
         floating = defaults.object(forKey: Self.floatingKey) as? Bool ?? true
         formatBarHidden = defaults.bool(forKey: Self.formatBarHiddenKey)
+        menuBarItem = defaults.bool(forKey: Self.menuBarItemKey)
+        showInDock = defaults.object(forKey: Self.showInDockKey) as? Bool ?? true
         windowOpacity = defaults.object(forKey: Self.windowOpacityKey) as? Double ?? 0.6
         accent = Accent(stored: defaults.string(forKey: Self.accentKey))
         editor.accentOverride = accent.color
@@ -167,18 +185,39 @@ final class AppModel {
         applyWindowLevel()
     }
 
+    /// Without a Dock icon the app is an accessory: no menu bar, though its key equivalents still work.
+    /// Changing the policy while active hands focus to another app and the system refuses to give it back,
+    /// so a change made in Settings waits until the app is inactive anyway.
+    func applyActivationPolicy() {
+        let policy: NSApplication.ActivationPolicy = showInDock ? .regular : .accessory
+        guard NSApp.activationPolicy() != policy else {
+            policyPending = false
+            return
+        }
+        if NSApp.isActive {
+            policyPending = true
+            return
+        }
+        NSApp.setActivationPolicy(policy)
+        policyPending = false
+    }
+
+    func showWindow() {
+        NSApp.activate()
+        if let window, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+        } else {
+            openMainWindow?()
+        }
+        editor.focus()
+    }
+
     /// Hides the app rather than the window, so focus returns to the previous app.
     func toggleWindow() {
         if NSApp.isActive, let window, window.isKeyWindow, window.isVisible {
             NSApp.hide(nil)
         } else {
-            NSApp.activate()
-            if let window, window.isVisible {
-                window.makeKeyAndOrderFront(nil)
-            } else {
-                openMainWindow?()
-            }
-            editor.focus()
+            showWindow()
         }
     }
 

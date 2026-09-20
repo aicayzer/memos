@@ -3,14 +3,16 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
+    @State private var hasShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow) != nil
 
     var body: some View {
         @Bindable var model = model
         Form {
             Section("Shortcut") {
-                KeyboardShortcuts.Recorder("Show or hide the window", name: .toggleWindow)
+                KeyboardShortcuts.Recorder("Show or hide the window", name: .toggleWindow) { hasShortcut = $0 != nil }
             }
             Section("Window") {
+                Toggle("Always on top", isOn: $model.floating)
                 LabeledContent("Background") {
                     Slider(value: $model.windowOpacity, in: 0...1) {
                         Text("Background")
@@ -20,6 +22,26 @@ struct SettingsView: View {
                         Text("Solid")
                     }
                     .labelsHidden()
+                }
+            }
+            Section {
+                // Without a shortcut, the last way back to the window cannot be switched off.
+                Toggle("Menu bar", isOn: $model.menuBarItem)
+                    .disabled(model.menuBarItem && !model.showInDock && !hasShortcut)
+                Toggle("Dock", isOn: $model.showInDock)
+                    .disabled(model.showInDock && !model.menuBarItem && !hasShortcut)
+            } header: {
+                Text("Show in")
+            } footer: {
+                VStack(alignment: .leading, spacing: 4) {
+                    if model.policyPending {
+                        Text("The Dock changes when you switch to another app.")
+                    }
+                    if !model.menuBarItem, !model.showInDock {
+                        Text("With both off, the keyboard shortcut still opens the window.")
+                    } else if !hasShortcut, model.menuBarItem != model.showInDock {
+                        Text("Set a shortcut to switch this off as well.")
+                    }
                 }
             }
             Section("Accent") {
