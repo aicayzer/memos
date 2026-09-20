@@ -4,6 +4,12 @@ A small native Mac app for memos: one window that floats above whatever you are 
 
 A native window with a web editor inside it. The native side owns the window, the command palette, browsing, shortcuts and saving; the editor is a bundled web page that works offline.
 
+## Using it
+
+- ⌘K command palette, ⌘P browse memos, ⌘N new, ⌘D duplicate, ⇧⌘P pin, ⌘[ and ⌘] back and forward, ⌘F find, ⇧⌘C copy as markdown.
+- Always on Top in the Window menu; the global show/hide shortcut is set in Settings (⌘,).
+- Type markdown as you go: `# `, `- `, `1. `, `- [ ] `, `> ` and backticks turn into formatting. ⌘-click opens a link.
+
 ## Build
 
 Requires Xcode 26 or later, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and [pnpm](https://pnpm.io).
