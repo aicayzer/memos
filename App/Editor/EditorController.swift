@@ -16,6 +16,7 @@ final class EditorController: NSObject {
 
     @ObservationIgnored let webView: WKWebView
     @ObservationIgnored private var pendingMarkdown: String?
+    @ObservationIgnored private var generation = 0
     @ObservationIgnored private var editorURL: URL?
     @ObservationIgnored private var appearanceObservation: NSKeyValueObservation?
 
@@ -29,6 +30,17 @@ final class EditorController: NSObject {
         #endif
         // The content controller retains its handlers, so a proxy keeps the cycle out.
         configuration.userContentController.add(MessageProxy(target: self), name: "host")
+        configuration.userContentController.addUserScript(WKUserScript(
+            source: """
+            window.addEventListener('error', (event) => {
+              webkit.messageHandlers.host.postMessage({ type: 'error', message: String(event.message) })
+            })
+            window.addEventListener('unhandledrejection', (event) => {
+              webkit.messageHandlers.host.postMessage({ type: 'error', message: String(event.reason) })
+            })
+            """,
+            injectionTime: .atDocumentStart, forMainFrameOnly: true
+        ))
         webView.navigationDelegate = self
         webView.allowsMagnification = false
         webView.allowsBackForwardNavigationGestures = false
@@ -55,7 +67,9 @@ final class EditorController: NSObject {
             pendingMarkdown = markdown
             return
         }
-        call("load", json(markdown))
+        // Edits report the generation they belong to, so a late report for the previous document is dropped.
+        generation += 1
+        call("load", json(markdown), String(generation))
         focus()
     }
 
@@ -72,16 +86,18 @@ final class EditorController: NSObject {
         call("focus")
     }
 
-    func markdown() async -> String {
-        guard isReady else { return pendingMarkdown ?? "" }
+    /// The document as markdown, or nil while it is still what was loaded.
+    func markdown() async -> String? {
+        guard isReady else { return nil }
         let result = try? await webView.evaluateJavaScript("window.editor.markdown()")
-        return result as? String ?? ""
+        return result as? String
     }
 
     private func call(_ function: String, _ arguments: String...) {
         webView.evaluateJavaScript("window.editor.\(function)(\(arguments.joined(separator: ", ")))") { _, error in
             if let error {
-                log.error("\(function, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                let detail = (error as NSError).userInfo["WKJavaScriptExceptionMessage"] as? String ?? error.localizedDescription
+                log.error("\(function, privacy: .public): \(detail, privacy: .public)")
             }
         }
     }
@@ -120,14 +136,16 @@ final class EditorController: NSObject {
                 self.pendingMarkdown = nil
                 load(pendingMarkdown)
             }
-        case .changed(let markdown):
-            onChanged(markdown)
+        case .changed(let markdown, let generation):
+            if generation == self.generation { onChanged(markdown) }
         case .state(let state):
             if state != caret { caret = state }
         case .openLink(let href):
             if let url = URL(string: href), let scheme = url.scheme, ["http", "https", "mailto"].contains(scheme) {
                 onOpenLink(url)
             }
+        case .error(let message):
+            log.error("editor script error: \(message, privacy: .public)")
         }
     }
 }
@@ -155,6 +173,10 @@ extension EditorController: WKNavigationDelegate {
         decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
     ) {
         decisionHandler(action.request.url == editorURL ? .allow : .cancel)
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        log.info("editor page loaded")
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {

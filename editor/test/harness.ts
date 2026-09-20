@@ -1,6 +1,5 @@
 import { Editor, defaultValueCtx, remarkStringifyOptionsCtx, rootCtx } from '@milkdown/kit/core'
-import { getMarkdown } from '@milkdown/kit/utils'
-import { dialect, stringifyOptions } from '../src/dialect'
+import { dialect, serialize, stringifyOptions } from '../src/dialect'
 
 export async function withEditor<T>(markdown: string, run: (editor: Editor) => T): Promise<T> {
   const root = document.createElement('div')
@@ -22,5 +21,5 @@ export async function withEditor<T>(markdown: string, run: (editor: Editor) => T
 }
 
 export function roundTrip(markdown: string): Promise<string> {
-  return withEditor(markdown, (editor) => editor.action(getMarkdown()))
+  return withEditor(markdown, (editor) => serialize(editor.ctx))
 }

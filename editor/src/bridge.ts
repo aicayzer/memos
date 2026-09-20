@@ -2,7 +2,7 @@ import type { CaretState } from './editor'
 
 export type EditorMessage =
   | { type: 'ready' }
-  | { type: 'changed'; markdown: string }
+  | { type: 'changed'; markdown: string; generation: number }
   | ({ type: 'state' } & CaretState)
   | { type: 'openLink'; href: string }
 

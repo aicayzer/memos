@@ -9,22 +9,15 @@ struct MemosApp: App {
     var body: some Scene {
         Window(Bundle.main.displayName, id: "main") {
             MainView()
-                .frame(minWidth: 320, minHeight: 240)
+                .frame(minWidth: 380, minHeight: 240)
                 .environment(model)
         }
         .defaultSize(width: 520, height: 640)
         .windowResizability(.contentMinSize)
-        .commands {
-            CommandGroup(replacing: .newItem) {
-                Button("New Memo") { Task { await model.newMemo() } }
-                    .keyboardShortcut("n")
-            }
-        }
+        .commands { AppCommands(model: model) }
 
         Settings {
-            Form {}
-                .formStyle(.grouped)
-                .frame(width: 420)
+            SettingsView()
         }
     }
 }
