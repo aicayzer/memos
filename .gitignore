@@ -22,3 +22,7 @@ _tmp/
 _local/
 _ignore/
 *.log
+
+# Generated from project.yml by XcodeGen
+App/Info.plist
+App/Memos.entitlements
