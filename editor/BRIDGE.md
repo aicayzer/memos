@@ -9,7 +9,7 @@ Posted with `window.webkit.messageHandlers.host.postMessage(message)`. Without a
 | `type`     | Fields                          | When                                                              |
 | ---------- | ------------------------------- | ----------------------------------------------------------------- |
 | `ready`    |                                 | The editor is mounted and `window.editor` exists.                 |
-| `changed`  | `markdown: string`              | The document changed, debounced by 200ms.                         |
+| `changed`  | `markdown: string`              | The document changed by an edit, sent for every transaction.      |
 | `state`    | `marks: Mark[]`, `block: Block` | The caret moved or the document changed.                          |
 | `openLink` | `href: string`                  | A link was ⌘-clicked. The app opens it; the page never navigates. |
 
@@ -21,13 +21,13 @@ Posted with `window.webkit.messageHandlers.host.postMessage(message)`. Without a
 
 Called with `evaluateJavaScript` on `window.editor`.
 
-| Call                    | Effect                                                                             |
-| ----------------------- | ---------------------------------------------------------------------------------- |
-| `load(markdown)`        | Replace the document and put the caret at the start. Emits `state`, not `changed`. |
-| `markdown()`            | Return the current document as markdown.                                           |
-| `format(command, arg?)` | Apply a formatting command at the selection, then focus the editor.                |
-| `focus()`               | Focus the editor.                                                                  |
-| `setAccent(color)`      | Set the accent color used for links, markers and the caret.                        |
+| Call                    | Effect                                                                                                                                               |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `load(markdown)`        | Replace the document and put the caret at the start. Emits `state`, not `changed`; the loaded text is the baseline later edits are measured against. |
+| `markdown()`            | Return the current document as markdown.                                                                                                             |
+| `format(command, arg?)` | Apply a formatting command at the selection, then focus the editor.                                                                                  |
+| `focus()`               | Focus the editor.                                                                                                                                    |
+| `setAccent(color)`      | Set the accent color used for links, markers and the caret.                                                                                          |
 
 `command` is one of `heading` (with `arg` 1 to 3; the same level again turns the block back into a paragraph), `paragraph`, `bold`, `italic`, `strikethrough`, `code`, `codeBlock` (with `arg` an optional language), `quote`, `bulletList`, `orderedList`, `taskList`, `link` (with `arg` the URL).
 

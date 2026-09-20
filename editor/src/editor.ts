@@ -115,6 +115,7 @@ function blockAt(parent: ProseNode, $from: EditorState['selection']['$from']): B
 export class MemoEditor {
   private editor!: Editor
   private lastMarkdown = ''
+  private loading = false
 
   private constructor(private readonly events: EditorEvents) {}
 
@@ -128,6 +129,7 @@ export class MemoEditor {
         const listeners = ctx.get(listenerCtx)
         listeners.updated((ctx, doc) => {
           events.stateChanged(caretState(ctx.get(editorViewCtx).state))
+          if (instance.loading) return
           const markdown = serialize(ctx, doc)
           if (markdown === instance.lastMarkdown) return
           instance.lastMarkdown = markdown
@@ -155,8 +157,12 @@ export class MemoEditor {
   }
 
   load(markdown: string): void {
-    this.lastMarkdown = markdown
+    // A loaded document only counts as changed once it is edited, so its
+    // canonical form is the baseline, not the text as stored.
+    this.loading = true
     this.editor.action(replaceAll(markdown, true))
+    this.loading = false
+    this.lastMarkdown = serialize(this.editor.ctx)
     const view = this.editor.ctx.get(editorViewCtx)
     view.dispatch(view.state.tr.setSelection(Selection.atStart(view.state.doc)))
     this.events.stateChanged(caretState(view.state))

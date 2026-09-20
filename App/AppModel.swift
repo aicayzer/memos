@@ -67,6 +67,7 @@ final class AppModel {
     }
 
     func open(_ id: Memo.ID, recording: Bool = true) async {
+        showWindowIfHidden()
         guard id != current?.id else { return }
         await flush()
         do {
@@ -78,6 +79,7 @@ final class AppModel {
     }
 
     func newMemo() async {
+        showWindowIfHidden()
         await flush()
         do {
             show(try await store.create(markdown: ""))
@@ -146,6 +148,10 @@ final class AppModel {
             }
             editor.focus()
         }
+    }
+
+    private func showWindowIfHidden() {
+        if window?.isVisible != true { openMainWindow?() }
     }
 
     private func applyWindowLevel() {
