@@ -27,7 +27,18 @@ const editor = await MemoEditor.mount(root, {
   openLink(href) {
     postToHost({ type: 'openLink', href })
   },
+  copy(text) {
+    postToHost({ type: 'copy', text })
+  },
 })
+
+// Links open on ⌘-click, so the pointer says so only while ⌘ is down.
+for (const name of ['keydown', 'keyup'] as const) {
+  window.addEventListener(name, (event) =>
+    document.documentElement.classList.toggle('meta', event.metaKey),
+  )
+}
+window.addEventListener('blur', () => document.documentElement.classList.remove('meta'))
 
 window.editor = {
   load: (markdown, generation) => editor.load(markdown, generation),

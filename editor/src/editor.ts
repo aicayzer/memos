@@ -43,7 +43,9 @@ import {
   type EditorState,
 } from '@milkdown/kit/prose/state'
 import { $prose, callCommand, replaceAll } from '@milkdown/kit/utils'
+import { codeCopyPlugin, placeholderPlugin } from './decorations'
 import { dialect, serialize, stringifyOptions } from './dialect'
+import { highlightPlugin } from './highlight'
 import { taskListPlugin, toggleTaskList } from './tasks'
 
 export type Mark = 'bold' | 'italic' | 'strikethrough' | 'code' | 'link'
@@ -59,7 +61,7 @@ export type Block =
 export interface CaretState {
   marks: Mark[]
   block: Block
-  /** Inside a blockquote at any depth; the block is what sits inside it. */
+  /** One quote holds the whole selection; the block is what sits inside it. */
   quoted: boolean
 }
 
@@ -81,6 +83,7 @@ export interface EditorEvents {
   changed(markdown: string, generation: number): void
   stateChanged(state: CaretState): void
   openLink(href: string): void
+  copy(text: string): void
 }
 
 const markNames: Record<string, Mark> = {
@@ -241,6 +244,9 @@ export class MemoEditor {
       .use(cursor)
       .use(taskListPlugin)
       .use(quoteBackspace)
+      .use(codeCopyPlugin((text) => events.copy(text)))
+      .use(placeholderPlugin)
+      .use(highlightPlugin)
       .create()
     root.addEventListener('click', (event) => {
       const anchor = (event.target as HTMLElement).closest('a[href]')

@@ -69,6 +69,7 @@ final class AppModel {
         editor.accentOverride = accent.color
         editor.onChanged = { [weak self] markdown in self?.changed(markdown) }
         editor.onOpenLink = { NSWorkspace.shared.open($0) }
+        editor.onCopy = { Self.copy($0) }
     }
 
     func start() async {
@@ -132,9 +133,13 @@ final class AppModel {
 
     func copyAsMarkdown() {
         guard let current else { return }
+        Self.copy(current.markdown)
+    }
+
+    private static func copy(_ text: String) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(current.markdown, forType: .string)
+        pasteboard.setString(text, forType: .string)
     }
 
     func toggle(_ overlay: Overlay) {

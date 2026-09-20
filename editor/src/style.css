@@ -44,6 +44,18 @@ body {
   white-space: pre-wrap;
   word-wrap: break-word;
   caret-color: var(--accent);
+  cursor: text;
+}
+
+.ProseMirror .empty {
+  position: relative;
+}
+
+.ProseMirror .empty::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  color: var(--muted);
+  pointer-events: none;
 }
 
 .ProseMirror ::selection {
@@ -52,14 +64,6 @@ body {
 
 .ProseMirror > :first-child {
   margin-top: 0;
-}
-
-.ProseMirror > p:first-child {
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
-  margin-bottom: 8px;
 }
 
 .ProseMirror p {
@@ -103,20 +107,28 @@ body {
 
 .ProseMirror a {
   color: var(--accent);
-  text-decoration: underline;
+  text-decoration: none;
   text-underline-offset: 2px;
-  cursor: text;
+}
+
+.ProseMirror a:hover {
+  text-decoration: underline;
+}
+
+.meta .ProseMirror a {
+  cursor: pointer;
 }
 
 .ProseMirror code {
   font-family: var(--mono);
-  font-size: 0.9em;
+  font-size: 0.88em;
   background: var(--code-bg);
-  border-radius: 4px;
+  border-radius: 5px;
   padding: 1px 5px;
 }
 
 .ProseMirror pre {
+  position: relative;
   font-family: var(--mono);
   font-size: 13px;
   line-height: 1.5;
@@ -127,6 +139,51 @@ body {
   overflow-x: auto;
 }
 
+.ProseMirror pre[data-language] {
+  padding-top: 30px;
+}
+
+.ProseMirror pre[data-language]::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 8px;
+  left: 14px;
+  font:
+    11px/1 -apple-system,
+    system-ui,
+    sans-serif;
+  color: var(--muted);
+  text-transform: lowercase;
+  user-select: none;
+}
+
+.ProseMirror pre .copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: color-mix(in srgb, CanvasText 10%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms;
+  user-select: none;
+}
+
+.ProseMirror pre:hover .copy,
+.ProseMirror pre .copy[data-copied] {
+  opacity: 1;
+}
+
+.ProseMirror pre .copy:hover {
+  color: var(--text);
+}
+
 .ProseMirror pre code {
   background: none;
   padding: 0;
@@ -135,11 +192,15 @@ body {
 
 .ProseMirror blockquote {
   margin: 0 0 12px;
-  padding: 2px 0 2px 14px;
-  border-left: 3px solid var(--accent);
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid var(--accent);
 }
 
-.ProseMirror blockquote p:last-child {
+.ProseMirror blockquote > :first-child {
+  margin-top: 0;
+}
+
+.ProseMirror blockquote > :last-child {
   margin-bottom: 0;
 }
 
@@ -182,19 +243,34 @@ body {
 .ProseMirror li[data-item-type='task']::before {
   content: '';
   position: absolute;
-  left: -26px;
-  top: 0.3em;
-  width: 15px;
-  height: 15px;
+  left: -25px;
+  top: 0.32em;
+  width: 14px;
+  height: 14px;
   box-sizing: border-box;
-  border: 1.5px solid var(--accent);
-  border-radius: 5px;
+  border: 1.5px solid color-mix(in srgb, CanvasText 35%, transparent);
+  border-radius: 4px;
   cursor: pointer;
 }
 
 .ProseMirror li[data-item-type='task'][data-checked='true']::before {
+  border-color: var(--accent);
   background: var(--accent);
-  box-shadow: inset 0 0 0 2.5px Canvas;
+}
+
+/* The check mark: two edges of a rotated box. */
+.ProseMirror li[data-item-type='task'][data-checked='true']::after {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 0.32em;
+  margin-top: 2px;
+  width: 3px;
+  height: 7px;
+  border: solid Canvas;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+  pointer-events: none;
 }
 
 .ProseMirror li[data-item-type='task'][data-checked='true'] > p {
@@ -209,4 +285,80 @@ body {
   outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* Syntax colors: One Dark and One Light, without the blues. */
+:root {
+  --code-comment: var(--muted);
+  --code-keyword: #a626a4;
+  --code-string: #50a14f;
+  --code-number: #986801;
+  --code-title: #c18401;
+  --code-attr: #e45649;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --code-keyword: #c678dd;
+    --code-string: #98c379;
+    --code-number: #d19a66;
+    --code-title: #e5c07b;
+    --code-attr: #e06c75;
+  }
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--code-comment);
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-literal,
+.hljs-built_in,
+.hljs-type,
+.hljs-selector-tag,
+.hljs-doctag {
+  color: var(--code-keyword);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-template-tag {
+  color: var(--code-string);
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link,
+.hljs-meta {
+  color: var(--code-number);
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: var(--code-title);
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-property,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-deletion {
+  color: var(--code-attr);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 700;
 }

@@ -5,6 +5,7 @@ export type EditorMessage =
   | { type: 'changed'; markdown: string; generation: number }
   | ({ type: 'state' } & CaretState)
   | { type: 'openLink'; href: string }
+  | { type: 'copy'; text: string }
 
 declare global {
   interface Window {

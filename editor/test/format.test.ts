@@ -18,6 +18,7 @@ async function withMemoEditor<T>(
       states.push(state)
     },
     openLink() {},
+    copy() {},
   })
   editor.load(markdown, 1)
   try {
@@ -166,5 +167,15 @@ test('backspace at the start of a quote leaves it', async () => {
     const handled = view.someProp('handleKeyDown', (handler) => handler(view, event))
     expect(handled).toBe(true)
     expect(serialize(ctxOf(editor))).toBe('A line\n')
+  })
+})
+
+test('a fenced block with a known language is colored, one without stays plain', async () => {
+  await withMemoEditor('```js\nconst x = 1\n```\n\n```\nplain\n```\n', (editor) => {
+    const view = ctxOf(editor).get(editorViewCtx)
+    const spans = view.dom.querySelectorAll('pre [class*="hljs-"]')
+    expect(spans.length).toBeGreaterThan(0)
+    expect(view.dom.querySelectorAll('pre')[1]?.querySelector('[class*="hljs-"]')).toBeNull()
+    expect(serialize(ctxOf(editor))).toBe('```js\nconst x = 1\n```\n\n```\nplain\n```\n')
   })
 })
