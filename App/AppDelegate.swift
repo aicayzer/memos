@@ -6,7 +6,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         do {
-            model = AppModel(store: try JSONMemoStore.inApplicationSupport())
+            // The test host must not touch the real memos file.
+            let isTestHost = ProcessInfo.processInfo.environment.keys.contains { $0.hasPrefix("XCTest") }
+            let store = isTestHost
+                ? try JSONMemoStore(fileURL: FileManager.default.temporaryDirectory.appending(path: "memos-tests.json"))
+                : try JSONMemoStore.inApplicationSupport()
+            model = AppModel(store: store)
         } catch {
             fatalError("memo store unavailable: \(error)")
         }
