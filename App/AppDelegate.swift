@@ -23,6 +23,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         super.init()
     }
 
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        model.applyActivationPolicy()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         log.info("launched")
         KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }

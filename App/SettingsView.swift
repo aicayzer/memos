@@ -11,6 +11,7 @@ struct SettingsView: View {
                 KeyboardShortcuts.Recorder("Show or hide the window", name: .toggleWindow)
             }
             Section("Window") {
+                Toggle("Always on top", isOn: $model.floating)
                 LabeledContent("Background") {
                     Slider(value: $model.windowOpacity, in: 0...1) {
                         Text("Background")
@@ -20,6 +21,16 @@ struct SettingsView: View {
                         Text("Solid")
                     }
                     .labelsHidden()
+                }
+            }
+            Section {
+                Toggle("Show in menu bar", isOn: $model.menuBarItem)
+                Toggle("Show in Dock", isOn: $model.showInDock)
+            } header: {
+                Text("Show in")
+            } footer: {
+                if !model.menuBarItem, !model.showInDock {
+                    Text("With neither, the keyboard shortcut opens the window.")
                 }
             }
             Section("Accent") {

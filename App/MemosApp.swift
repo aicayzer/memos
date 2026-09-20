@@ -21,6 +21,17 @@ struct MemosApp: App {
             SettingsView()
                 .environment(model)
         }
+
+        MenuBarExtra(Bundle.main.displayName, systemImage: "scribble", isInserted: Binding(
+            get: { model.menuBarItem }, set: { model.menuBarItem = $0 }
+        )) {
+            Button("Open \(Bundle.main.displayName)") { model.showWindow() }
+            Button("New Memo") { Task { await model.newMemo() } }
+            Divider()
+            SettingsLink { Text("Settings…") }
+            Divider()
+            Button("Quit \(Bundle.main.displayName)") { NSApp.terminate(nil) }
+        }
     }
 }
 
