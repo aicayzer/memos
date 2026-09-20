@@ -1,4 +1,7 @@
 import Foundation
+import OSLog
+
+private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "app")
 
 extension AppModel {
     var paletteItems: [PaletteItem] {
@@ -64,6 +67,7 @@ extension AppModel {
                 }
             }
         } catch {
+            log.error("browse: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }

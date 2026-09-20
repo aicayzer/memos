@@ -90,6 +90,7 @@ final class AppModel {
 
     func duplicate() async {
         guard let current else { return }
+        showWindowIfHidden()
         await flush()
         do {
             show(try await store.create(markdown: current.markdown))
@@ -115,6 +116,7 @@ final class AppModel {
     }
 
     func toggle(_ overlay: Overlay) {
+        showWindowIfHidden()
         if self.overlay == overlay { dismissOverlay() } else { self.overlay = overlay }
     }
 
@@ -123,7 +125,7 @@ final class AppModel {
         editor.focus()
     }
 
-    func find(next: Bool = false) {
+    func find() {
         guard !findText.isEmpty else { return }
         let configuration = WKFindConfiguration()
         configuration.wraps = true
@@ -136,7 +138,7 @@ final class AppModel {
         applyWindowLevel()
     }
 
-    /// The global hotkey: hide the window when it is in front, otherwise bring it forward.
+    /// Hides the app rather than the window, so focus returns to the previous app.
     func toggleWindow() {
         if NSApp.isActive, let window, window.isKeyWindow, window.isVisible {
             NSApp.hide(nil)
@@ -174,12 +176,9 @@ final class AppModel {
         saveTask?.cancel()
         await saveTask?.value
         saveTask = nil
-        if let current, editor.isReady {
-            let live = await editor.markdown()
-            if live != current.markdown {
-                unsaved = live
-                self.current?.markdown = live
-            }
+        if let current, let live = await editor.markdown(), live != current.markdown {
+            unsaved = live
+            self.current?.markdown = live
         }
         return await save()
     }

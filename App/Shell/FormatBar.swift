@@ -74,7 +74,7 @@ struct FormatBar: View {
             .menuIndicator(.visible)
             .tint(caret.block.isList ? .accentColor : .secondary)
         }
-        .menuStyle(.borderlessButton)
+        .menuStyle(.button)
         .buttonStyle(.borderless)
         .imageScale(.medium)
         .padding(.horizontal, 12)
@@ -97,7 +97,7 @@ struct FormatBar: View {
     }
 
     private var headingSymbol: String {
-        if case .heading(let level) = caret.block, (1...3).contains(level) { return "h\(level).square" }
+        if case .heading(let level) = caret.block, (1...3).contains(level) { return "\(level).square" }
         return "textformat.size"
     }
 

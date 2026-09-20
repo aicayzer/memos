@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Hands the hosting window to the model once the view is attached to it.
+// SwiftUI exposes no NSWindow; this is the one place the app reaches it.
 struct WindowReader: NSViewRepresentable {
     let onWindow: (NSWindow) -> Void
 

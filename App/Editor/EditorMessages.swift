@@ -26,7 +26,7 @@ enum FormatCommand: String, Sendable {
 
 enum EditorMessage: Sendable {
     case ready
-    case changed(String)
+    case changed(String, generation: Int)
     case state(CaretState)
     case openLink(String)
     case error(String)
@@ -37,8 +37,8 @@ enum EditorMessage: Sendable {
         case "ready":
             self = .ready
         case "changed":
-            guard let markdown = dict["markdown"] as? String else { return nil }
-            self = .changed(markdown)
+            guard let markdown = dict["markdown"] as? String, let generation = dict["generation"] as? Int else { return nil }
+            self = .changed(markdown, generation: generation)
         case "state":
             let marks = (dict["marks"] as? [String] ?? []).compactMap(Mark.init(rawValue:))
             guard let block = Block(dict["block"]) else { return nil }

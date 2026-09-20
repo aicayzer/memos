@@ -10,7 +10,6 @@ struct PaletteItem: Identifiable {
     let action: () -> Void
 }
 
-/// A search field over a list of items, moved with the arrow keys, run with return, closed with escape.
 struct PaletteView: View {
     let placeholder: String
     let items: [PaletteItem]
@@ -68,6 +67,7 @@ struct PaletteView: View {
         .glassEffect(.regular, in: .rect(cornerRadius: 14))
         .shadow(color: .black.opacity(0.18), radius: 24, y: 8)
         .onAppear { focused = true }
+        .onChange(of: focused) { _, isFocused in if !isFocused { dismiss() } }
         .onChange(of: items.map(\.id)) { _, _ in selected = 0 }
     }
 

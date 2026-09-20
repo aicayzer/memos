@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test } from 'vitest'
 import { editorViewCtx } from '@milkdown/kit/core'
+import { TextSelection } from '@milkdown/kit/prose/state'
 import { serialize } from '../src/dialect'
 import { roundTrip, withEditor } from './harness'
 
@@ -44,4 +45,16 @@ test('an empty paragraph is left out rather than written as html', async () => {
 
 test('a memo that is only an empty paragraph is written as nothing', async () => {
   expect(await roundTrip('')).toBe('')
+})
+
+test('a typed url becomes a link when a space follows it', async () => {
+  const out = await withEditor('see https://example.com/page', (editor) => {
+    const view = editor.ctx.get(editorViewCtx)
+    const end = view.state.doc.content.size - 1
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, end)))
+    view.someProp('handleTextInput', (handler) => handler(view, end, end, ' ', () => view.state.tr))
+    view.dispatch(view.state.tr.insertText('now'))
+    return serialize(editor.ctx)
+  })
+  expect(out).toBe('see <https://example.com/page> now\n')
 })

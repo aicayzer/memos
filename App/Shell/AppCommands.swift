@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AppCommands: Commands {
-    let model: AppModel
+    @Bindable var model: AppModel
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -35,7 +35,7 @@ struct AppCommands: Commands {
             Toggle("Formatting Bar", isOn: Binding(get: { !model.formatBarHidden }, set: { model.formatBarHidden = !$0 }))
         }
         CommandGroup(before: .windowArrangement) {
-            Toggle("Always on Top", isOn: Binding(get: { model.floating }, set: { model.floating = $0 }))
+            Toggle("Always on Top", isOn: $model.floating)
             Divider()
         }
     }

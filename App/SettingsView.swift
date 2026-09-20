@@ -9,5 +9,7 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
+        // Otherwise the always-on-top memo window covers it.
+        .background(WindowReader { $0.level = .floating })
     }
 }

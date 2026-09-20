@@ -16,6 +16,7 @@ final class EditorController: NSObject {
 
     @ObservationIgnored let webView: WKWebView
     @ObservationIgnored private var pendingMarkdown: String?
+    @ObservationIgnored private var generation = 0
     @ObservationIgnored private var editorURL: URL?
     @ObservationIgnored private var appearanceObservation: NSKeyValueObservation?
 
@@ -66,7 +67,9 @@ final class EditorController: NSObject {
             pendingMarkdown = markdown
             return
         }
-        call("load", json(markdown))
+        // Edits report the generation they belong to, so a late report for the previous document is dropped.
+        generation += 1
+        call("load", json(markdown), String(generation))
         focus()
     }
 
@@ -83,10 +86,11 @@ final class EditorController: NSObject {
         call("focus")
     }
 
-    func markdown() async -> String {
-        guard isReady else { return pendingMarkdown ?? "" }
+    /// The document as markdown, or nil while it is still what was loaded.
+    func markdown() async -> String? {
+        guard isReady else { return nil }
         let result = try? await webView.evaluateJavaScript("window.editor.markdown()")
-        return result as? String ?? ""
+        return result as? String
     }
 
     private func call(_ function: String, _ arguments: String...) {
@@ -132,8 +136,8 @@ final class EditorController: NSObject {
                 self.pendingMarkdown = nil
                 load(pendingMarkdown)
             }
-        case .changed(let markdown):
-            onChanged(markdown)
+        case .changed(let markdown, let generation):
+            if generation == self.generation { onChanged(markdown) }
         case .state(let state):
             if state != caret { caret = state }
         case .openLink(let href):

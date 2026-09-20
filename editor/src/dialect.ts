@@ -12,6 +12,7 @@ import {
   wrapInTaskListInputRule,
 } from '@milkdown/kit/preset/gfm'
 import { $remark } from '@milkdown/kit/utils'
+import { autolinkInputRule } from './autolink'
 import type { Options as StringifyOptions } from 'mdast-util-to-markdown'
 import {
   gfmAutolinkLiteralFromMarkdown,
@@ -57,6 +58,7 @@ const commonmarkWithoutEmptyLines = commonmark.filter(
 
 export const dialect: MilkdownPlugin[] = [
   commonmarkWithoutEmptyLines,
+  autolinkInputRule,
   extendListItemSchemaForTask,
   strikethroughAttr,
   strikethroughSchema,

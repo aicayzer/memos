@@ -10,7 +10,7 @@ struct FindBar: View {
             TextField("Find in memo", text: $model.findText)
                 .textFieldStyle(.plain)
                 .focused($focused)
-                .onSubmit { model.find(next: true) }
+                .onSubmit { model.find() }
                 .onChange(of: model.findText) { _, _ in model.find() }
                 .onKeyPress(.escape) { model.dismissOverlay(); return .handled }
             Button {

@@ -23,7 +23,7 @@ import {
 } from '@milkdown/kit/preset/commonmark'
 import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm'
 import type { Node as ProseNode } from '@milkdown/kit/prose/model'
-import { Selection, type EditorState } from '@milkdown/kit/prose/state'
+import { Selection, TextSelection, type EditorState } from '@milkdown/kit/prose/state'
 import { callCommand, replaceAll } from '@milkdown/kit/utils'
 import { dialect, serialize, stringifyOptions } from './dialect'
 import { taskListPlugin, toggleTaskList } from './tasks'
@@ -59,7 +59,7 @@ export type FormatCommand =
   | 'link'
 
 export interface EditorEvents {
-  changed(markdown: string): void
+  changed(markdown: string, generation: number): void
   stateChanged(state: CaretState): void
   openLink(href: string): void
 }
@@ -115,7 +115,8 @@ function blockAt(parent: ProseNode, $from: EditorState['selection']['$from']): B
 export class MemoEditor {
   private editor!: Editor
   private lastMarkdown = ''
-  private loading = false
+  private baseline = ''
+  private generation = 0
 
   private constructor(private readonly events: EditorEvents) {}
 
@@ -129,11 +130,10 @@ export class MemoEditor {
         const listeners = ctx.get(listenerCtx)
         listeners.updated((ctx, doc) => {
           events.stateChanged(caretState(ctx.get(editorViewCtx).state))
-          if (instance.loading) return
           const markdown = serialize(ctx, doc)
           if (markdown === instance.lastMarkdown) return
           instance.lastMarkdown = markdown
-          events.changed(markdown)
+          events.changed(markdown, instance.generation)
         })
         listeners.selectionUpdated((ctx) =>
           events.stateChanged(caretState(ctx.get(editorViewCtx).state)),
@@ -156,24 +156,51 @@ export class MemoEditor {
     return instance
   }
 
-  load(markdown: string): void {
+  load(markdown: string, generation: number): void {
     // A loaded document only counts as changed once it is edited, so its
     // canonical form is the baseline, not the text as stored.
-    this.loading = true
+    this.generation = generation
     this.editor.action(replaceAll(markdown, true))
-    this.loading = false
-    this.lastMarkdown = serialize(this.editor.ctx)
+    this.baseline = serialize(this.editor.ctx)
+    this.lastMarkdown = this.baseline
     const view = this.editor.ctx.get(editorViewCtx)
     view.dispatch(view.state.tr.setSelection(Selection.atStart(view.state.doc)))
     this.events.stateChanged(caretState(view.state))
   }
 
-  markdown(): string {
-    return serialize(this.editor.ctx)
+  /** The document as markdown, or null while it is still what was loaded. */
+  markdown(): string | null {
+    const markdown = serialize(this.editor.ctx)
+    return markdown === this.baseline ? null : markdown
   }
 
   focus(): void {
     this.editor.ctx.get(editorViewCtx).focus()
+  }
+
+  // toggleMark on a caret only clears the stored mark, so removing a link
+  // needs the whole link selected first.
+  private selectLinkAtCaret(): void {
+    const view = this.editor.ctx.get(editorViewCtx)
+    const { selection, schema, doc } = view.state
+    if (!selection.empty) return
+    const link = schema.marks.link
+    if (!link) return
+    const $pos = selection.$from
+    const parent = $pos.parent
+    const start = $pos.start()
+    let from = $pos.pos
+    let to = $pos.pos
+    parent.forEach((child, offset) => {
+      const childFrom = start + offset
+      const childTo = childFrom + child.nodeSize
+      if (!link.isInSet(child.marks)) return
+      if (childTo >= $pos.pos && childFrom <= to) {
+        from = Math.min(from, childFrom)
+        to = Math.max(to, childTo)
+      }
+    })
+    if (from < to) view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, from, to)))
   }
 
   format(command: FormatCommand, arg?: string | number): void {
@@ -220,6 +247,7 @@ export class MemoEditor {
         toggleTaskList(this.editor.ctx)
         break
       case 'link':
+        if (state.marks.includes('link')) this.selectLinkAtCaret()
         run(toggleLinkCommand.key, typeof arg === 'string' ? { href: arg } : {})
         break
     }

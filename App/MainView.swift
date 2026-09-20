@@ -69,6 +69,7 @@ struct MainView: View {
             .onChange(of: model.overlay) { _, overlay in
                 paletteQuery = ""
                 browseQuery = ""
+                browseItems = []
                 if overlay == nil { model.findText = "" }
             }
             .toolbar {
