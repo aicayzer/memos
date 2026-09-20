@@ -3,7 +3,7 @@
 
 # Xcode: the project is generated from project.yml by XcodeGen
 *.xcodeproj/
-build/
+build*/
 DerivedData/
 xcuserdata/
 *.xcresult
