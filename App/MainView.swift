@@ -21,29 +21,30 @@ struct MainView: View {
                 Task { await model.flush() }
             }
             .overlay(alignment: .bottom) {
-                if !model.formatBarHidden {
-                    GlassEffectContainer {
+                GlassEffectContainer {
                     ZStack(alignment: .trailing) {
-                        FormatBar(editor: model.editor, accent: model.accentColor)
-                            .frame(maxWidth: .infinity)
-                            .padding(.horizontal, FormatBar.height + 8)
+                        if !model.formatBarHidden {
+                            FormatBar(editor: model.editor, accent: model.accentColor)
+                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, FormatBar.height + 8)
+                        }
                         Button {
-                            model.formatBarHidden = true
+                            model.formatBarHidden.toggle()
                         } label: {
-                            Image(systemName: "xmark")
+                            Image(systemName: model.formatBarHidden ? "textformat" : "xmark")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(.secondary)
                                 .frame(width: FormatBar.height, height: FormatBar.height)
                                 .glassEffect(.regular, in: .circle)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Hide Formatting Bar")
-                        .help("Hide Formatting Bar")
+                        .accessibilityLabel(model.formatBarHidden ? "Show Formatting Bar" : "Hide Formatting Bar")
+                        .help(model.formatBarHidden ? "Show Formatting Bar" : "Hide Formatting Bar")
                     }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 12)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
             }
             .overlay(alignment: .topTrailing) {
                 if model.overlay == .find {
