@@ -24,7 +24,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: JCVH9W76MS
     ENABLE_HARDENED_RUNTIME: YES
-    # The editor build phase reads editor/ and writes into the bundle.
+    # Script sandboxing would block the editor phase's write into the bundle.
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: 1

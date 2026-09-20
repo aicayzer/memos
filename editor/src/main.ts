@@ -17,14 +17,9 @@ declare global {
 const root = document.getElementById('editor')
 if (!root) throw new Error('editor root missing')
 
-let pending: number | undefined
-let latest = ''
-
 const editor = await MemoEditor.mount(root, {
   changed(markdown) {
-    latest = markdown
-    window.clearTimeout(pending)
-    pending = window.setTimeout(() => postToHost({ type: 'changed', markdown: latest }), 150)
+    postToHost({ type: 'changed', markdown })
   },
   stateChanged(state) {
     postToHost({ type: 'state', ...state })
@@ -35,10 +30,7 @@ const editor = await MemoEditor.mount(root, {
 })
 
 window.editor = {
-  load: (markdown) => {
-    window.clearTimeout(pending)
-    editor.load(markdown)
-  },
+  load: (markdown) => editor.load(markdown),
   markdown: () => editor.markdown(),
   format: (command, arg) => editor.format(command, arg),
   focus: () => editor.focus(),

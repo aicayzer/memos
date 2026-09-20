@@ -28,8 +28,7 @@ import { gfmStrikethrough } from 'micromark-extension-gfm-strikethrough'
 import { gfmTaskListItem } from 'micromark-extension-gfm-task-list-item'
 import type { Processor } from 'unified'
 
-// The GFM subset the app supports: strikethrough, task lists and bare URLs.
-// Tables and footnotes are deliberately absent.
+// Tables and footnotes are deliberately left out.
 function remarkDialect(this: Processor) {
   const data = this.data() as Record<string, unknown[] | undefined>
   const add = (key: string, value: unknown) => {
@@ -61,7 +60,7 @@ export const dialect: MilkdownPlugin[] = [
   remarkDialectPlugin,
 ].flat()
 
-// The canonical form every memo is written in.
+// One output form, so a memo written back unchanged is byte-stable.
 export const stringifyOptions: StringifyOptions = {
   bullet: '-',
   emphasis: '*',
