@@ -30,6 +30,7 @@ enum EditorMessage: Sendable {
     case changed(String, generation: Int)
     case state(CaretState)
     case openLink(String)
+    case copy(String)
     case error(String)
 
     init?(body: Any) {
@@ -47,6 +48,9 @@ enum EditorMessage: Sendable {
         case "openLink":
             guard let href = dict["href"] as? String else { return nil }
             self = .openLink(href)
+        case "copy":
+            guard let text = dict["text"] as? String else { return nil }
+            self = .copy(text)
         case "error":
             self = .error(dict["message"] as? String ?? "")
         default:

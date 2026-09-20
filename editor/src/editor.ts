@@ -43,6 +43,7 @@ import {
   type EditorState,
 } from '@milkdown/kit/prose/state'
 import { $prose, callCommand, replaceAll } from '@milkdown/kit/utils'
+import { codeCopyPlugin, placeholderPlugin } from './decorations'
 import { dialect, serialize, stringifyOptions } from './dialect'
 import { taskListPlugin, toggleTaskList } from './tasks'
 
@@ -81,6 +82,7 @@ export interface EditorEvents {
   changed(markdown: string, generation: number): void
   stateChanged(state: CaretState): void
   openLink(href: string): void
+  copy(text: string): void
 }
 
 const markNames: Record<string, Mark> = {
@@ -241,6 +243,8 @@ export class MemoEditor {
       .use(cursor)
       .use(taskListPlugin)
       .use(quoteBackspace)
+      .use(codeCopyPlugin((text) => events.copy(text)))
+      .use(placeholderPlugin)
       .create()
     root.addEventListener('click', (event) => {
       const anchor = (event.target as HTMLElement).closest('a[href]')

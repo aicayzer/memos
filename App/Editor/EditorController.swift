@@ -13,6 +13,7 @@ final class EditorController: NSObject {
 
     var onChanged: (String) -> Void = { _ in }
     var onOpenLink: (URL) -> Void = { _ in }
+    var onCopy: (String) -> Void = { _ in }
     var accentOverride: NSColor? {
         didSet { applyAccent() }
     }
@@ -144,6 +145,8 @@ final class EditorController: NSObject {
             if let url = URL(string: href), let scheme = url.scheme, ["http", "https", "mailto"].contains(scheme) {
                 onOpenLink(url)
             }
+        case .copy(let text):
+            onCopy(text)
         case .error(let message):
             log.error("editor script error: \(message, privacy: .public)")
         }

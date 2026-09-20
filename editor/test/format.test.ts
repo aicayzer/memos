@@ -18,6 +18,7 @@ async function withMemoEditor<T>(
       states.push(state)
     },
     openLink() {},
+    copy() {},
   })
   editor.load(markdown, 1)
   try {
