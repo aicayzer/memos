@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test } from 'vitest'
-import { roundTrip } from './harness'
+import { editorViewCtx } from '@milkdown/kit/core'
+import { getMarkdown } from '@milkdown/kit/utils'
+import { roundTrip, withEditor } from './harness'
 
 const fixture = readFileSync(resolve(__dirname, '../fixtures/dialect.md'), 'utf8')
 
@@ -29,3 +31,17 @@ for (const [name, input, canonical] of variants) {
     expect(await roundTrip(input)).toBe(canonical)
   })
 }
+
+test('an empty paragraph is left out rather than written as html', async () => {
+  const out = await withEditor('a\n\nb\n', (editor) => {
+    const view = editor.ctx.get(editorViewCtx)
+    const paragraph = view.state.schema.nodes.paragraph!
+    view.dispatch(view.state.tr.insert(3, paragraph.create()))
+    return editor.action(getMarkdown())
+  })
+  expect(out).toBe('a\n\nb\n')
+})
+
+test('a memo that is only an empty paragraph is written as nothing', async () => {
+  expect(await roundTrip('')).toBe('')
+})

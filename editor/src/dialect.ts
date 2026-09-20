@@ -1,5 +1,10 @@
+import { editorViewCtx } from '@milkdown/kit/core'
 import type { MilkdownPlugin } from '@milkdown/kit/ctx'
-import { commonmark } from '@milkdown/kit/preset/commonmark'
+import {
+  commonmark,
+  paragraphSchema,
+  remarkPreserveEmptyLinePlugin,
+} from '@milkdown/kit/preset/commonmark'
 import {
   extendListItemSchemaForTask,
   strikethroughAttr,
@@ -48,8 +53,31 @@ function remarkDialect(this: Processor) {
 
 export const remarkDialectPlugin = $remark('remarkDialect', () => remarkDialect)
 
+// Empty paragraphs are not content: they are left out of the markdown instead of
+// being written as `<br />`, which the dialect forbids.
+const commonmarkWithoutEmptyLines = commonmark.filter(
+  (plugin) => !(remarkPreserveEmptyLinePlugin as MilkdownPlugin[]).includes(plugin),
+)
+
+const paragraphSchemaSkippingEmpty = paragraphSchema.extendSchema((prev) => (ctx) => {
+  const base = prev(ctx)
+  return {
+    ...base,
+    toMarkdown: {
+      match: base.toMarkdown.match,
+      runner: (state, node) => {
+        // The last block stays so the document is never empty of nodes.
+        const isLast = node === ctx.get(editorViewCtx).state.doc.lastChild
+        if (node.content.size === 0 && !isLast) return
+        base.toMarkdown.runner(state, node)
+      },
+    },
+  }
+})
+
 export const dialect: MilkdownPlugin[] = [
-  commonmark,
+  commonmarkWithoutEmptyLines,
+  paragraphSchemaSkippingEmpty,
   extendListItemSchemaForTask,
   strikethroughAttr,
   strikethroughSchema,

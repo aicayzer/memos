@@ -2,7 +2,7 @@ import { Editor, defaultValueCtx, remarkStringifyOptionsCtx, rootCtx } from '@mi
 import { getMarkdown } from '@milkdown/kit/utils'
 import { dialect, stringifyOptions } from '../src/dialect'
 
-export async function roundTrip(markdown: string): Promise<string> {
+export async function withEditor<T>(markdown: string, run: (editor: Editor) => T): Promise<T> {
   const root = document.createElement('div')
   document.body.append(root)
   const editor = await Editor.make()
@@ -13,8 +13,14 @@ export async function roundTrip(markdown: string): Promise<string> {
     })
     .use(dialect)
     .create()
-  const out = editor.action(getMarkdown())
-  await editor.destroy()
-  root.remove()
-  return out
+  try {
+    return run(editor)
+  } finally {
+    await editor.destroy()
+    root.remove()
+  }
+}
+
+export function roundTrip(markdown: string): Promise<string> {
+  return withEditor(markdown, (editor) => editor.action(getMarkdown()))
 }
