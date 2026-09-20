@@ -29,6 +29,13 @@ final class AppModel {
         didSet { defaults.set(formatBarHidden, forKey: Self.formatBarHiddenKey) }
     }
 
+    /// Open and closed within a session; each launch starts from the setting.
+    var sidePane: Bool
+
+    var sidePaneAtLaunch: Bool {
+        didSet { defaults.set(sidePaneAtLaunch, forKey: Self.sidePaneAtLaunchKey) }
+    }
+
     var menuBarItem: Bool {
         didSet { defaults.set(menuBarItem, forKey: Self.menuBarItemKey) }
     }
@@ -70,6 +77,7 @@ final class AppModel {
     private static let lastMemoKey = "lastMemoID"
     private static let floatingKey = "floating"
     private static let formatBarHiddenKey = "formatBarHidden"
+    private static let sidePaneAtLaunchKey = "sidePaneAtLaunch"
     private static let menuBarItemKey = "menuBarItem"
     private static let showInDockKey = "showInDock"
     private static let windowOpacityKey = "windowOpacity"
@@ -80,6 +88,9 @@ final class AppModel {
         self.defaults = defaults
         floating = defaults.object(forKey: Self.floatingKey) as? Bool ?? true
         formatBarHidden = defaults.bool(forKey: Self.formatBarHiddenKey)
+        let paneAtLaunch = defaults.bool(forKey: Self.sidePaneAtLaunchKey)
+        sidePaneAtLaunch = paneAtLaunch
+        sidePane = paneAtLaunch
         menuBarItem = defaults.bool(forKey: Self.menuBarItemKey)
         showInDock = defaults.object(forKey: Self.showInDockKey) as? Bool ?? true
         windowOpacity = defaults.object(forKey: Self.windowOpacityKey) as? Double ?? 0.6
@@ -158,6 +169,23 @@ final class AppModel {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+    }
+
+    func toggleSidePane() {
+        showWindowIfHidden()
+        withAnimation(.easeOut(duration: 0.2)) { sidePane.toggle() }
+        // Closing takes the search field with it; typing should land in the memo again.
+        if !sidePane { editor.focus() }
+    }
+
+    /// The list as browse and the side pane show it; a failure logs and shows nothing rather than stale rows.
+    func memos(matching query: String) async -> [Memo] {
+        do {
+            return try await store.list(matching: query)
+        } catch {
+            log.error("list: \(error.localizedDescription, privacy: .public)")
+            return []
+        }
     }
 
     func toggle(_ overlay: Overlay) {

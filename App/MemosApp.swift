@@ -9,7 +9,6 @@ struct MemosApp: App {
     var body: some Scene {
         Window(Bundle.main.displayName, id: "main") {
             MainView()
-                .frame(minWidth: 400, minHeight: 240)
                 .environment(model)
         }
         .defaultSize(width: 520, height: 640)
