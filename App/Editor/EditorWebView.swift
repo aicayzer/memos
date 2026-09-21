@@ -6,10 +6,10 @@ import WebKit
 final class EditorWebView: WKWebView {
     var onDropFiles: ([URL], CGPoint) -> Void = { _, _ in }
 
-    private static let fileURLs: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+    private static let readingOptions: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
 
     private func fileURLs(in sender: any NSDraggingInfo) -> [URL] {
-        sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: Self.fileURLs) as? [URL] ?? []
+        sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: Self.readingOptions) as? [URL] ?? []
     }
 
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
@@ -24,7 +24,7 @@ final class EditorWebView: WKWebView {
         let urls = fileURLs(in: sender)
         guard !urls.isEmpty else { return super.performDragOperation(sender) }
         var point = convert(sender.draggingLocation, from: nil)
-        // The page measures from the top.
+        // The page measures from the top; the web view happens to as well, which nothing documents.
         if !isFlipped { point.y = bounds.height - point.y }
         onDropFiles(urls, point)
         return true

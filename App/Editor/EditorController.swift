@@ -30,7 +30,12 @@ final class EditorController: NSObject {
         webView = EditorWebView(frame: .zero, configuration: configuration)
         super.init()
         webView.onDropFiles = { [weak self] urls, point in
-            self?.insertPaths(urls.map { $0.path(percentEncoded: false) }, at: point)
+            // A folder's path as Finder copies it, without the slash a URL carries.
+            let paths = urls.map { url in
+                let path = url.path(percentEncoded: false)
+                return path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
+            }
+            self?.insertPaths(paths, at: point)
         }
         #if DEBUG
         webView.isInspectable = true

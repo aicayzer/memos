@@ -236,6 +236,9 @@ test('an empty memo turned into a heading shows the marks, not the placeholder',
     editor.format('heading', 1)
     expect(view.dom.querySelector('h1.editing')).not.toBeNull()
     expect(view.dom.querySelector('.empty')).toBeNull()
+  })
+})
+
 test('dropped paths become paragraphs after the block, or replace an empty one', async () => {
   await withMemoEditor('- item\n\nText\n', (editor) => {
     placeCaret(editor, 3)
