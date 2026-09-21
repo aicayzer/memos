@@ -14,7 +14,7 @@ final class Updater {
         #if DEBUG
         controller = nil
         #else
-        let controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        let controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
         self.controller = controller
         observation = controller.updater.observe(\.canCheckForUpdates, options: [.initial, .new]) { [weak self] updater, _ in
             MainActor.assumeIsolated { self?.canCheck = updater.canCheckForUpdates }
@@ -23,6 +23,11 @@ final class Updater {
     }
 
     var isAvailable: Bool { controller != nil }
+
+    /// Once the app knows it is the one instance: a second launch hands over and quits without a check.
+    func start() {
+        controller?.startUpdater()
+    }
 
     func check() {
         controller?.checkForUpdates(nil)

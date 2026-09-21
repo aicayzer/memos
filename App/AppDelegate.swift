@@ -54,6 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.attach(panel)
         model.showWindow()
         KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
+        updater.start()
     }
 
     /// memos://memo/<id> opens that memo; anything else on the scheme just shows the window.

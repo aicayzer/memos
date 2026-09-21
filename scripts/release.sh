@@ -17,17 +17,19 @@
 #
 # --dry-run builds, signs and notarizes from wherever the tree is, and publishes nothing.
 set -euo pipefail
-cd "${0:a:h}/.."
+
+fail() { print -u2 -- "release: $*"; exit 1 }
 
 notes_file=""
 dry_run=false
 while (( $# )); do
   case "$1" in
-    --notes) notes_file="$2"; shift 2 ;;
+    --notes) [[ -n "${2:-}" ]] || fail "--notes needs a file"; notes_file="${2:a}"; shift 2 ;;
     --dry-run) dry_run=true; shift ;;
-    *) print -u2 -- "release: unknown option $1"; exit 1 ;;
+    *) fail "unknown option $1" ;;
   esac
 done
+cd "${0:a:h}/.."
 
 app_name=$(sed -n 's/^name: *//p' project.yml)
 version=$(sed -n 's/^ *MARKETING_VERSION: *"\(.*\)"/\1/p' project.yml)
@@ -40,16 +42,16 @@ sparkle_account="me.cyzr.memos"
 sparkle_bin="build/SourcePackages/artifacts/sparkle/Sparkle/bin"
 asc_key="${ASC_KEY_PATH:-$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID:-}.p8}"
 
-fail() { print -u2 -- "release: $*"; exit 1 }
-
 [[ -n "$version" ]] || fail "MARKETING_VERSION not found in project.yml"
 # A dry run may come from any branch; a release comes from main as pushed.
 if ! $dry_run; then
   [[ -z "$(git status --porcelain)" ]] || fail "the tree has uncommitted changes"
   [[ "$(git branch --show-current)" == main ]] || fail "release from main"
-  git fetch -q origin main
+  git fetch -q --tags origin main
   [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]] || fail "main is not at origin/main"
-  git rev-parse -q --verify "refs/tags/$tag" >/dev/null && fail "$tag exists; bump MARKETING_VERSION first"
+  if git rev-parse -q --verify "refs/tags/$tag" >/dev/null && [[ "$(git rev-parse "$tag^{commit}")" != "$(git rev-parse HEAD)" ]]; then
+    fail "$tag exists on another commit; bump MARKETING_VERSION first"
+  fi
 fi
 [[ -n "${ASC_KEY_ID:-}" && -n "${ASC_ISSUER_ID:-}" ]] || fail "ASC_KEY_ID and ASC_ISSUER_ID are needed"
 [[ -r "$asc_key" ]] || fail "App Store Connect key not found at $asc_key"
@@ -59,8 +61,12 @@ identity=$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer I
 [[ -n "$identity" ]] || fail "no Developer ID Application certificate for $team"
 
 notarize() {
-  xcrun notarytool submit "$1" --key "$asc_key" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" --wait --output-format plist > "$out/notary-$(basename "$1").plist"
-  [[ "$(plutil -extract status raw "$out/notary-$(basename "$1").plist")" == Accepted ]] || fail "notarization of $1 was not accepted; see $out"
+  local result="$out/notary-$(basename "$1").plist"
+  xcrun notarytool submit "$1" --key "$asc_key" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" --wait --output-format plist > "$result"
+  if [[ "$(plutil -extract status raw "$result")" != Accepted ]]; then
+    xcrun notarytool log "$(plutil -extract id raw "$result")" --key "$asc_key" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" "$result.log" || true
+    fail "notarization of $1 was not accepted; see $result.log"
+  fi
 }
 
 out="releases"
@@ -75,7 +81,11 @@ xcodebuild -project "$app_name.xcodeproj" -scheme "$app_name" -configuration Rel
   -derivedDataPath build -archivePath "$archive" CURRENT_PROJECT_VERSION="$build" archive -quiet
 # The export re-signs every nested item with the hardened runtime and a timestamp, which a plain build
 # does not do for the framework, its services or the tool.
-xcodebuild -exportArchive -archivePath "$archive" -exportOptionsPlist scripts/ExportOptions.plist -exportPath "$export_dir" -quiet
+plutil -create xml1 "$archive/ExportOptions.plist"
+plutil -insert method -string developer-id "$archive/ExportOptions.plist"
+plutil -insert signingStyle -string automatic "$archive/ExportOptions.plist"
+plutil -insert teamID -string "$team" "$archive/ExportOptions.plist"
+xcodebuild -exportArchive -archivePath "$archive" -exportOptionsPlist "$archive/ExportOptions.plist" -exportPath "$export_dir" -quiet
 app="$export_dir/$app_name.app"
 [[ -d "$app" ]] || fail "export produced no app"
 
@@ -96,7 +106,8 @@ hdiutil create -quiet -volname "$app_name" -srcfolder "$staging" -ov -format UDZ
 codesign --sign "$identity" --timestamp "$dmg"
 notarize "$dmg"
 xcrun stapler staple -q "$dmg"
-spctl -a -t open --context context:primary-signature -v "$dmg" 2>&1 | grep -q accepted || fail "Gatekeeper does not accept the disk image"
+assessment=$(spctl -a -t open --context context:primary-signature -v "$dmg" 2>&1 || true)
+[[ "$assessment" == *accepted* ]] || fail "Gatekeeper does not accept the disk image: $assessment"
 
 print -- "release: release notes"
 notes="$out/$app_name-$version.md"
@@ -108,22 +119,42 @@ else
 fi
 
 print -- "release: appcast"
-# The appcast in the bucket carries the earlier releases; generate_appcast adds this one to it.
-curl -fsS "${download_prefix}appcast.xml" -o "$out/appcast.xml" 2>/dev/null || rm -f "$out/appcast.xml"
-"$sparkle_bin/generate_appcast" --account "$sparkle_account" --download-url-prefix "$download_prefix" --embed-release-notes "$out" >/dev/null
+# The appcast in the bucket carries the earlier releases; generate_appcast adds this one to it. Only "none
+# yet" may pass as an empty start: any other failure would publish a feed with the earlier releases gone.
+http_status=$(curl -sS -o "$out/appcast.xml" -w '%{http_code}' "${download_prefix}appcast.xml" || true)
+case "$http_status" in
+  200) ;;
+  404) rm -f "$out/appcast.xml" ;;
+  *) fail "fetching the appcast gave $http_status" ;;
+esac
+# No deltas: earlier images are not kept here, so a delta would depend on which machine ran this.
+"$sparkle_bin/generate_appcast" --account "$sparkle_account" --download-url-prefix "$download_prefix" --embed-release-notes --maximum-deltas 0 "$out"
+# generate_appcast warns rather than fails when the keychain key is not the one behind SUPublicEDKey,
+# and writes the item unsigned; installed apps would refuse it.
+python3 - "$out/appcast.xml" "$build" <<'PY' || fail "the appcast item for build $build is missing or unsigned"
+import re, sys
+xml = open(sys.argv[1]).read()
+items = re.findall(r"<item>.*?</item>", xml, re.S)
+item = next((i for i in items if f"<sparkle:version>{sys.argv[2]}</sparkle:version>" in i), None)
+sys.exit(0 if item and 'sparkle:edSignature="' in item else 1)
+PY
 
 if $dry_run; then
   print -- "release: dry run; $dmg and $out/appcast.xml are ready, nothing published"
   exit 0
 fi
 
-print -- "release: uploading"
+# The appcast goes up last, since it is what installed apps act on; everything before it can be run again.
+print -- "release: uploading the disk image"
 wrangler r2 object put "$bucket/$(basename "$dmg")" --file "$dmg" --remote --content-type application/x-apple-diskimage >/dev/null
-wrangler r2 object put "$bucket/appcast.xml" --file "$out/appcast.xml" --remote --content-type application/xml >/dev/null
-curl -fsSI "${download_prefix}appcast.xml" >/dev/null || fail "the appcast is not being served"
+curl -fsSI "${download_prefix}$(basename "$dmg")" >/dev/null || fail "the disk image is not being served"
 
 print -- "release: tagging and releasing $tag"
-git tag -a "$tag" -m "$app_name $version"
+git rev-parse -q --verify "refs/tags/$tag" >/dev/null || git tag -a "$tag" -m "$app_name $version"
 git push -q origin "$tag"
-gh release create "$tag" "$dmg" --title "$app_name $version" --notes-file "$notes"
+gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" "$dmg" --title "$app_name $version" --notes-file "$notes"
+
+print -- "release: publishing the appcast"
+wrangler r2 object put "$bucket/appcast.xml" --file "$out/appcast.xml" --remote --content-type application/xml >/dev/null
+curl -fsS "${download_prefix}appcast.xml" | grep -q "<sparkle:version>$build</sparkle:version>" || fail "the served appcast does not list build $build"
 print -- "release: $tag is out"
