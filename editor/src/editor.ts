@@ -167,6 +167,19 @@ const quoteBackspace = $prose(() =>
   }),
 )
 
+// A control chord that nothing handles reaches the page as its ASCII control character
+// (Control-N as U+000E), which the web view would insert as text.
+const controlCharacters = /^[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]+$/
+const dropControlCharacters = $prose(
+  () =>
+    new Plugin({
+      key: new PluginKey('dropControlCharacters'),
+      props: {
+        handleTextInput: (_view, _from, _to, text) => controlCharacters.test(text),
+      },
+    }),
+)
+
 // The listener plugin reports selection changes from inside state.apply, before
 // the view holds the new state, so the caret state is read from the view instead.
 function caretStatePlugin(events: EditorEvents) {
@@ -244,6 +257,7 @@ export class MemoEditor {
       .use(cursor)
       .use(taskListPlugin)
       .use(quoteBackspace)
+      .use(dropControlCharacters)
       .use(codeCopyPlugin((text) => events.copy(text)))
       .use(placeholderPlugin)
       .use(highlightPlugin)
