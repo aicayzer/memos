@@ -2,6 +2,16 @@ import Testing
 @testable import Memos
 
 @Suite struct MemoTitleTests {
+    @Test func theTitleBarCutsLongTitlesAtAWord() {
+        #expect(Memo.abbreviated("Shortcuts aren't right") == "Shortcuts aren't…")
+        #expect(Memo.abbreviated("Twenty characters!!!") == "Twenty characters!!!")
+        #expect(Memo.abbreviated("Twenty characters!!! and more") == "Twenty characters!!!…")
+        // A long word keeps the full cut rather than falling back to a stub.
+        #expect(Memo.abbreviated("A supercalifragilisticexpialidocious word") == "A supercalifragilist…")
+        #expect(Memo.abbreviated("https://example.com/a/long/path") == "https://example.com/…")
+        #expect(Memo.abbreviated("Short", to: 3) == "Sho…")
+    }
+
     @Test func firstLineIsTheTitle() {
         #expect(Memo.title(for: "Shopping\n\n- milk\n") == "Shopping")
     }

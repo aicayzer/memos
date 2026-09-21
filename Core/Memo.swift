@@ -38,6 +38,18 @@ struct Memo: Identifiable, Codable, Equatable, Sendable {
         return name + ".md"
     }
 
+    /// The title as the title bar shows it: at most `limit` characters and an ellipsis. A cut inside a word
+    /// falls back to the end of the word before, unless that would give up most of the room.
+    static func abbreviated(_ title: String, to limit: Int = 20) -> String {
+        guard title.count > limit else { return title }
+        var cut = title.prefix(limit)
+        if !title[cut.endIndex].isWhitespace, let space = cut.lastIndex(where: \.isWhitespace),
+           cut.distance(from: cut.startIndex, to: space) >= limit / 2 {
+            cut = cut[..<space]
+        }
+        return cut.trimmingCharacters(in: .whitespaces) + "…"
+    }
+
     /// The first line as it reads, without its markdown: a quote or a list item titles the memo by its words.
     static func title(for markdown: String) -> String {
         for line in markdown.split(whereSeparator: \.isNewline) {
