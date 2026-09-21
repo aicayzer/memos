@@ -18,7 +18,7 @@ import Testing
         var light: String?
         var dark: String?
         NSAppearance(named: .aqua)!.performAsCurrentDrawingAppearance { light = Accent.standardColor.hexString }
-        NSAppearance(named: .darkAqua)!.performAsCurrentDrawingAppearance { dark = Accent.standardColor.hexString }
+        NSAppearance(named: .vibrantDark)!.performAsCurrentDrawingAppearance { dark = Accent.standardColor.hexString }
         #expect(light == "#FFCC00")
         #expect(dark == "#FFD60A")
     }

@@ -396,7 +396,7 @@ enum Accent: Equatable {
     case system
     case custom(NSColor)
 
-    /// Yellow; the darker one in light appearance, where the brighter is faint over white.
+    /// The brighter yellow is faint over white, so light appearance gets the darker one.
     static let standardColor = NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? standardDark : standardLight
     }

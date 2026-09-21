@@ -16,7 +16,7 @@ struct SettingsView: View {
                         switch choice {
                         case .standard: model.accent = .standard
                         case .system: model.accent = .system
-                        case .custom: model.accent = .custom(Self.systemAccentSnapshot() ?? Accent.standardColor)
+                        case .custom: if let color = Self.systemAccentSnapshot() { model.accent = .custom(color) }
                         }
                     }
                 )) {
@@ -113,7 +113,7 @@ struct SettingsView: View {
     private static func systemAccentSnapshot() -> NSColor? {
         var color: NSColor?
         NSApp.effectiveAppearance.performAsCurrentDrawingAppearance {
-            color = NSColor.controlAccentColor.usingColorSpace(.sRGB)
+            color = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? Accent.standardColor.usingColorSpace(.sRGB)
         }
         return color
     }

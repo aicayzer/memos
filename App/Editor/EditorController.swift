@@ -118,7 +118,7 @@ final class EditorController: NSObject {
     private func applyAccent() {
         guard isReady else { return }
         var hex: String?
-        // The standard and system accents are dynamic colors; they resolve in whatever appearance is current.
+        // The standard and system accents are dynamic; a hex needs an appearance to resolve in.
         NSApp.effectiveAppearance.performAsCurrentDrawingAppearance {
             hex = (accentOverride ?? NSColor.controlAccentColor).hexString
         }
