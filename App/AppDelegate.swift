@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model: AppModel
     private var panel: MemoPanel?
     private var watcher: StoreWatcher?
+    let updater = Updater()
 
     /// The test host must not touch the real store or defaults, and must not hand over to a running app.
     private static let isTestHost = ProcessInfo.processInfo.environment.keys.contains { $0.hasPrefix("XCTest") }
@@ -53,6 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.attach(panel)
         model.showWindow()
         KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
+        updater.start()
     }
 
     /// memos://memo/<id> opens that memo; anything else on the scheme just shows the window.

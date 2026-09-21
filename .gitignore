@@ -30,3 +30,4 @@ _tmp/
 _local/
 _ignore/
 *.log
+releases/

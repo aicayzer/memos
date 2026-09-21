@@ -2,8 +2,15 @@ import SwiftUI
 
 struct AppCommands: Commands {
     @Bindable var model: AppModel
+    let updater: Updater
 
     var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            if updater.isAvailable {
+                Button("Check for Updates…") { updater.check() }
+                    .disabled(!updater.canCheck)
+            }
+        }
         CommandGroup(replacing: .newItem) {
             item(.newMemo)
             item(.duplicate)
