@@ -47,6 +47,24 @@ import Testing
         #expect(Memo.title(for: "\\[not a link](x)") == "[not a link](x)")
     }
 
+    // remark writes a space that would otherwise be dropped, such as one ending the line, as a character reference.
+    @Test func characterReferencesAreDecoded() {
+        #expect(Memo.title(for: "Memos&#x20;") == "Memos")
+        #expect(Memo.title(for: "&#x20;&#x20;Indented") == "Indented")
+        #expect(Memo.title(for: "Tab&#9;stop") == "Tab\tstop")
+        #expect(Memo.title(for: "Star &#x2A;not italic&#x2A;") == "Star *not italic*")
+        #expect(Memo.title(for: "&#x20;\n\nSecond line") == "Second line")
+        #expect(Memo.title(for: "`&#x20;`") == "&#x20;")
+        #expect(Memo.title(for: "\\&#x20;") == "&#x20;")
+        #expect(Memo.title(for: "&#x110000; stays") == "&#x110000; stays")
+    }
+
+    @Test func hardBreakIsNotPartOfTheTitle() {
+        #expect(Memo.title(for: "Memos\\\nReference") == "Memos")
+        #expect(Memo.title(for: "Memos&#x20;\\\nReference") == "Memos")
+        #expect(Memo.title(for: "Ends in \\\\") == "Ends in \\")
+    }
+
     @Test func wordsAreLeftAlone() {
         #expect(Memo.title(for: "snake_case_name") == "snake_case_name")
         #expect(Memo.title(for: "2 * 3 = 6") == "2 * 3 = 6")
