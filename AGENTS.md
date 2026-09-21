@@ -16,7 +16,7 @@ This file governs every session that works in this repository.
 ## Layout
 
 - `project.yml` is the XcodeGen source; `Memos.xcodeproj` is generated and not committed.
-- `Core/` holds the memo model and the store, compiled into the app and the command line tool alike; `App/` the rest of the app's Swift sources; `Tests/` the Swift Testing target.
+- `Core/` holds the memo model and the store, compiled into the app and the command line tool alike; `App/` the rest of the app's Swift sources; `CLI/` the tool; `Tests/` the Swift Testing target.
 - `editor/` is the web editor (Vite, TypeScript, Milkdown), built into a single HTML file that the app embeds. `editor/BRIDGE.md` is the message protocol between the two.
 
 ## Commands

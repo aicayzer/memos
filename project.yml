@@ -59,8 +59,6 @@ targets:
         CFBundleName: Memos
         LSApplicationCategoryType: public.app-category.productivity
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
-        # Read by the tool when it runs from inside the app, where the app's plist is the main one.
-        MemosAppIdentifier: $(MEMOS_APP_IDENTIFIER)
         NSHighResolutionCapable: true
         # memos://memo/<id> shows a memo; the tool's open command sends it.
         CFBundleURLTypes:
@@ -112,7 +110,7 @@ targets:
         # The module name would otherwise follow the product's and clash with the app's on a case-insensitive disk.
         PRODUCT_MODULE_NAME: MemosTool
         PRODUCT_BUNDLE_IDENTIFIER: $(MEMOS_APP_IDENTIFIER).cli
-        # A tool has no bundle; the plist rides in the binary so the identifiers above are readable.
+        # A tool has no bundle; the plist rides in the binary, and is its main bundle's wherever it runs from.
         CREATE_INFOPLIST_SECTION_IN_BINARY: YES
   MemosTests:
     type: bundle.unit-test

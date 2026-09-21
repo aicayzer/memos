@@ -16,6 +16,16 @@ import Testing
         #expect(try MemoLookup.find("pl", in: memos).title == "Plan")
     }
 
+    @Test func anExactTitleBeatsALongerOne() throws {
+        let plans = memos + [Memo(id: UUID(), markdown: "Plan B\n", favorite: false, createdAt: .now, updatedAt: .now)]
+        #expect(try MemoLookup.find("plan", in: plans).title == "Plan")
+        #expect(try MemoLookup.find("  Plan B ", in: plans).title == "Plan B")
+    }
+
+    @Test func aBlankReferenceMatchesNothing() {
+        #expect(throws: MemoLookup.Failure.none("")) { try MemoLookup.find("  ", in: memos) }
+    }
+
     @Test func ambiguityAndAbsenceAreNamed() {
         #expect(throws: MemoLookup.Failure.several("6a3f", [memos[0], memos[1]])) { try MemoLookup.find("6a3f", in: memos) }
         #expect(throws: MemoLookup.Failure.several("shop", [memos[0], memos[1]])) { try MemoLookup.find("shop", in: memos) }

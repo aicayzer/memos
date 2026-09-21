@@ -131,3 +131,12 @@ import Testing
         #expect(Memo.fileName(for: "  Plan  ") == "Plan.md")
     }
 }
+
+@Suite struct MemoAppendingTests {
+    @Test func textJoinsAsAParagraph() {
+        #expect(Memo.appending("- milk", to: "# Shopping\n") == "# Shopping\n\n- milk\n")
+        #expect(Memo.appending("- milk", to: "# Shopping") == "# Shopping\n\n- milk\n")
+        #expect(Memo.appending("- milk\n", to: "# Shopping\n\n\n") == "# Shopping\n\n- milk\n")
+        #expect(Memo.appending("First", to: "") == "First\n")
+    }
+}
