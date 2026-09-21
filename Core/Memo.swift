@@ -18,6 +18,15 @@ struct Memo: Identifiable, Codable, Equatable, Sendable {
 
     static let untitled = "Untitled"
 
+    /// The text added as a paragraph of its own: one blank line between, and the whole ending in a newline.
+    static func appending(_ text: String, to markdown: String) -> String {
+        var joined = markdown
+        while joined.hasSuffix("\n\n") { joined.removeLast() }
+        if !joined.isEmpty { joined += joined.hasSuffix("\n") ? "\n" : "\n\n" }
+        joined += text
+        return joined.hasSuffix("\n") ? joined : joined + "\n"
+    }
+
     /// The title as a file name: path separators become dashes and long titles are cut, with the markdown extension.
     static func fileName(for title: String) -> String {
         var name = title.replacing(/[\/:]/, with: "-").trimmingCharacters(in: .whitespaces)
