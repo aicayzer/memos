@@ -341,12 +341,12 @@ final class ShortcutSettings {
     }
 
     /// Takes a typed key for the row: in place of its own, or into the place an empty box holds. Should the
-    /// keys have moved under the box, the typed key still lands, at the end.
+    /// row's key have moved from under the box, the typed key still lands, at the end.
     func record(_ key: KeyCombo, in row: ShortcutRow) {
         var keys = keys(for: row.shortcut)
         if row.key == nil {
             keys.insert(key, at: min(row.index, keys.count))
-        } else if keys.indices.contains(row.index) {
+        } else if keys.indices.contains(row.index), keys[row.index] == row.key {
             keys[row.index] = key
         } else {
             keys.append(key)
@@ -364,7 +364,7 @@ final class ShortcutSettings {
 }
 
 /// One line of the Shortcuts tab: a key of a shortcut, or the empty box a key is typed into.
-struct ShortcutRow: Identifiable, Equatable {
+struct ShortcutRow: Identifiable {
     let shortcut: Shortcut
     /// The key's place among the shortcut's keys, or the place a typed one will take.
     let index: Int

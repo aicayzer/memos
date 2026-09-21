@@ -51,7 +51,7 @@ import Testing
         let file = NSMenuItem()
         file.submenu = NSMenu()
         let new = NSMenuItem(title: "New Memo", action: nil, keyEquivalent: "n")
-        // A capital key equivalent stands for Shift, whichever way the item was made.
+        // A capital key equivalent is Shift in an AppKit-made item; the mask is Command unless set.
         let favorite = NSMenuItem(title: "Favorite", action: nil, keyEquivalent: "F")
         let pane = NSMenuItem(title: "Side Pane", action: nil, keyEquivalent: String(UnicodeScalar(NSLeftArrowFunctionKey)!))
         pane.keyEquivalentModifierMask = [.option, .command]
@@ -62,6 +62,17 @@ import Testing
         #expect(KeyCombo("ArrowLeft", [.option, .command]).menuItem(in: menu) === pane)
         #expect(KeyCombo("n", [.option]).menuItem(in: menu) == nil)
         #expect(KeyCombo("Unknown", [.command]).menuItem(in: menu) == nil)
+    }
+
+    /// The test host is the app, whose menu SwiftUI built: every first key must be found there, the special
+    /// keys and the shifted ones included, or a global hotkey could take one of the app's own keys.
+    @Test @MainActor func theAppsOwnMenuIsFoundForEveryFirstKey() throws {
+        let menu = try #require(NSApp.mainMenu)
+        for shortcut in Shortcut.app {
+            let key = try #require(shortcut.defaultKeys.first)
+            #expect(key.menuItem(in: menu) != nil, "\(shortcut.title) \(key.label)")
+        }
+        #expect(KeyCombo("n", [.control, .option]).menuItem(in: menu) == nil)
     }
 
     @Test func labelsFollowTheSystemOrder() {

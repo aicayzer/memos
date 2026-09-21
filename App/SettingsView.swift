@@ -163,7 +163,9 @@ struct SettingsView: View {
                     conflict: row.key.flatMap { Self.others(sharing: $0, with: row.shortcut, in: conflicts) },
                     recordsOnAppear: row.isAdded
                 ) { event in
-                    guard let recorded = KeyCombo(event: event), recorded.isShortcut else { return false }
+                    // The global hotkey takes its chord before the menu could, so no shortcut may share it.
+                    guard let recorded = KeyCombo(event: event), recorded.isShortcut,
+                          globalShortcut == nil || KeyboardShortcuts.Shortcut(event: event) != globalShortcut else { return false }
                     adding = nil
                     model.shortcuts.record(recorded, in: row)
                     return true

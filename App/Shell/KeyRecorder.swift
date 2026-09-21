@@ -23,6 +23,10 @@ struct KeyRecorder: View {
     @State private var monitor: Any?
     @State private var anchor = Anchor()
 
+    /// Ends the recorder taking keys, if one is: a second one starting takes its place, so a chord never
+    /// lands in two boxes and the hotkeys come back when the last of them stops.
+    @MainActor private static var stopActive: (() -> Void)?
+
     static let width: CGFloat = 120
     static let height: CGFloat = 22
 
@@ -59,21 +63,24 @@ struct KeyRecorder: View {
 
     private func start() {
         guard monitor == nil else { return }
+        Self.stopActive?()
+        Self.stopActive = cancel
         recording = true
         // A registered hotkey takes its key before any window sees it, so it could not be recorded again.
         KeyboardShortcuts.isEnabled = false
         // A click outside the box ends the recording with the box empty, rather than leaving it to swallow
-        // keys meant for whatever was clicked; a click on the box itself changes nothing.
+        // keys meant for whatever was clicked. On the box itself a click changes nothing, and a right-click
+        // is kept from opening the row's menu, whose actions would move the keys under the recording.
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]) { event in
-            let isKey = event.type == .keyDown
-            MainActor.assumeIsolated {
-                if isKey {
-                    handle(event)
-                } else if !anchor.contains(event) {
-                    clear()
-                }
+            if event.type == .keyDown {
+                handle(event)
+                return nil
             }
-            return isKey ? nil : event
+            guard anchor.contains(event) else {
+                clear()
+                return event
+            }
+            return event.type == .leftMouseDown ? event : nil
         }
     }
 
@@ -103,8 +110,11 @@ struct KeyRecorder: View {
 
     private func stop() {
         recording = false
-        if let monitor { NSEvent.removeMonitor(monitor) }
-        monitor = nil
+        // Every row's disappearance comes through here; only the one with the monitor owns the hotkeys.
+        guard let monitor else { return }
+        NSEvent.removeMonitor(monitor)
+        self.monitor = nil
+        Self.stopActive = nil
         KeyboardShortcuts.isEnabled = true
     }
 }
@@ -130,7 +140,5 @@ private struct AnchorView: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ view: NSView, context: Context) {
-        anchor.view = view
-    }
+    func updateNSView(_ view: NSView, context: Context) {}
 }
