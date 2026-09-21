@@ -43,6 +43,8 @@ targets:
       - path: App
         excludes:
           - "**/.DS_Store"
+          # The icon as rendered, for the README; the app's own comes from AppIcon.icon.
+          - Resources/AppIcon.png
     dependencies:
       - package: KeyboardShortcuts
       # The tool ships inside the app, at Contents/SharedSupport/bin/memos, for a symlink onto the PATH;
