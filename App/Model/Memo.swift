@@ -3,9 +3,16 @@ import Foundation
 struct Memo: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
     var markdown: String
-    var pinned: Bool
+    var favorite: Bool
     let createdAt: Date
     var updatedAt: Date
+
+    // The one exception to the no-legacy rule: the file on disk is the user's own memos, and it keeps
+    // the flag under its first name rather than being set aside as unreadable.
+    private enum CodingKeys: String, CodingKey {
+        case id, markdown, createdAt, updatedAt
+        case favorite = "pinned"
+    }
 
     var title: String { Memo.title(for: markdown) }
 

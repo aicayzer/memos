@@ -38,7 +38,7 @@ actor JSONMemoStore: MemoStore {
         return memos.values
             .filter { needle.isEmpty || $0.markdown.localizedCaseInsensitiveContains(needle) }
             .sorted { a, b in
-                if a.pinned != b.pinned { return a.pinned }
+                if a.favorite != b.favorite { return a.favorite }
                 if a.updatedAt != b.updatedAt { return a.updatedAt > b.updatedAt }
                 return a.createdAt > b.createdAt
             }
@@ -50,7 +50,7 @@ actor JSONMemoStore: MemoStore {
 
     func create(markdown: String) throws -> Memo {
         let now = Date()
-        let memo = Memo(id: UUID(), markdown: markdown, pinned: false, createdAt: now, updatedAt: now)
+        let memo = Memo(id: UUID(), markdown: markdown, favorite: false, createdAt: now, updatedAt: now)
         memos[memo.id] = memo
         try save()
         return memo
@@ -65,9 +65,9 @@ actor JSONMemoStore: MemoStore {
         return memo
     }
 
-    func setPinned(_ id: Memo.ID, _ pinned: Bool) throws -> Memo {
+    func setFavorite(_ id: Memo.ID, _ favorite: Bool) throws -> Memo {
         guard var memo = memos[id] else { throw MemoStoreError.missing(id) }
-        memo.pinned = pinned
+        memo.favorite = favorite
         memos[id] = memo
         try save()
         return memo

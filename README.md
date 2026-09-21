@@ -6,7 +6,7 @@ A native window with a web editor inside it. The native side owns the window, th
 
 ## Using it
 
-- ⌘K command palette, ⌘P browse memos, ⌘N new, ⌘D duplicate, ⇧⌘P pin, ⌘[ and ⌘] back and forward, ⌘F find, ⇧⌘C copy as markdown.
+- ⌘K command palette, ⌘P browse memos, ⌘N new, ⌘D duplicate, ⇧⌘F favorite, ⌘[ and ⌘] back and forward, ⌘F find, ⇧⌘C copy as markdown.
 - ⌃⌘S, or a double-click on the title bar, opens a side pane listing the memos with a search field; Settings can open it at launch.
 - Always on Top in the Window menu keeps it above other apps and on every space; the global show/hide shortcut, background, and accent are set in Settings (⌘,).
 - Type markdown as you go: `# `, `- `, `1. `, `- [ ] `, `> ` and backticks turn into formatting. ⌘-click opens a link.

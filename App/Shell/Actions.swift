@@ -10,10 +10,10 @@ extension AppModel {
                 Task { await self.duplicate() }
             },
             PaletteItem(
-                id: "pin", title: current?.pinned == true ? "Unpin Memo" : "Pin Memo",
-                symbol: current?.pinned == true ? "pin.slash" : "pin", shortcut: "⇧⌘P"
+                id: "favorite", title: current?.favorite == true ? "Unfavorite Memo" : "Favorite Memo",
+                symbol: current?.favorite == true ? "star.slash" : "star", shortcut: "⇧⌘F"
             ) {
-                Task { await self.togglePin() }
+                Task { await self.toggleFavorite() }
             },
             PaletteItem(id: "browse", title: "Browse Memos", symbol: "square.stack", shortcut: "⌘P") {
                 self.toggle(.browse)
@@ -63,7 +63,8 @@ extension AppModel {
                 id: memo.id.uuidString,
                 title: memo.title,
                 subtitle: memo.updatedAt.formatted(.relative(presentation: .named)),
-                symbol: memo.pinned ? "pin.fill" : "doc.text"
+                symbol: memo.favorite ? "star.fill" : "doc.text",
+                accented: memo.favorite
             ) {
                 Task { await self.open(memo.id) }
             }
