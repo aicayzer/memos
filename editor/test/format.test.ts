@@ -208,6 +208,8 @@ test('list items indent with Tab alone, leaving Mod-[ and Mod-] to the app', asy
     expect(press('[', { metaKey: true })).toBeFalsy()
     expect(press('Tab', { shiftKey: true })).toBe(true)
     expect(serialize(ctxOf(editor))).toBe('- one\n- two\n')
+  })
+})
 
 test('the heading under the caret carries its marks, the others do not', async () => {
   await withMemoEditor('# One\n\nText\n\n## Two\n', (editor) => {
@@ -218,5 +220,21 @@ test('the heading under the caret carries its marks, the others do not', async (
     placeCaret(editor, 9)
     expect(view.dom.querySelector('.editing')).toBeNull()
     expect(serialize(ctxOf(editor))).toBe('# One\n\nText\n\n## Two\n')
+  })
+  await withMemoEditor('> # Quoted\n', (editor) => {
+    placeCaret(editor, 3)
+    expect(
+      ctxOf(editor).get(editorViewCtx).dom.querySelector('blockquote > h1.editing'),
+    ).not.toBeNull()
+  })
+})
+
+test('an empty memo turned into a heading shows the marks, not the placeholder', async () => {
+  await withMemoEditor('', (editor) => {
+    const view = ctxOf(editor).get(editorViewCtx)
+    expect(view.dom.querySelector('.empty')).not.toBeNull()
+    editor.format('heading', 1)
+    expect(view.dom.querySelector('h1.editing')).not.toBeNull()
+    expect(view.dom.querySelector('.empty')).toBeNull()
   })
 })
