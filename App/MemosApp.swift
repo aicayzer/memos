@@ -11,6 +11,7 @@ struct MemosApp: App {
         Settings {
             SettingsView()
                 .environment(model)
+                .environment(delegate.updater)
         }
         .commands { AppCommands(model: model, updater: delegate.updater) }
 
@@ -30,5 +31,13 @@ struct MemosApp: App {
 extension Bundle {
     var displayName: String {
         object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? ""
+    }
+
+    var shortVersion: String {
+        object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    }
+
+    var buildNumber: String {
+        object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
     }
 }
