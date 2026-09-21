@@ -22,5 +22,18 @@ final class MemoPanel: NSPanel {
         setFrameAutosaveName(Self.frameName)
     }
 
+    /// A menu item carries one key; a shortcut's other keys are matched here. Before the content, since the
+    /// web view claims every Command chord and turns some, ⌘. among them, into commands that never come back.
+    var alternates: () -> [(key: KeyCombo, shortcut: Shortcut)] = { [] }
+    var perform: (Shortcut) -> Void = { _ in }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if let pressed = KeyCombo(event: event), let match = alternates().first(where: { $0.key == pressed }) {
+            perform(match.shortcut)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
     private static let frameName = "main"
 }

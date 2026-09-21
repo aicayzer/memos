@@ -11,12 +11,21 @@ import { history } from '@milkdown/kit/plugin/history'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { cursor } from '@milkdown/kit/plugin/cursor'
 import {
+  blockquoteKeymap,
   blockquoteSchema,
+  bulletListKeymap,
+  codeBlockKeymap,
   createCodeBlockCommand,
+  emphasisKeymap,
+  headingKeymap,
+  inlineCodeKeymap,
   inlineCodeSchema,
   liftListItemCommand,
   linkSchema,
   listItemKeymap,
+  orderedListKeymap,
+  paragraphKeymap,
+  strongKeymap,
   toggleEmphasisCommand,
   toggleInlineCodeCommand,
   toggleLinkCommand,
@@ -26,14 +35,15 @@ import {
   wrapInHeadingCommand,
   wrapInOrderedListCommand,
 } from '@milkdown/kit/preset/commonmark'
-import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm'
+import { strikethroughKeymap, toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm'
 import {
   NodeRange,
   type MarkType,
   type Node as ProseNode,
   type ResolvedPos,
 } from '@milkdown/kit/prose/model'
-import { keymap } from '@milkdown/kit/prose/keymap'
+import { keydownHandler, keymap } from '@milkdown/kit/prose/keymap'
+import type { EditorView } from '@milkdown/kit/prose/view'
 import { findWrapping, liftTarget } from '@milkdown/kit/prose/transform'
 import {
   AllSelection,
@@ -41,9 +51,10 @@ import {
   PluginKey,
   Selection,
   TextSelection,
+  type Command,
   type EditorState,
 } from '@milkdown/kit/prose/state'
-import { $prose, callCommand, replaceAll } from '@milkdown/kit/utils'
+import { $prose, callCommand, replaceAll, type $UserKeymap } from '@milkdown/kit/utils'
 import { codeCopyPlugin, headingMarkPlugin, placeholderPlugin } from './decorations'
 import { dialect, serialize, stringifyOptions } from './dialect'
 import { highlightPlugin } from './highlight'
@@ -79,6 +90,25 @@ export type FormatCommand =
   | 'orderedList'
   | 'taskList'
   | 'link'
+
+/** The bindings the app sets, by shortcut name; each runs a format command. */
+export type Keymap = Record<string, string[]>
+
+const shortcutCommands: Record<string, [FormatCommand, number?]> = {
+  heading1: ['heading', 1],
+  heading2: ['heading', 2],
+  heading3: ['heading', 3],
+  paragraph: ['paragraph'],
+  bold: ['bold'],
+  italic: ['italic'],
+  strikethrough: ['strikethrough'],
+  code: ['code'],
+  codeBlock: ['codeBlock'],
+  quote: ['quote'],
+  bulletList: ['bulletList'],
+  orderedList: ['orderedList'],
+  taskList: ['taskList'],
+}
 
 export interface EditorEvents {
   changed(markdown: string, generation: number): void
@@ -227,8 +257,18 @@ export class MemoEditor {
   private lastMarkdown = ''
   private baseline = ''
   private generation = 0
+  private keys: (view: EditorView, event: KeyboardEvent) => boolean = () => false
 
   private constructor(private readonly events: EditorEvents) {}
+
+  // The app's bindings, replaced whole whenever they change; the plugin stays.
+  private keymapPlugin = $prose(
+    () =>
+      new Plugin({
+        key: new PluginKey('appKeymap'),
+        props: { handleKeyDown: (view, event) => this.keys(view, event) },
+      }),
+  )
 
   static async mount(root: HTMLElement, events: EditorEvents): Promise<MemoEditor> {
     const instance = new MemoEditor(events)
@@ -243,6 +283,25 @@ export class MemoEditor {
           SinkListItem: { shortcuts: 'Tab' },
           LiftListItem: { shortcuts: 'Shift-Tab' },
         }))
+        // Formatting keys are the app's to set, through setKeymap; the presets' own go.
+        const unbind = <K extends string>(keymap: $UserKeymap<string, K>, keep: K[] = []) =>
+          ctx.update(keymap.key, (keys) => {
+            const cleared = { ...keys }
+            for (const name of Object.keys(cleared) as K[]) {
+              if (!keep.includes(name)) cleared[name] = { shortcuts: [] }
+            }
+            return cleared
+          })
+        unbind(strongKeymap)
+        unbind(emphasisKeymap)
+        unbind(inlineCodeKeymap)
+        unbind(strikethroughKeymap)
+        unbind(headingKeymap, ['DowngradeHeading'])
+        unbind(paragraphKeymap)
+        unbind(blockquoteKeymap)
+        unbind(codeBlockKeymap)
+        unbind(bulletListKeymap)
+        unbind(orderedListKeymap)
         // The caret is kept above the fade under the formatting bar.
         ctx.update(editorViewOptionsCtx, (options) => ({
           ...options,
@@ -257,6 +316,7 @@ export class MemoEditor {
         })
       })
       .use(caretStatePlugin(events))
+      .use(instance.keymapPlugin)
       .use(dialect)
       .use(listener)
       .use(history)
@@ -300,6 +360,21 @@ export class MemoEditor {
 
   focus(): void {
     this.editor.ctx.get(editorViewCtx).focus()
+  }
+
+  /** Binds keys, in ProseMirror's names, to the formatting each shortcut runs. Walked in the table's
+   *  order, so a key given to two shortcuts lands the same way every time. */
+  setKeymap(keymap: Keymap): void {
+    const bindings: Record<string, Command> = {}
+    for (const [name, command] of Object.entries(shortcutCommands)) {
+      for (const key of keymap[name] ?? []) {
+        bindings[key] = () => {
+          this.format(...command)
+          return true
+        }
+      }
+    }
+    this.keys = keydownHandler(bindings)
   }
 
   /** Dropped files land as one paragraph per path at the drop point: in place of an empty block, after
