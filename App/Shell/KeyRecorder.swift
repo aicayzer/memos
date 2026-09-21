@@ -54,21 +54,28 @@ struct KeyRecorder: View {
         .onTapGesture { recording ? cancel() : start() }
         .onAppear { if recordsOnAppear { start() } }
         .onDisappear(perform: stop)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
+            if recording { cancel() }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(recording ? "Recording" : key?.label ?? "Record Shortcut")
     }
 
     private func start() {
+        guard monitor == nil else { return }
         recording = true
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            MainActor.assumeIsolated { handle(event) }
-            return nil
+        // A click anywhere, or the app going to the back, ends the recording rather than leaving it to
+        // swallow keys meant for whatever was clicked.
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown, .rightMouseDown]) { event in
+            let isKey = event.type == .keyDown
+            MainActor.assumeIsolated { isKey ? handle(event) : cancel() }
+            return isKey ? nil : event
         }
     }
 
     private func handle(_ event: NSEvent) {
-        guard let pressed = KeyCombo(event: event) else { return }
+        guard !event.isARepeat, let pressed = KeyCombo(event: event) else { return }
         if pressed == KeyCombo("Escape", []) { return cancel() }
         if pressed == KeyCombo("Backspace", []) {
             stop()

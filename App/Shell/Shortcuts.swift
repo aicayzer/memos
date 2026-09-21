@@ -1,5 +1,8 @@
 import AppKit
+import OSLog
 import SwiftUI
+
+private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "shortcuts")
 
 /// The app's shortcuts in one place: the menus, the palette, the editor's keymap and Settings read it, so
 /// they cannot disagree. The keys themselves come from `ShortcutSettings`, which starts from `defaultKeys`.
@@ -15,7 +18,8 @@ enum Shortcut: String, CaseIterable, Identifiable {
         switch self {
         case .newMemo, .duplicate, .favorite, .browse, .back, .forward, .copyMarkdown, .saveAs, .find, .palette, .sidePane:
             false
-        default:
+        case .heading1, .heading2, .heading3, .paragraph, .bold, .italic, .strikethrough, .code, .codeBlock, .quote,
+             .bulletList, .orderedList, .taskList:
             true
         }
     }
@@ -102,8 +106,9 @@ struct KeyCombo: Hashable, Codable, Sendable {
         self.modifiers = modifiers
     }
 
-    /// The key the event carries, or nil for a bare modifier. Letters are read from the layout without
-    /// modifiers, so Option-3 on a British keyboard is the 3 key, and shift is a modifier rather than a case.
+    /// The key the event carries, or nil for a dead key, an unreadable character or a special key the web has
+    /// no name for. Letters are read from the layout without modifiers, so Option-3 on a British keyboard is
+    /// the 3 key, with shift a modifier rather than a case; shifted punctuation and digits keep their glyph.
     init?(event: NSEvent) {
         let flags = event.modifierFlags
         var modifiers: Modifiers = []
@@ -111,7 +116,8 @@ struct KeyCombo: Hashable, Codable, Sendable {
         if flags.contains(.option) { modifiers.insert(.option) }
         if flags.contains(.shift) { modifiers.insert(.shift) }
         if flags.contains(.command) { modifiers.insert(.command) }
-        if let special = event.specialKey, let name = Self.specialName(special) {
+        if let special = event.specialKey {
+            guard let name = Self.specialName(special) else { return nil }
             self.init(name, modifiers)
             return
         }
@@ -139,7 +145,7 @@ struct KeyCombo: Hashable, Codable, Sendable {
         case .end: "End"
         case .pageUp: "PageUp"
         case .pageDown: "PageDown"
-        case .f1, .f2, .f3, .f4, .f5, .f6, .f7, .f8, .f9, .f10, .f11, .f12:
+        case .f1, .f2, .f3, .f4, .f5, .f6, .f7, .f8, .f9, .f10, .f11, .f12, .f13, .f14, .f15, .f16, .f17, .f18, .f19:
             "F\(key.rawValue - NSEvent.SpecialKey.f1.rawValue + 1)"
         default: nil
         }
@@ -189,7 +195,7 @@ struct KeyCombo: Hashable, Codable, Sendable {
 
     private static func keyEquivalent(for key: String) -> KeyEquivalent? {
         if let known = keyEquivalents[key] { return known }
-        if key.hasPrefix("F"), let number = Int(key.dropFirst()), (1...12).contains(number) {
+        if key.hasPrefix("F"), let number = Int(key.dropFirst()), (1...19).contains(number) {
             // Function keys are the private-use characters AppKit gives them.
             return KeyEquivalent(Character(UnicodeScalar(NSF1FunctionKey + number - 1)!))
         }
@@ -226,8 +232,16 @@ final class ShortcutSettings {
 
     init(defaults: UserDefaults) {
         self.defaults = defaults
-        let data = defaults.data(forKey: Self.key)
-        overrides = data.flatMap { try? JSONDecoder().decode([String: [KeyCombo]].self, from: $0) } ?? [:]
+        var stored: [String: [KeyCombo]] = [:]
+        if let data = defaults.data(forKey: Self.key) {
+            do {
+                stored = try JSONDecoder().decode([String: [KeyCombo]].self, from: data)
+            } catch {
+                log.error("shortcuts unreadable, defaults used: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        // A shortcut that no longer exists has nothing to show its override on.
+        overrides = stored.filter { Shortcut(rawValue: $0.key) != nil }
     }
 
     func keys(for shortcut: Shortcut) -> [KeyCombo] {
@@ -264,9 +278,13 @@ final class ShortcutSettings {
         return owners.filter { $0.value.count > 1 }
     }
 
-    /// The app's keys beyond the first of each, which the menu cannot carry, for the window to match.
+    /// The app's keys beyond the first of each, which the menu cannot carry, for the window to match. A key
+    /// some shortcut shows as its first stays with the menu, so what the menu shows is what happens.
     var alternates: [(key: KeyCombo, shortcut: Shortcut)] {
-        Shortcut.app.flatMap { shortcut in keys(for: shortcut).dropFirst().map { (key: $0, shortcut: shortcut) } }
+        let shown = Set(Shortcut.allCases.compactMap(first))
+        return Shortcut.app.flatMap { shortcut in
+            keys(for: shortcut).dropFirst().filter { !shown.contains($0) }.map { (key: $0, shortcut: shortcut) }
+        }
     }
 
     /// The editor's bindings, by shortcut name, for the web editor's keymap.

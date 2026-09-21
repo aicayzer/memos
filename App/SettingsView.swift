@@ -131,7 +131,9 @@ struct SettingsView: View {
         ForEach(Array(keys.enumerated()), id: \.offset) { index, key in
             LabeledContent(index == 0 ? shortcut.title : "") {
                 KeyRecorder(key: key, conflict: Self.others(sharing: key, with: shortcut, in: conflicts)) { recorded in
-                    var keys = keys
+                    // Read again: the keys may have changed while the recorder waited.
+                    var keys = model.shortcuts.keys(for: shortcut)
+                    guard keys.indices.contains(index) else { return }
                     if let recorded { keys[index] = recorded } else { keys.remove(at: index) }
                     model.shortcuts.setKeys(keys, for: shortcut)
                 }
@@ -151,7 +153,7 @@ struct SettingsView: View {
             LabeledContent(keys.isEmpty ? shortcut.title : "") {
                 KeyRecorder(key: nil, conflict: nil, recordsOnAppear: adding == shortcut) { recorded in
                     adding = nil
-                    if let recorded { model.shortcuts.setKeys(keys + [recorded], for: shortcut) }
+                    if let recorded { model.shortcuts.setKeys(model.shortcuts.keys(for: shortcut) + [recorded], for: shortcut) }
                 } onCancel: {
                     adding = nil
                 }

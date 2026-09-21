@@ -284,15 +284,14 @@ export class MemoEditor {
           LiftListItem: { shortcuts: 'Shift-Tab' },
         }))
         // Formatting keys are the app's to set, through setKeymap; the presets' own go.
-        const unbind = (keymap: $UserKeymap<string, string>, keep: string[] = []) =>
-          ctx.update(keymap.key, (keys) =>
-            Object.fromEntries(
-              Object.entries(keys).map(([name, key]) => [
-                name,
-                keep.includes(name) ? key : { shortcuts: [] },
-              ]),
-            ),
-          )
+        const unbind = <K extends string>(keymap: $UserKeymap<string, K>, keep: K[] = []) =>
+          ctx.update(keymap.key, (keys) => {
+            const cleared = { ...keys }
+            for (const name of Object.keys(cleared) as K[]) {
+              if (!keep.includes(name)) cleared[name] = { shortcuts: [] }
+            }
+            return cleared
+          })
         unbind(strongKeymap)
         unbind(emphasisKeymap)
         unbind(inlineCodeKeymap)
@@ -363,13 +362,12 @@ export class MemoEditor {
     this.editor.ctx.get(editorViewCtx).focus()
   }
 
-  /** Binds keys, in ProseMirror's names, to the formatting each shortcut runs. */
+  /** Binds keys, in ProseMirror's names, to the formatting each shortcut runs. Walked in the table's
+   *  order, so a key given to two shortcuts lands the same way every time. */
   setKeymap(keymap: Keymap): void {
     const bindings: Record<string, Command> = {}
-    for (const [name, keys] of Object.entries(keymap)) {
-      const command = shortcutCommands[name]
-      if (!command) continue
-      for (const key of keys) {
+    for (const [name, command] of Object.entries(shortcutCommands)) {
+      for (const key of keymap[name] ?? []) {
         bindings[key] = () => {
           this.format(...command)
           return true

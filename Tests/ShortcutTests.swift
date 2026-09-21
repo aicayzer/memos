@@ -13,7 +13,7 @@ import Testing
 
     @Test func eventsReadAsKeys() {
         #expect(KeyCombo(event: event("n", flags: [.command])) == KeyCombo("n", [.command]))
-        #expect(KeyCombo(event: event("F", ignoring: "f", flags: [.shift, .command])) == KeyCombo("f", [.shift, .command]))
+        #expect(KeyCombo(event: event("F", ignoring: "F", flags: [.shift, .command])) == KeyCombo("f", [.shift, .command]))
         // Option-3 on a British keyboard types a hash; the shortcut is the 3 key.
         #expect(KeyCombo(event: event("#", ignoring: "3", flags: [.option, .command])) == KeyCombo("3", [.option, .command]))
         #expect(KeyCombo(event: event("\u{F702}", flags: [.option, .command])) == KeyCombo("ArrowLeft", [.option, .command]))
@@ -24,6 +24,9 @@ import Testing
         #expect(KeyCombo(event: event(" ", keyCode: 49)) == KeyCombo("Space", []))
         // A caps-lock or function flag is not part of a shortcut.
         #expect(KeyCombo(event: event("n", flags: [.command, .capsLock, .function])) == KeyCombo("n", [.command]))
+        #expect(KeyCombo(event: event("\u{F710}", flags: [.command])) == KeyCombo("F13", [.command]))
+        // A special key the web has no name for, such as Insert, is not a shortcut at all.
+        #expect(KeyCombo(event: event("\u{F727}", flags: [.command])) == nil)
     }
 
     @Test func onlyChordsAndFunctionKeysAreShortcuts() {
@@ -67,7 +70,8 @@ import Testing
 @MainActor
 @Suite struct ShortcutSettingsTests {
     private func settings() -> (ShortcutSettings, UserDefaults) {
-        let defaults = UserDefaults(suiteName: "shortcut-tests-\(UUID().uuidString)")!
+        let defaults = UserDefaults(suiteName: "shortcut-tests")!
+        defaults.removePersistentDomain(forName: "shortcut-tests")
         return (ShortcutSettings(defaults: defaults), defaults)
     }
 
@@ -100,6 +104,27 @@ import Testing
         #expect(settings.label(.duplicate) == nil)
         settings.reset()
         #expect(settings.keys(for: .duplicate) == Shortcut.duplicate.defaultKeys)
+    }
+
+    @Test func anAlternateNeverTakesAShownKey() {
+        let (settings, _) = settings()
+        // ⌘F shows on Find in Memo; as a second key of New Memo it would take the menu's key first.
+        settings.setKeys([KeyCombo("m", [.command]), KeyCombo("f", [.command])], for: .newMemo)
+        #expect(!settings.alternates.contains { $0.key == KeyCombo("f", [.command]) })
+        #expect(settings.conflicts[KeyCombo("f", [.command])] == [.newMemo, .find])
+    }
+
+    @Test func unknownAndUnreadableOverridesAreDropped() {
+        let defaults = UserDefaults(suiteName: "shortcut-tests")!
+        defaults.removePersistentDomain(forName: "shortcut-tests")
+        defaults.set(Data("{\"gone\": [], \"newMemo\": [{\"key\": \"m\", \"modifiers\": 8}]}".utf8), forKey: "shortcuts")
+        let settings = ShortcutSettings(defaults: defaults)
+        #expect(settings.keys(for: .newMemo) == [KeyCombo("m", [.command])])
+        #expect(!settings.isDefault)
+        settings.setKeys(Shortcut.newMemo.defaultKeys, for: .newMemo)
+        #expect(settings.isDefault)
+        defaults.set(Data("nonsense".utf8), forKey: "shortcuts")
+        #expect(ShortcutSettings(defaults: defaults).isDefault)
     }
 
     @Test func conflictsNameEveryOwner() {
