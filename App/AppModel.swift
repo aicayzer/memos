@@ -396,7 +396,12 @@ enum Accent: Equatable {
     case system
     case custom(NSColor)
 
-    static let standardColor = NSColor(hexString: "#FFD60A")!
+    /// Yellow; the darker one in light appearance, where the brighter is faint over white.
+    static let standardColor = NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? standardDark : standardLight
+    }
+    private static let standardLight = NSColor(hexString: "#FFCC00")!
+    private static let standardDark = NSColor(hexString: "#FFD60A")!
 
     init(stored: String?) {
         switch stored {

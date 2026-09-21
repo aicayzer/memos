@@ -117,13 +117,12 @@ final class EditorController: NSObject {
 
     private func applyAccent() {
         guard isReady else { return }
-        var resolved = accentOverride
-        if resolved == nil {
-            NSApp.effectiveAppearance.performAsCurrentDrawingAppearance {
-                resolved = NSColor.controlAccentColor
-            }
+        var hex: String?
+        // The standard and system accents are dynamic colors; they resolve in whatever appearance is current.
+        NSApp.effectiveAppearance.performAsCurrentDrawingAppearance {
+            hex = (accentOverride ?? NSColor.controlAccentColor).hexString
         }
-        guard let hex = resolved?.hexString else { return }
+        guard let hex else { return }
         call("setAccent", json(hex))
     }
 
