@@ -1,6 +1,10 @@
-<img src="App/Resources/AppIcon.png" width="128" alt="">
+<img src="App/Resources/AppIcon.png" width="88" alt="">
 
 # Memos
+
+[![CI](https://github.com/aicayzer/memos/actions/workflows/ci.yml/badge.svg)](https://github.com/aicayzer/memos/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/aicayzer/memos)](https://github.com/aicayzer/memos/releases)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 A small native Mac app for memos: one window that floats above whatever you are doing, a memo filling it, edited as formatted text and stored as markdown. Keyboard first, system fonts and colors, nothing decorative.
 
@@ -66,3 +70,7 @@ pnpm build
 ```
 
 See `AGENTS.md` for conventions and `editor/BRIDGE.md` for the message protocol between the app and the editor.
+
+## License
+
+[MIT](LICENSE).

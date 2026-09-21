@@ -1,6 +1,6 @@
 name: Memos
 options:
-  bundleIdPrefix: com.withmarfa
+  bundleIdPrefix: me.cyzr
   deploymentTarget:
     macOS: "26.0"
   createIntermediateGroups: true
@@ -32,7 +32,7 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: 1
     # The app's identifier, which the command line tool reads to find the app's container.
-    MEMOS_APP_IDENTIFIER: com.withmarfa.memos
+    MEMOS_APP_IDENTIFIER: me.cyzr.memos
 targets:
   Memos:
     type: application
@@ -127,7 +127,7 @@ targets:
       - target: Memos
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.withmarfa.memos.tests
+        PRODUCT_BUNDLE_IDENTIFIER: me.cyzr.memos.tests
         GENERATE_INFOPLIST_FILE: YES
         ENABLE_HARDENED_RUNTIME: NO
 schemes:
