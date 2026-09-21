@@ -1,7 +1,6 @@
 import Foundation
 
-/// A section of the side pane.
-struct MemoGroup: Identifiable, Equatable {
+struct MemoGroup: Identifiable {
     let title: String
     var memos: [Memo]
 
@@ -9,9 +8,8 @@ struct MemoGroup: Identifiable, Equatable {
 }
 
 extension MemoGroup {
-    /// Favorites first, then by when the memo was last edited, in the spans Notes uses: the day, the day
-    /// before, the week, the month, then a section per month of this year and one per earlier year.
-    /// Memos keep their order within a group.
+    /// Favorites first, then sections by last edit in the spans Apple Notes uses. Memos keep their order
+    /// within a group.
     static func grouped(_ memos: [Memo], now: Date = .now, calendar: Calendar = .current) -> [MemoGroup] {
         var groups: [MemoGroup] = []
         var index: [String: Int] = [:]
@@ -36,10 +34,10 @@ extension MemoGroup {
         if date >= daysAgo(1) { return "Yesterday" }
         if date >= daysAgo(7) { return "Previous 7 Days" }
         if date >= daysAgo(30) { return "Previous 30 Days" }
-        let locale = calendar.locale ?? .current
-        if calendar.isDate(date, equalTo: now, toGranularity: .year) {
-            return date.formatted(Date.FormatStyle(calendar: calendar).month(.wide).locale(locale))
-        }
-        return date.formatted(Date.FormatStyle(calendar: calendar).year().locale(locale))
+        let style = Date.FormatStyle(
+            locale: calendar.locale ?? .current, calendar: calendar, timeZone: calendar.timeZone, capitalizationContext: .standalone
+        )
+        if calendar.isDate(date, equalTo: now, toGranularity: .year) { return date.formatted(style.month(.wide)) }
+        return date.formatted(style.year())
     }
 }
