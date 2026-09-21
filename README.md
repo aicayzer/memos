@@ -1,3 +1,5 @@
+<img src="App/Resources/AppIcon.png" width="128" alt="">
+
 # Memos
 
 A small native Mac app for memos: one window that floats above whatever you are doing, a memo filling it, edited as formatted text and stored as markdown. Keyboard first, system fonts and colors, nothing decorative.
@@ -46,6 +48,8 @@ Requires Xcode 26 or later, [XcodeGen](https://github.com/yonaskolb/XcodeGen) an
 xcodegen generate
 xcodebuild -project Memos.xcodeproj -scheme Memos -configuration Debug build
 ```
+
+The app icon is an Icon Composer document, `App/Resources/AppIcon.icon`, which Xcode compiles; `App/Resources/AppIcon.png` is the same icon rendered, for this page.
 
 The editor is built by a run-script phase during the app build. To work on it alone:
 
