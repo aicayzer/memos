@@ -63,7 +63,8 @@ struct FormatBar: View {
                 Toggle("Numbered List", isOn: toggle(caret.block == .orderedList) { editor.format(.orderedList) })
                 Toggle("Task List", isOn: toggle(caret.block == .taskList) { editor.format(.taskList) })
             } label: {
-                Image(systemName: listSymbol).font(.system(size: Chrome.iconSize, weight: .medium))
+                // The list glyphs read smaller than the rest at the same point size.
+                Image(systemName: listSymbol).font(.system(size: Chrome.iconSize + 1, weight: .medium))
             }
         }
         .menuStyle(.button)
