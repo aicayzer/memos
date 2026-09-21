@@ -57,7 +57,7 @@ struct SettingsView: View {
                     if !model.menuBarItem, !model.showInDock {
                         Text("With both off, the keyboard shortcut still opens the window.")
                     } else if !hasShortcut, model.menuBarItem != model.showInDock {
-                        Text("Set a shortcut to switch this off as well.")
+                        Text("Set a shortcut in Shortcuts to switch this off as well.")
                     }
                 }
             }
@@ -115,8 +115,8 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420)
-        .fixedSize(horizontal: false, vertical: true)
+        // The list outgrows a laptop screen, so this tab scrolls at a set height.
+        .frame(width: 420, height: 560)
     }
 
     private func keys(_ label: String) -> some View {
