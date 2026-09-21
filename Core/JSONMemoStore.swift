@@ -133,7 +133,7 @@ actor JSONMemoStore: MemoStore {
     }
 
     // Whole seconds would tie memos made within one, and the order is read back from the file every time.
-    // The style reads whole seconds too, as the file was written before.
+    // The style still reads a date without them, which is what a hand edit or another writer would put.
     private static let dateFormat = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
 
     private static let encoder: JSONEncoder = {

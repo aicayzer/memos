@@ -288,7 +288,6 @@ body {
   background: var(--accent);
 }
 
-/* The check mark: two edges of a rotated box. */
 .ProseMirror li[data-item-type='task'][data-checked='true']::after {
   content: '';
   position: absolute;

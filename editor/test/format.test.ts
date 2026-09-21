@@ -122,7 +122,7 @@ test('inline code toggled on and off again at a caret leaves nothing behind', as
   })
 })
 
-test('cancelling a pending code mark leaves the span next to the caret alone', async () => {
+test('canceling a pending code mark leaves the span next to the caret alone', async () => {
   await withMemoEditor('A `foo` b\n', (editor, states) => {
     placeCaret(editor, 6)
     editor.format('code')

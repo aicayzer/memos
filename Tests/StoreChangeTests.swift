@@ -52,16 +52,11 @@ actor ChangeableStore: MemoStore {
         return (model, store, memo)
     }
 
-    /// The change debounces for 200ms and then reads the store.
-    private func settle() async throws {
-        try await Task.sleep(for: .milliseconds(350))
-    }
-
     @Test func aChangeOutsideReachesTheMemoOnScreen() async throws {
         let (model, store, memo) = await model()
         await store.replace(memo.id, with: "Changed elsewhere\n")
         model.storeChanged()
-        try await settle()
+        await model.settle()
         #expect(model.current?.markdown == "Changed elsewhere\n")
         #expect(model.storeGeneration == 1)
     }
@@ -70,7 +65,7 @@ actor ChangeableStore: MemoStore {
         let (model, store, memo) = await model()
         await store.replace(memo.id, with: memo.markdown, favorite: true)
         model.storeChanged()
-        try await settle()
+        await model.settle()
         #expect(model.current?.favorite == true)
         #expect(model.current?.markdown == memo.markdown)
     }
@@ -80,10 +75,8 @@ actor ChangeableStore: MemoStore {
         model.editor.onChanged("Typed here\n")
         await store.replace(memo.id, with: "Changed elsewhere\n")
         model.storeChanged()
-        try await settle()
+        await model.settle()
         #expect(model.current?.markdown == "Typed here\n")
-        // Once the edit has saved, it is what the store holds.
-        try await Task.sleep(for: .milliseconds(400))
         #expect(await store.get(memo.id)?.markdown == "Typed here\n")
     }
 
@@ -92,7 +85,7 @@ actor ChangeableStore: MemoStore {
         model.editor.onChanged("Typed here\n")
         await store.delete(memo.id)
         model.storeChanged()
-        try await Task.sleep(for: .milliseconds(800))
+        await model.settle()
         #expect(model.current?.markdown == "Typed here\n")
         #expect(model.current?.id != memo.id)
         #expect(await store.list(matching: nil).map(\.markdown) == ["Typed here\n"])
@@ -103,7 +96,7 @@ actor ChangeableStore: MemoStore {
         let other = await store.create(markdown: "Other\n")
         await store.delete(memo.id)
         model.storeChanged()
-        try await settle()
+        await model.settle()
         #expect(model.current?.id == other.id)
     }
 }

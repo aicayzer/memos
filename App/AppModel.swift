@@ -436,6 +436,12 @@ final class AppModel {
         }
     }
 
+    /// For the tests: a pending store change and save have landed.
+    func settle() async {
+        await storeChangeTask?.value
+        await saveTask?.value
+    }
+
     /// The store's folder changed. The app's own writes land here too, a few events per save, so the look
     /// waits for the burst to end; the memo on screen is reread unless an edit is on its way to the file.
     func storeChanged() {

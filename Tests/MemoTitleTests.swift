@@ -133,7 +133,7 @@ import Testing
         #expect(name == String(repeating: "a", count: 80) + ".md")
         let cutAtSpace = Memo.fileName(for: String(repeating: "a", count: 79) + " b c")
         #expect(cutAtSpace == String(repeating: "a", count: 79) + ".md")
-        let emoji = Memo.fileName(for: String(repeating: "🏳️‍🌈", count: 80))
+        let emoji = Memo.fileName(for: String(repeating: "\u{1F3F3}\u{FE0F}\u{200D}\u{1F308}", count: 80))
         #expect(emoji.utf8.count <= 203)
     }
 

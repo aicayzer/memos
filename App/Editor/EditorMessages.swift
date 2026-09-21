@@ -1,6 +1,6 @@
 import Foundation
 
-enum Mark: String, CaseIterable, Sendable {
+enum Mark: String, Sendable {
     case bold, italic, strikethrough, code, link
 }
 

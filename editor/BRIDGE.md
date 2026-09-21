@@ -13,6 +13,7 @@ Posted with `window.webkit.messageHandlers.host.postMessage(message)`. Without a
 | `state`    | `marks: Mark[]`, `block: Block`, `quoted: boolean` | The caret or document changed. `quoted` is true when one quote holds the whole selection; `block` is what sits inside it. |
 | `openLink` | `href: string`                                     | A link was ⌘-clicked. The app opens it; the page never navigates.                                                         |
 | `copy`     | `text: string`                                     | A code block's copy button was clicked. The app puts the text on the pasteboard.                                          |
+| `error`    | `message: string`                                  | An uncaught error or rejection in the page. Posted by a script the app injects, so the page needs nothing for it.         |
 
 `Mark` is one of `bold`, `italic`, `strikethrough`, `code`, `link`.
 

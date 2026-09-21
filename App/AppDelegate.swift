@@ -11,11 +11,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: MemoPanel?
     private var watcher: StoreWatcher?
 
+    /// The test host must not touch the real store or defaults, and must not hand over to a running app.
+    private static let isTestHost = ProcessInfo.processInfo.environment.keys.contains { $0.hasPrefix("XCTest") }
+
     override init() {
         let store: JSONMemoStore
         do {
-            // The test host must not touch the real store or defaults.
-            if ProcessInfo.processInfo.environment.keys.contains(where: { $0.hasPrefix("XCTest") }) {
+            if Self.isTestHost {
                 store = JSONMemoStore(fileURL: FileManager.default.temporaryDirectory.appending(path: "store-\(UUID().uuidString).json"))
                 model = AppModel(store: store, defaults: UserDefaults(suiteName: "tests")!)
             } else {
@@ -34,7 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Done here rather than with the Info.plist key, which would also stop the test host while the app runs.
         let others = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier!)
             .filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
-        if let other = others.first, !ProcessInfo.processInfo.environment.keys.contains(where: { $0.hasPrefix("XCTest") }) {
+        if let other = others.first, !Self.isTestHost {
             other.activate()
             NSApp.terminate(nil)
             return
