@@ -93,7 +93,7 @@ targets:
           DEST="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Editor"
           mkdir -p "$DEST"
           cp dist/index.html "$DEST/index.html"
-  # Named apart from the app: the build's intermediates folders are case-insensitive.
+  # Named apart from the app: the build's folders are case-insensitive.
   MemosTool:
     type: tool
     platform: macOS
@@ -109,6 +109,8 @@ targets:
     settings:
       base:
         PRODUCT_NAME: memos
+        # The module name would otherwise follow the product's and clash with the app's on a case-insensitive disk.
+        PRODUCT_MODULE_NAME: MemosTool
         PRODUCT_BUNDLE_IDENTIFIER: $(MEMOS_APP_IDENTIFIER).cli
         # A tool has no bundle; the plist rides in the binary so the identifiers above are readable.
         CREATE_INFOPLIST_SECTION_IN_BINARY: YES
