@@ -65,7 +65,7 @@ export const placeholderPlugin = $prose(
           if (state.doc.childCount !== 1 || !first?.isTextblock || first.content.size > 0)
             return null
           return DecorationSet.create(state.doc, [
-            Decoration.node(0, first.nodeSize, { class: 'empty', 'data-placeholder': 'New memo' }),
+            Decoration.node(0, first.nodeSize, { class: 'empty', 'data-placeholder': 'New memo…' }),
           ])
         },
       },
