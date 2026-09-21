@@ -22,7 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 store = JSONMemoStore(fileURL: FileManager.default.temporaryDirectory.appending(path: "store-\(UUID().uuidString).json"))
                 model = AppModel(store: store, defaults: UserDefaults(suiteName: "tests")!)
             } else {
-                store = try JSONMemoStore.inApplicationSupport()
+                // Another file, inside the container, for a run that must not show the real memos.
+                store = try JSONMemoStore.fromEnvironment ?? JSONMemoStore.inApplicationSupport()
                 model = AppModel(store: store)
             }
         } catch {
