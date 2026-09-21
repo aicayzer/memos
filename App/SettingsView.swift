@@ -53,14 +53,15 @@ struct SettingsView: View {
                 Toggle("Always on top", isOn: $model.floating)
                 Toggle("Side pane at launch", isOn: $model.sidePaneAtLaunch)
                 LabeledContent("Background") {
-                    Slider(value: $model.windowOpacity, in: 0...1) {
-                        Text("Background")
-                    } minimumValueLabel: {
-                        Text("Glass").foregroundStyle(.secondary)
-                    } maximumValueLabel: {
-                        Text("Solid").foregroundStyle(.secondary)
+                    // The slider draws its own value labels in the tint; beside it they stay secondary text.
+                    HStack(spacing: 8) {
+                        Text("Glass")
+                        Slider(value: $model.windowOpacity, in: 0...1) { Text("Background") }
+                            .labelsHidden()
+                        Text("Solid")
                     }
-                    .labelsHidden()
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 }
                 ColorPicker("Tint", selection: Binding(
                     get: { Color(nsColor: model.windowTint ?? WindowBackdrop.baseColor(for: colorScheme)) },
