@@ -98,10 +98,8 @@ struct SettingsView: View {
 
     private var shortcuts: some View {
         Form {
-            Section {
+            Section("Global Shortcuts") {
                 KeyboardShortcuts.Recorder("Show or hide the window", name: .toggleWindow) { hasShortcut = $0 != nil }
-            } footer: {
-                Text("Works from any app. The rest are fixed.")
             }
             Section("Memos") {
                 ForEach(Shortcut.allCases) { shortcut in
