@@ -1,7 +1,4 @@
 import Foundation
-import OSLog
-
-private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "app")
 
 extension AppModel {
     var paletteItems: [PaletteItem] {
@@ -45,6 +42,12 @@ extension AppModel {
             ) {
                 self.formatBarHidden.toggle()
             },
+            PaletteItem(
+                id: "sidePane", title: sidePane ? "Hide Side Pane" : "Show Side Pane",
+                symbol: "sidebar.left", shortcut: "⌃⌘S", section: 1
+            ) {
+                self.toggleSidePane()
+            },
         ]
     }
 
@@ -55,20 +58,15 @@ extension AppModel {
     }
 
     func browseItems(_ query: String) async -> [PaletteItem] {
-        do {
-            return try await store.list(matching: query).map { memo in
-                PaletteItem(
-                    id: memo.id.uuidString,
-                    title: memo.title,
-                    subtitle: memo.updatedAt.formatted(.relative(presentation: .named)),
-                    symbol: memo.pinned ? "pin.fill" : "doc.text"
-                ) {
-                    Task { await self.open(memo.id) }
-                }
+        await memos(matching: query).map { memo in
+            PaletteItem(
+                id: memo.id.uuidString,
+                title: memo.title,
+                subtitle: memo.updatedAt.formatted(.relative(presentation: .named)),
+                symbol: memo.pinned ? "pin.fill" : "doc.text"
+            ) {
+                Task { await self.open(memo.id) }
             }
-        } catch {
-            log.error("browse: \(error.localizedDescription, privacy: .public)")
-            return []
         }
     }
 }

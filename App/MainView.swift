@@ -10,19 +10,28 @@ struct MainView: View {
 
     var body: some View {
         @Bindable var model = model
-        VStack(spacing: 0) {
-            TopRow(active: active)
-            EditorView(controller: model.editor)
-                .overlay(alignment: .bottom) { bottomBar }
-                .overlay(alignment: .topTrailing) {
-                    if model.overlay == .find {
-                        FindBar(model: model).padding(12)
+        HStack(spacing: 0) {
+            if model.sidePane {
+                SidePane()
+                    .transition(.move(edge: .leading))
+                Divider()
+            }
+            VStack(spacing: 0) {
+                TopRow(active: active)
+                EditorView(controller: model.editor)
+                    .overlay(alignment: .bottom) { bottomBar }
+                    .overlay(alignment: .topTrailing) {
+                        if model.overlay == .find {
+                            FindBar(model: model).padding(12)
+                        }
                     }
-                }
-                .overlay(alignment: .top) { palette }
+                    .overlay(alignment: .top) { palette }
+            }
+            .frame(minWidth: Chrome.minWidth)
         }
         // The hidden title bar still reserves its height; the top row takes that space.
         .ignoresSafeArea(edges: .top)
+        .frame(minHeight: 240)
         .background(WindowReader { model.attach($0) })
         .containerBackground(for: .window) { WindowBackdrop(opacity: model.windowOpacity) }
         .navigationTitle(model.title)

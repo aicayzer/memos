@@ -13,6 +13,7 @@ struct SettingsView: View {
             }
             Section("Window") {
                 Toggle("Always on top", isOn: $model.floating)
+                Toggle("Side pane at launch", isOn: $model.sidePaneAtLaunch)
                 LabeledContent("Background") {
                     Slider(value: $model.windowOpacity, in: 0...1) {
                         Text("Background")
