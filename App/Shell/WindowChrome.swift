@@ -11,9 +11,7 @@ final class WindowChrome: NSObject {
         guard self.window !== window else { return }
         self.window = window
         // An empty unified toolbar gives the tall title bar the buttons are centered in.
-        let toolbar = NSToolbar()
-        toolbar.showsBaselineSeparator = false
-        window.toolbar = toolbar
+        window.toolbar = NSToolbar()
         window.toolbarStyle = .unified
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden

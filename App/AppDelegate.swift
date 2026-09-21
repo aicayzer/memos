@@ -1,12 +1,14 @@
 import AppKit
 import KeyboardShortcuts
 import OSLog
+import SwiftUI
 
 private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "app")
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model: AppModel
+    private var panel: MemoPanel?
 
     override init() {
         do {
@@ -29,7 +31,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         log.info("launched")
+        let panel = MemoPanel(content: MainView().environment(model))
+        self.panel = panel
+        model.attach(panel)
+        model.showWindow()
         KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        model.showWindow()
+        return false
     }
 
     func applicationDidResignActive(_ notification: Notification) {

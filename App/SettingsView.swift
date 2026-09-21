@@ -87,6 +87,8 @@ struct SettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
         // Otherwise the always-on-top memo window covers it.
         .background(WindowReader { $0.level = .floating })
+        // Opened from the panel while another app is in front, Settings would open behind it.
+        .onAppear { NSApp.activate() }
     }
 
     private enum AccentChoice: Hashable {

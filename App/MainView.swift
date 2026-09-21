@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MainView: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.openWindow) private var openWindow
     @State private var paletteQuery = ""
     @State private var browseQuery = ""
     @State private var browseItems: [PaletteItem] = []
@@ -32,11 +31,11 @@ struct MainView: View {
         // The hidden title bar still reserves its height; the top row takes that space.
         .ignoresSafeArea(edges: .top)
         .frame(minHeight: 240)
-        .background(WindowReader { model.attach($0) })
-        .containerBackground(for: .window) { WindowBackdrop(opacity: model.windowOpacity, tint: model.windowTint) }
-        .navigationTitle(model.title)
+        // The backdrop fills the title bar too; a background alone stops at the safe area in a hosting view.
+        .background { WindowBackdrop(opacity: model.windowOpacity, tint: model.windowTint).ignoresSafeArea() }
         .task { await model.start() }
-        .onAppear { model.openMainWindow = { openWindow(id: "main") } }
+        // Hidden, but the title is what accessibility and Mission Control call the window.
+        .onChange(of: model.title, initial: true) { model.window?.title = model.title }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { note in
             guard (note.object as? NSWindow) === model.window else { return }
             Task { await model.flush() }

@@ -72,8 +72,6 @@ final class AppModel {
 
     var title: String { current?.title ?? Memo.untitled }
 
-    /// Set by the main view, so the window can be reopened after it was closed.
-    @ObservationIgnored var openMainWindow: (() -> Void)?
     @ObservationIgnored private(set) weak var window: NSWindow?
     @ObservationIgnored private let chrome = WindowChrome()
     @ObservationIgnored private var windowBehavior: NSWindow.CollectionBehavior = []
@@ -185,6 +183,8 @@ final class AppModel {
         showWindowIfHidden()
         await flush()
         guard let current, let window else { return }
+        // Sheets and pickers are ordinary windows: only an active app gets their keyboard.
+        NSApp.activate()
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .plainText]
         panel.nameFieldStringValue = Memo.fileName(for: current.title)
@@ -210,6 +210,7 @@ final class AppModel {
             try current.markdown.write(to: url, atomically: true, encoding: .utf8)
             let picker = NSSharingServicePicker(items: [url])
             sharePicker = picker
+            NSApp.activate()
             // The hosting view is flipped, so the top row is the first row-height from y = 0.
             let left = sidePane ? Chrome.paneWidth + 1 : 0
             let bounds = contentView.bounds
@@ -268,7 +269,6 @@ final class AppModel {
 
     func attach(_ window: NSWindow) {
         self.window = window
-        window.setFrameAutosaveName("main")
         windowBehavior = window.collectionBehavior
         chrome.attach(window)
         applyWindowLevel()
@@ -291,33 +291,33 @@ final class AppModel {
         policyPending = false
     }
 
+    /// Key without activating: the app in front keeps the menu bar, this panel takes the keyboard.
     func showWindow() {
-        NSApp.activate()
-        if let window, window.isVisible {
-            window.makeKeyAndOrderFront(nil)
-        } else {
-            openMainWindow?()
-        }
+        guard let window else { return }
+        if NSApp.isHidden { NSApp.unhideWithoutActivation() }
+        if window.isMiniaturized { window.deminiaturize(nil) }
+        window.makeKeyAndOrderFront(nil)
         editor.focus()
     }
 
-    /// Hides the app rather than the window, so focus returns to the previous app.
+    /// When the app is the one in front, hiding it hands focus back to the previous app; otherwise the panel alone goes.
     func toggleWindow() {
-        if NSApp.isActive, let window, window.isKeyWindow, window.isVisible {
-            NSApp.hide(nil)
+        if let window, window.isKeyWindow, window.isVisible {
+            if NSApp.isActive { NSApp.hide(nil) } else { window.orderOut(nil) }
         } else {
             showWindow()
         }
     }
 
+    /// A visible panel under another app's focus needs the keyboard back as much as a closed one needs showing.
     private func showWindowIfHidden() {
-        if window?.isVisible != true { openMainWindow?() }
+        if window?.isKeyWindow != true { showWindow() }
     }
 
     private func applyWindowLevel() {
         guard let window else { return }
         window.level = floating ? .floating : .normal
-        // On top means on every space too, including over full-screen apps; the flags SwiftUI set stay.
+        // On top means on every space too, including over full-screen apps; the flags the panel starts with stay.
         var behavior = windowBehavior
         if floating {
             behavior.remove(.fullScreenPrimary)
@@ -385,6 +385,8 @@ final class AppModel {
 
     private func report(_ error: any Error) {
         log.error("\(error.localizedDescription, privacy: .public)")
+        // An alert from an inactive app lands behind the app in front.
+        NSApp.activate()
         NSApp.presentError(error)
     }
 }
