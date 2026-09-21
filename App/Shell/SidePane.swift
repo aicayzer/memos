@@ -1,11 +1,12 @@
 import SwiftUI
 
-/// The memo list beside the editor: a search field, then favorites and the rest by recency.
+/// The memo list beside the editor: a search field, then the memos in sections by recency.
 struct SidePane: View {
     @Environment(AppModel.self) private var model
     let active: Bool
     @State private var query = ""
-    @State private var memos: [Memo] = []
+    @State private var groups: [MemoGroup] = []
+    @State private var day = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,23 +36,38 @@ struct SidePane: View {
             .padding(.horizontal, 12)
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(memos) { memo in
-                        Button { open(memo) } label: { HoverHighlight { row(memo) } }
-                            .buttonStyle(.plain)
-                            .accessibilityAddTraits(memo.id == model.current?.id ? .isSelected : [])
+                    ForEach(groups) { group in
+                        Section {
+                            ForEach(group.memos) { memo in
+                                Button { open(memo) } label: { HoverHighlight { row(memo) } }
+                                    .buttonStyle(.plain)
+                                    .accessibilityAddTraits(memo.id == model.current?.id ? .isSelected : [])
+                            }
+                        } header: {
+                            Text(group.title)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 8)
+                                .padding(.top, 14)
+                                .padding(.bottom, 4)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .accessibilityAddTraits(.isHeader)
+                        }
                     }
                 }
-                .padding(8)
+                .padding(.horizontal, 8)
+                .padding(.bottom, 8)
             }
         }
         .frame(width: Chrome.paneWidth)
-        // The store changes only on save and on favoriting, so those and the query drive the list; the title
-        // of the memo being edited comes from the model until then.
-        .task(id: RefreshKey(query: query, memo: model.current)) {
+        // The store changes only on save and on favoriting, so those and the query drive the list, and the day,
+        // since the sections follow it; the title of the memo being edited comes from the model until then.
+        .task(id: RefreshKey(query: query, memo: model.current, day: day)) {
             let listed = await model.memos(matching: query)
             guard !Task.isCancelled else { return }
-            memos = listed
+            groups = MemoGroup.grouped(listed)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in day += 1 }
     }
 
     private struct RefreshKey: Equatable {
@@ -59,12 +75,14 @@ struct SidePane: View {
         let id: Memo.ID?
         let updatedAt: Date?
         let favorite: Bool?
+        let day: Int
 
-        init(query: String, memo: Memo?) {
+        init(query: String, memo: Memo?, day: Int) {
             self.query = query
             id = memo?.id
             updatedAt = memo?.updatedAt
             favorite = memo?.favorite
+            self.day = day
         }
     }
 
