@@ -7,8 +7,20 @@ struct SettingsView: View {
     @State private var hasShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow) != nil
 
     var body: some View {
+        TabView {
+            Tab("App", systemImage: "macwindow") { app }
+            Tab("Shortcuts", systemImage: "keyboard") { shortcuts }
+        }
+        .tint(model.accentColor)
+        // Otherwise the always-on-top memo window covers it.
+        .background(WindowReader { $0.level = .floating })
+        // Opened from the panel while another app is in front, Settings would open behind it.
+        .onAppear { NSApp.activate() }
+    }
+
+    private var app: some View {
         @Bindable var model = model
-        Form {
+        return Form {
             Section {
                 Picker("Accent", selection: Binding(
                     get: { AccentChoice(model.accent) },
@@ -45,7 +57,7 @@ struct SettingsView: View {
                     if !model.menuBarItem, !model.showInDock {
                         Text("With both off, the keyboard shortcut still opens the window.")
                     } else if !hasShortcut, model.menuBarItem != model.showInDock {
-                        Text("Set a shortcut to switch this off as well.")
+                        Text("Set a shortcut in Shortcuts to switch this off as well.")
                     }
                 }
             }
@@ -78,18 +90,40 @@ struct SettingsView: View {
                         .disabled(model.windowTint == nil && model.windowOpacity == AppModel.defaultWindowOpacity)
                 }
             }
-            Section("Shortcut") {
+        }
+        .formStyle(.grouped)
+        .frame(width: 420)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var shortcuts: some View {
+        Form {
+            Section {
                 KeyboardShortcuts.Recorder("Show or hide the window", name: .toggleWindow) { hasShortcut = $0 != nil }
+            } footer: {
+                Text("Works from any app. The rest are fixed.")
+            }
+            Section("Memos") {
+                ForEach(Shortcut.allCases) { shortcut in
+                    LabeledContent(shortcut.title) { keys(shortcut.label) }
+                }
+            }
+            Section("Editor") {
+                ForEach(Shortcut.editor, id: \.title) { shortcut in
+                    LabeledContent(shortcut.title) { keys(shortcut.label) }
+                }
             }
         }
         .formStyle(.grouped)
-        .tint(model.accentColor)
-        .frame(width: 420)
-        .fixedSize(horizontal: false, vertical: true)
-        // Otherwise the always-on-top memo window covers it.
-        .background(WindowReader { $0.level = .floating })
-        // Opened from the panel while another app is in front, Settings would open behind it.
-        .onAppear { NSApp.activate() }
+        // The list outgrows a laptop screen, so this tab scrolls at a set height.
+        .frame(width: 420, height: 560)
+    }
+
+    private func keys(_ label: String) -> some View {
+        Text(label)
+            .font(.system(size: 12, weight: .medium))
+            .monospacedDigit()
+            .foregroundStyle(.secondary)
     }
 
     private enum AccentChoice: Hashable {
