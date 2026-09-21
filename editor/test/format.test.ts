@@ -238,3 +238,18 @@ test('an empty memo turned into a heading shows the marks, not the placeholder',
     expect(view.dom.querySelector('.empty')).toBeNull()
   })
 })
+
+test('dropped paths become paragraphs after the block, or replace an empty one', async () => {
+  await withMemoEditor('- item\n\nText\n', (editor) => {
+    placeCaret(editor, 3)
+    // A point outside the (unlaid-out) page resolves to the caret.
+    editor.insertPaths(['/a/b.txt', '/c d/e_f.pdf'], -100, -100)
+    expect(serialize(ctxOf(editor))).toBe('- item\n\n/a/b.txt\n\n/c d/e\\_f.pdf\n\nText\n')
+    const view = ctxOf(editor).get(editorViewCtx)
+    expect(view.state.selection.$from.parent.textContent).toBe('/c d/e_f.pdf')
+  })
+  await withMemoEditor('', (editor) => {
+    editor.insertPaths(['/only'], -100, -100)
+    expect(serialize(ctxOf(editor))).toBe('/only\n')
+  })
+})

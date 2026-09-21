@@ -18,7 +18,7 @@ final class EditorController: NSObject {
         didSet { applyAccent() }
     }
 
-    @ObservationIgnored let webView: WKWebView
+    @ObservationIgnored let webView: EditorWebView
     @ObservationIgnored private var pendingMarkdown: String?
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var editorURL: URL?
@@ -27,8 +27,16 @@ final class EditorController: NSObject {
     override init() {
         let configuration = WKWebViewConfiguration()
         configuration.preferences.isElementFullscreenEnabled = false
-        webView = WKWebView(frame: .zero, configuration: configuration)
+        webView = EditorWebView(frame: .zero, configuration: configuration)
         super.init()
+        webView.onDropFiles = { [weak self] urls, point in
+            // A folder's path as Finder copies it, without the slash a URL carries.
+            let paths = urls.map { url in
+                let path = url.path(percentEncoded: false)
+                return path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
+            }
+            self?.insertPaths(paths, at: point)
+        }
         #if DEBUG
         webView.isInspectable = true
         #endif
@@ -90,6 +98,12 @@ final class EditorController: NSObject {
         call("focus")
     }
 
+    /// Inserts the paths as lines at a point in the view, and takes the keyboard, as typing there would.
+    func insertPaths(_ paths: [String], at point: CGPoint) {
+        webView.window?.makeFirstResponder(webView)
+        call("insertPaths", json(paths), String(Double(point.x)), String(Double(point.y)))
+    }
+
     /// The document as markdown, or nil while it is still what was loaded.
     func markdown() async -> String? {
         guard isReady else { return nil }
@@ -106,8 +120,8 @@ final class EditorController: NSObject {
         }
     }
 
-    private func json(_ string: String) -> String {
-        let data = try! JSONEncoder().encode(string)
+    private func json(_ value: some Encodable) -> String {
+        let data = try! JSONEncoder().encode(value)
         return String(decoding: data, as: UTF8.self)
     }
 

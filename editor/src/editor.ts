@@ -302,6 +302,31 @@ export class MemoEditor {
     this.editor.ctx.get(editorViewCtx).focus()
   }
 
+  /** Dropped files land as one paragraph per path at the drop point: in place of an empty block, after
+   *  the top-level block otherwise, so a list or quote is not opened up by them. */
+  insertPaths(paths: string[], x: number, y: number): void {
+    if (paths.length === 0) return
+    const view = this.editor.ctx.get(editorViewCtx)
+    const { state } = view
+    const { schema } = state
+    const $pos = state.doc.resolve(
+      view.posAtCoords({ left: x, top: y })?.pos ?? state.selection.from,
+    )
+    const paragraphs = paths.map((path) => schema.nodes.paragraph!.create(null, schema.text(path)))
+    const tr = state.tr
+    let at: number
+    if ($pos.depth === 1 && $pos.parent.isTextblock && $pos.parent.content.size === 0) {
+      at = $pos.before(1)
+      tr.replaceWith(at, $pos.after(1), paragraphs)
+    } else {
+      at = $pos.depth > 0 ? $pos.after(1) : $pos.pos
+      tr.insert(at, paragraphs)
+    }
+    const end = at + paragraphs.reduce((size, node) => size + node.nodeSize, 0) - 1
+    view.dispatch(tr.setSelection(TextSelection.create(tr.doc, end)).scrollIntoView())
+    this.focus()
+  }
+
   // Removing a mark at a caret only clears the stored mark, so the whole marked
   // run is selected for the command and the caret put back after it.
   private withMarkRunSelected(mark: MarkType, command: () => void): boolean {
