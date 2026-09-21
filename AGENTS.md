@@ -26,4 +26,4 @@ This file governs every session that works in this repository.
 
 ## Store
 
-The store behind `MemoStore` is a single JSON file and is replaced later by a different backend. Keep the protocol small and do not add fields for sync, tags or folders.
+The store behind `MemoStore` is a single JSON file. Keep the protocol small, so another store can stand behind it, and do not add fields for sync, tags or folders.

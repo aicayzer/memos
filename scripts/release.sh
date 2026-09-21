@@ -3,8 +3,8 @@
 # an EdDSA-signed appcast; both uploaded to the updates bucket; a tag and a GitHub release with the DMG.
 #
 # The version is MARKETING_VERSION in project.yml, so a release starts with a commit that bumps it; the
-# build number is the commit count, which only ever grows. Sparkle's tools come with the package, so a
-# build of the project must have resolved it (they sit under build/SourcePackages).
+# build number is the commit count, which only ever grows. Sparkle's tools come with its package, under
+# build/SourcePackages once the archive has resolved it.
 #
 # Needs, from the environment:
 #   ASC_KEY_ID, ASC_ISSUER_ID   an App Store Connect API key for notarytool; the key file is
@@ -56,7 +56,6 @@ fi
 [[ -n "${ASC_KEY_ID:-}" && -n "${ASC_ISSUER_ID:-}" ]] || fail "ASC_KEY_ID and ASC_ISSUER_ID are needed"
 [[ -r "$asc_key" ]] || fail "App Store Connect key not found at $asc_key"
 $dry_run || [[ -n "${CLOUDFLARE_API_TOKEN:-}" && -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]] || fail "CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are needed"
-[[ -x "$sparkle_bin/generate_appcast" ]] || fail "Sparkle's tools are missing; build the project once"
 identity=$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application: [^"]*('"$team"')\)".*/\1/p' | head -1)
 [[ -n "$identity" ]] || fail "no Developer ID Application certificate for $team"
 
@@ -88,6 +87,8 @@ plutil -insert teamID -string "$team" "$archive/ExportOptions.plist"
 xcodebuild -exportArchive -archivePath "$archive" -exportOptionsPlist "$archive/ExportOptions.plist" -exportPath "$export_dir" -quiet
 app="$export_dir/$app_name.app"
 [[ -d "$app" ]] || fail "export produced no app"
+# Resolving the package for the archive is what puts Sparkle's tools here.
+[[ -x "$sparkle_bin/generate_appcast" ]] || fail "Sparkle's tools are missing from $sparkle_bin"
 
 print -- "release: notarizing the app"
 ditto -c -k --keepParent "$app" "$export_dir/$app_name.zip"
