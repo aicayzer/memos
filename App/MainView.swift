@@ -84,19 +84,22 @@ struct MainView: View {
         .animation(.easeOut(duration: 0.15), value: active)
     }
 
+    // Set in from the sides and down from the title, floating over the text rather than capping it.
+    private let paletteInsets = EdgeInsets(top: 48, leading: 22, bottom: 16, trailing: 22)
+
     @ViewBuilder private var palette: some View {
         switch model.overlay {
         case .palette:
             PaletteView(
-                placeholder: "Search for actions",
+                placeholder: "Search for actions…",
                 items: model.filteredPaletteItems(paletteQuery),
                 query: $paletteQuery,
                 dismiss: model.dismissOverlay
             )
-            .padding(.horizontal, 16)
+            .padding(paletteInsets)
         case .browse:
-            PaletteView(placeholder: "Search memos", items: browseItems, query: $browseQuery, dismiss: model.dismissOverlay)
-                .padding(.horizontal, 16)
+            PaletteView(placeholder: "Search memos…", items: browseItems, query: $browseQuery, dismiss: model.dismissOverlay)
+                .padding(paletteInsets)
                 .task(id: browseQuery) { browseItems = await model.browseItems(browseQuery) }
         default:
             EmptyView()
