@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         log.info("launched")
         let panel = MemoPanel(content: MainView().environment(model))
+        panel.alternateKeys = [(.sidePane, { [model] in model.toggleSidePane() })]
         self.panel = panel
         model.attach(panel)
         model.showWindow()

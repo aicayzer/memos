@@ -103,7 +103,9 @@ struct SettingsView: View {
             }
             Section("Memos") {
                 ForEach(Shortcut.allCases) { shortcut in
-                    LabeledContent(shortcut.title) { keys(shortcut.label) }
+                    LabeledContent(shortcut.title) {
+                        keys(shortcut.alternate.map { "\(shortcut.label) or \($0.label)" } ?? shortcut.label)
+                    }
                 }
             }
             Section("Editor") {
