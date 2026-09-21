@@ -45,8 +45,6 @@ targets:
         CFBundleName: Memos
         LSApplicationCategoryType: public.app-category.productivity
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
-        # Two instances on one store overwrite each other's saves; a second launch brings the first forward.
-        LSMultipleInstancesProhibited: true
         NSHighResolutionCapable: true
     entitlements:
       path: App/Memos.entitlements

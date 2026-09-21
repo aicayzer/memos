@@ -26,6 +26,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        // Two instances on one store overwrite each other's saves, so a second launch hands over to the first.
+        // Done here rather than with the Info.plist key, which would also stop the test host while the app runs.
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier!)
+            .filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
+        if let other = others.first, !ProcessInfo.processInfo.environment.keys.contains(where: { $0.hasPrefix("XCTest") }) {
+            other.activate()
+            NSApp.terminate(nil)
+            return
+        }
         model.applyActivationPolicy()
     }
 
