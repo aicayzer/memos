@@ -179,3 +179,19 @@ test('a fenced block with a known language is colored, one without stays plain',
     expect(serialize(ctxOf(editor))).toBe('```js\nconst x = 1\n```\n\n```\nplain\n```\n')
   })
 })
+
+test('control characters typed into the memo are dropped', async () => {
+  await withMemoEditor('Plan\n', (editor) => {
+    const view = ctxOf(editor).get(editorViewCtx)
+    placeCaret(editor, 1)
+    const swallowed = view.someProp('handleTextInput', (handler) =>
+      handler(view, 1, 1, '\u000e', () => view.state.tr),
+    )
+    expect(swallowed).toBe(true)
+    const typed = view.someProp('handleTextInput', (handler) =>
+      handler(view, 1, 1, 'a', () => view.state.tr),
+    )
+    expect(typed).not.toBe(true)
+    expect(serialize(ctxOf(editor))).toBe('Plan\n')
+  })
+})
