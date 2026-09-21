@@ -38,6 +38,43 @@ import Testing
         #expect(!KeyCombo("n", [.option]).isShortcut)
     }
 
+    @Test func hotkeysMayUseOptionAlone() {
+        #expect(KeyCombo("n", [.option]).isHotkey)
+        #expect(!KeyCombo("n", [.option]).isShortcut)
+        #expect(KeyCombo("F5", []).isHotkey)
+        #expect(!KeyCombo("n", [.shift]).isHotkey)
+        #expect(!KeyCombo("n", []).isHotkey)
+    }
+
+    @Test @MainActor func menuItemsAreFoundByKeyEquivalent() {
+        let menu = NSMenu()
+        let file = NSMenuItem()
+        file.submenu = NSMenu()
+        let new = NSMenuItem(title: "New Memo", action: nil, keyEquivalent: "n")
+        // A capital key equivalent is Shift in an AppKit-made item; the mask is Command unless set.
+        let favorite = NSMenuItem(title: "Favorite", action: nil, keyEquivalent: "F")
+        let pane = NSMenuItem(title: "Side Pane", action: nil, keyEquivalent: String(UnicodeScalar(NSLeftArrowFunctionKey)!))
+        pane.keyEquivalentModifierMask = [.option, .command]
+        file.submenu?.items = [new, favorite, pane]
+        menu.items = [file]
+        #expect(KeyCombo("n", [.command]).menuItem(in: menu) === new)
+        #expect(KeyCombo("f", [.shift, .command]).menuItem(in: menu) === favorite)
+        #expect(KeyCombo("ArrowLeft", [.option, .command]).menuItem(in: menu) === pane)
+        #expect(KeyCombo("n", [.option]).menuItem(in: menu) == nil)
+        #expect(KeyCombo("Unknown", [.command]).menuItem(in: menu) == nil)
+    }
+
+    /// The test host is the app, whose menu SwiftUI built: every first key must be found there, the special
+    /// keys and the shifted ones included, or a global hotkey could take one of the app's own keys.
+    @Test @MainActor func theAppsOwnMenuIsFoundForEveryFirstKey() throws {
+        let menu = try #require(NSApp.mainMenu)
+        for shortcut in Shortcut.app {
+            let key = try #require(shortcut.defaultKeys.first)
+            #expect(key.menuItem(in: menu) != nil, "\(shortcut.title) \(key.label)")
+        }
+        #expect(KeyCombo("n", [.control, .option]).menuItem(in: menu) == nil)
+    }
+
     @Test func labelsFollowTheSystemOrder() {
         #expect(KeyCombo("f", [.shift, .command]).label == "⇧⌘F")
         #expect(KeyCombo("ArrowLeft", [.option, .command]).label == "⌥⌘←")
@@ -132,6 +169,66 @@ import Testing
         #expect(settings.conflicts.isEmpty)
         settings.setKeys([KeyCombo("n", [.command])], for: .bold)
         #expect(settings.conflicts[KeyCombo("n", [.command])] == [.newMemo, .bold])
+    }
+
+    @Test func everyRowHasItsOwnIdentity() {
+        let (settings, _) = settings()
+        settings.setKeys([], for: .duplicate)
+        let added = ShortcutRow(shortcut: .newMemo, index: 1, key: nil, isAdded: true)
+        let rows = settings.rows(for: Shortcut.app, adding: added) + settings.rows(for: Shortcut.editor, adding: added)
+        #expect(Set(rows.map(\.id)).count == rows.count)
+        #expect(rows.filter(\.isFirst).map(\.shortcut) == Shortcut.allCases)
+    }
+
+    @Test func rowsShowEveryKeyAndABoxForNone() {
+        let (settings, _) = settings()
+        settings.setKeys([], for: .duplicate)
+        let rows = settings.rows(for: [.sidePane, .duplicate])
+        #expect(rows.map(\.key) == [KeyCombo("ArrowLeft", [.option, .command]), KeyCombo(".", [.command]), nil])
+        #expect(rows.map(\.isFirst) == [true, false, true])
+        #expect(rows.allSatisfy { !$0.isAdded })
+    }
+
+    @Test func anAddedBoxSitsWhereItsKeyWillGo() {
+        let (settings, _) = settings()
+        let added = ShortcutRow(shortcut: .sidePane, index: 1, key: nil, isAdded: true)
+        let rows = settings.rows(for: [.sidePane, .newMemo], adding: added)
+        #expect(rows.map(\.isAdded) == [false, true, false, false])
+        // Past the end, or on a shortcut without keys, the box still shows once, at the end.
+        settings.setKeys([], for: .newMemo)
+        let far = ShortcutRow(shortcut: .sidePane, index: 9, key: nil, isAdded: true)
+        #expect(settings.rows(for: [.sidePane], adding: far).map(\.isAdded) == [false, false, true])
+        let onEmpty = ShortcutRow(shortcut: .newMemo, index: 1, key: nil, isAdded: true)
+        #expect(settings.rows(for: [.newMemo], adding: onEmpty).count == 1)
+    }
+
+    @Test func recordingReplacesInsertsOrAppends() {
+        let (settings, _) = settings()
+        let second = settings.rows(for: [.sidePane])[1]
+        settings.record(KeyCombo("F2", []), in: second)
+        #expect(settings.keys(for: .sidePane) == [KeyCombo("ArrowLeft", [.option, .command]), KeyCombo("F2", [])])
+        settings.record(KeyCombo("F3", []), in: ShortcutRow(shortcut: .sidePane, index: 1, key: nil, isAdded: true))
+        #expect(settings.keys(for: .sidePane) == [KeyCombo("ArrowLeft", [.option, .command]), KeyCombo("F3", []), KeyCombo("F2", [])])
+        // A box whose key has gone since it was clicked still takes what was typed.
+        settings.setKeys([], for: .sidePane)
+        settings.record(KeyCombo("F4", []), in: second)
+        #expect(settings.keys(for: .sidePane) == [KeyCombo("F4", [])])
+        // The empty box of a shortcut without keys.
+        settings.setKeys([], for: .duplicate)
+        settings.record(KeyCombo("m", [.command]), in: settings.rows(for: [.duplicate])[0])
+        #expect(settings.keys(for: .duplicate) == [KeyCombo("m", [.command])])
+    }
+
+    @Test func clearingRemovesTheKeyStillThere() {
+        let (settings, _) = settings()
+        let rows = settings.rows(for: [.sidePane])
+        settings.clear(rows[0])
+        #expect(settings.keys(for: .sidePane) == [KeyCombo(".", [.command])])
+        // The second row's key has moved up, so the stale row clears nothing.
+        settings.clear(rows[1])
+        #expect(settings.keys(for: .sidePane) == [KeyCombo(".", [.command])])
+        settings.clear(ShortcutRow(shortcut: .newMemo, index: 0, key: nil))
+        #expect(settings.keys(for: .newMemo) == Shortcut.newMemo.defaultKeys)
     }
 
     @Test func editorKeymapCoversEveryEditorShortcut() {

@@ -4,9 +4,12 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.colorScheme) private var colorScheme
-    @State private var hasShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow) != nil
-    /// The shortcut a key is being added to, as a row below its others.
-    @State private var adding: Shortcut?
+    @State private var globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
+    /// The empty box a key is being typed into, below one of a shortcut's others.
+    @State private var adding: ShortcutRow?
+    @State private var hovered: ShortcutRow.ID?
+
+    private var hasShortcut: Bool { globalShortcut != nil }
 
     var body: some View {
         TabView {
@@ -99,24 +102,34 @@ struct SettingsView: View {
     }
 
     private var shortcuts: some View {
-        Form {
+        let conflicts = model.shortcuts.conflicts
+        return Form {
             Section("Global Shortcuts") {
-                KeyboardShortcuts.Recorder("Show or hide the window", name: .toggleWindow) { hasShortcut = $0 != nil }
+                LabeledContent("Show or hide the window") {
+                    KeyRecorder(label: globalShortcut?.description, conflict: nil, onRecord: recordGlobal) {
+                        KeyboardShortcuts.setShortcut(nil, for: .toggleWindow)
+                        globalShortcut = nil
+                    }
+                }
             }
             Section {
-                ForEach(Shortcut.app, content: rows)
+                ForEach(model.shortcuts.rows(for: Shortcut.app, adding: adding)) { row($0, conflicts: conflicts) }
             } header: {
                 Text("Memos")
             } footer: {
-                Text("Click a shortcut to change it. Right-click for another key on the same action.")
+                Text("Click a shortcut to change it, or click away to remove it. Hover a row to add another key.")
             }
             Section("Editor") {
-                ForEach(Shortcut.editor, content: rows)
+                ForEach(model.shortcuts.rows(for: Shortcut.editor, adding: adding)) { row($0, conflicts: conflicts) }
             }
             HStack {
                 Spacer()
-                Button("Restore Defaults") { model.shortcuts.reset() }
-                    .disabled(model.shortcuts.isDefault)
+                Button("Restore Defaults") {
+                    model.shortcuts.reset()
+                    KeyboardShortcuts.reset(.toggleWindow)
+                    globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
+                }
+                .disabled(model.shortcuts.isDefault && globalShortcut == KeyboardShortcuts.Name.toggleWindow.initialShortcut)
             }
         }
         .formStyle(.grouped)
@@ -124,39 +137,57 @@ struct SettingsView: View {
         .frame(width: 420, height: 560)
     }
 
-    /// The shortcut's keys, one row each; the first carries the title.
-    @ViewBuilder private func rows(_ shortcut: Shortcut) -> some View {
-        let keys = model.shortcuts.keys(for: shortcut)
-        let conflicts = model.shortcuts.conflicts
-        ForEach(Array(keys.enumerated()), id: \.offset) { index, key in
-            LabeledContent(index == 0 ? shortcut.title : "") {
-                KeyRecorder(key: key, conflict: Self.others(sharing: key, with: shortcut, in: conflicts)) { recorded in
-                    // Read again: the keys may have changed while the recorder waited.
-                    var keys = model.shortcuts.keys(for: shortcut)
-                    guard keys.indices.contains(index) else { return }
-                    if let recorded { keys[index] = recorded } else { keys.remove(at: index) }
-                    model.shortcuts.setKeys(keys, for: shortcut)
-                }
-            }
-            .contextMenu {
-                Button("Add Shortcut") { adding = shortcut }
-                if keys.count > 1 {
-                    Button("Remove Shortcut") {
-                        var keys = keys
-                        keys.remove(at: index)
-                        model.shortcuts.setKeys(keys, for: shortcut)
+    /// A global hotkey takes its key before any window sees it, so it cannot be one the system or the app's
+    /// own menu already uses; and pressed with no text field in mind, Option alone will do as a modifier.
+    private func recordGlobal(_ event: NSEvent) -> Bool {
+        guard let shortcut = KeyboardShortcuts.Shortcut(event: event), let combo = KeyCombo(event: event), combo.isHotkey,
+              !shortcut.isTakenBySystem, NSApp.mainMenu.flatMap(combo.menuItem(in:)) == nil else { return false }
+        KeyboardShortcuts.setShortcut(shortcut, for: .toggleWindow)
+        globalShortcut = shortcut
+        return true
+    }
+
+    private func row(_ row: ShortcutRow, conflicts: [KeyCombo: [Shortcut]]) -> some View {
+        LabeledContent(row.isFirst ? row.shortcut.title : "") {
+            HStack(spacing: 6) {
+                if row.key != nil {
+                    Button { adding = ShortcutRow(shortcut: row.shortcut, index: row.index + 1, key: nil, isAdded: true) } label: {
+                        Image(systemName: "plus.circle").foregroundStyle(.secondary)
                     }
+                    .buttonStyle(.plain)
+                    .opacity(hovered == row.id ? 1 : 0)
+                    .accessibilityLabel("Add Shortcut")
                 }
-            }
-        }
-        if keys.isEmpty || adding == shortcut {
-            LabeledContent(keys.isEmpty ? shortcut.title : "") {
-                KeyRecorder(key: nil, conflict: nil, recordsOnAppear: adding == shortcut) { recorded in
+                KeyRecorder(
+                    label: row.key?.label,
+                    conflict: row.key.flatMap { Self.others(sharing: $0, with: row.shortcut, in: conflicts) },
+                    recordsOnAppear: row.isAdded
+                ) { event in
+                    // The global hotkey takes its chord before the menu could, so no shortcut may share it.
+                    guard let recorded = KeyCombo(event: event), recorded.isShortcut,
+                          globalShortcut == nil || KeyboardShortcuts.Shortcut(event: event) != globalShortcut else { return false }
                     adding = nil
-                    if let recorded { model.shortcuts.setKeys(model.shortcuts.keys(for: shortcut) + [recorded], for: shortcut) }
+                    model.shortcuts.record(recorded, in: row)
+                    return true
+                } onClear: {
+                    adding = nil
+                    model.shortcuts.clear(row)
                 } onCancel: {
                     adding = nil
                 }
+            }
+        }
+        .onHover { inside in
+            if inside {
+                hovered = row.id
+            } else if hovered == row.id {
+                hovered = nil
+            }
+        }
+        .contextMenu {
+            if row.key != nil {
+                Button("Add Shortcut") { adding = ShortcutRow(shortcut: row.shortcut, index: row.index + 1, key: nil, isAdded: true) }
+                Button("Remove Shortcut") { model.shortcuts.clear(row) }
             }
         }
     }

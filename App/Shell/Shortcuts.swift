@@ -151,9 +151,43 @@ struct KeyCombo: Hashable, Codable, Sendable {
         }
     }
 
+    var isFunctionKey: Bool { key.hasPrefix("F") && key.count > 1 }
+
     /// A character alone would type; a shortcut needs Command or Control, unless it is a function key.
     var isShortcut: Bool {
-        key.hasPrefix("F") && key.count > 1 || !modifiers.isDisjoint(with: [.command, .control])
+        isFunctionKey || !modifiers.isDisjoint(with: [.command, .control])
+    }
+
+    /// A global hotkey is pressed with no text field in mind, so Option alone will do as well.
+    var isHotkey: Bool {
+        isFunctionKey || !modifiers.isDisjoint(with: [.command, .control, .option])
+    }
+
+    var modifierFlags: NSEvent.ModifierFlags {
+        var flags: NSEvent.ModifierFlags = []
+        if modifiers.contains(.control) { flags.insert(.control) }
+        if modifiers.contains(.option) { flags.insert(.option) }
+        if modifiers.contains(.shift) { flags.insert(.shift) }
+        if modifiers.contains(.command) { flags.insert(.command) }
+        return flags
+    }
+
+    /// The menu item this key already triggers, if any: a global hotkey on it would take the key first.
+    @MainActor
+    func menuItem(in menu: NSMenu) -> NSMenuItem? {
+        guard let equivalent = Self.keyEquivalent(for: key).map({ String($0.character) }) else { return nil }
+        for item in menu.items {
+            if let submenu = item.submenu, let found = menuItem(in: submenu) { return found }
+            var itemKey = item.keyEquivalent
+            var itemModifiers = item.keyEquivalentModifierMask.intersection([.control, .option, .shift, .command])
+            // A capital key equivalent is the menu's other way of saying Shift.
+            if itemKey != itemKey.lowercased() {
+                itemKey = itemKey.lowercased()
+                itemModifiers.insert(.shift)
+            }
+            if itemKey == equivalent, itemModifiers == modifierFlags { return item }
+        }
+        return nil
     }
 
     /// As the palette and Settings show it, modifiers in the system's order.
@@ -291,4 +325,56 @@ final class ShortcutSettings {
     var editorKeymap: [String: [String]] {
         Dictionary(uniqueKeysWithValues: Shortcut.editor.map { ($0.rawValue, keys(for: $0).map(\.prosemirror)) })
     }
+
+    /// The Shortcuts tab's lines for these shortcuts: one per key, an empty box for a shortcut without any,
+    /// and the box being added, if it belongs to one of them, where its key will go.
+    func rows(for shortcuts: [Shortcut], adding: ShortcutRow? = nil) -> [ShortcutRow] {
+        shortcuts.flatMap { shortcut -> [ShortcutRow] in
+            let keys = keys(for: shortcut)
+            guard !keys.isEmpty else { return [ShortcutRow(shortcut: shortcut, index: 0, key: nil)] }
+            var rows = keys.enumerated().map { ShortcutRow(shortcut: shortcut, index: $0.offset, key: $0.element) }
+            if let adding, adding.shortcut == shortcut {
+                rows.insert(adding, at: min(adding.index, rows.count))
+            }
+            return rows
+        }
+    }
+
+    /// Takes a typed key for the row: in place of its own, or into the place an empty box holds. Should the
+    /// row's key have moved from under the box, the typed key still lands, at the end.
+    func record(_ key: KeyCombo, in row: ShortcutRow) {
+        var keys = keys(for: row.shortcut)
+        if row.key == nil {
+            keys.insert(key, at: min(row.index, keys.count))
+        } else if keys.indices.contains(row.index), keys[row.index] == row.key {
+            keys[row.index] = key
+        } else {
+            keys.append(key)
+        }
+        setKeys(keys, for: row.shortcut)
+    }
+
+    /// Removes the row's key, if it is still where the row had it.
+    func clear(_ row: ShortcutRow) {
+        var keys = keys(for: row.shortcut)
+        guard let key = row.key, keys.indices.contains(row.index), keys[row.index] == key else { return }
+        keys.remove(at: row.index)
+        setKeys(keys, for: row.shortcut)
+    }
+}
+
+/// One line of the Shortcuts tab: a key of a shortcut, or the empty box a key is typed into.
+struct ShortcutRow: Identifiable {
+    let shortcut: Shortcut
+    /// The key's place among the shortcut's keys, or the place a typed one will take.
+    let index: Int
+    let key: KeyCombo?
+    /// A box put below a key to type another one into.
+    var isAdded = false
+
+    /// Distinct per shortcut and per key, so the grouped form never shows one line's title on another.
+    var id: String { "\(shortcut.rawValue)-\(isAdded ? "added" : String(index))" }
+
+    /// The first line carries the shortcut's title.
+    var isFirst: Bool { index == 0 }
 }
