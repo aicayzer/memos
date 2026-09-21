@@ -31,9 +31,7 @@ struct ToolError: Error, CustomStringConvertible {
 /// The store the app uses, inside its sandbox container, or the file MEMOS_STORE names.
 enum Shared {
     static func store() throws -> JSONMemoStore {
-        if let path = ProcessInfo.processInfo.environment["MEMOS_STORE"], !path.isEmpty {
-            return JSONMemoStore(fileURL: URL(fileURLWithPath: path))
-        }
+        if let store = JSONMemoStore.fromEnvironment { return store }
         guard let identifier = Bundle.main.object(forInfoDictionaryKey: "MemosAppIdentifier") as? String else {
             throw ToolError(description: "the tool was built without the app's identifier")
         }

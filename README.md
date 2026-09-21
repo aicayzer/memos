@@ -51,7 +51,7 @@ memos delete plan          # the app itself has no delete yet
 memos path                 # the store file
 ```
 
-`--json` on `list` and `show` gives every field. `MEMOS_STORE` in the environment points the tool at another store file.
+`--json` on `list` and `show` gives every field. `MEMOS_STORE` in the environment points the tool, or the app, at another store file.
 
 ## Build
 
@@ -72,6 +72,8 @@ pnpm install
 pnpm test
 pnpm build
 ```
+
+`scripts/screenshots.sh` opens the app on a sample store, for screenshots that show no one's own memos.
 
 See `AGENTS.md` for conventions, `editor/BRIDGE.md` for the message protocol between the app and the editor, and `RELEASING.md` for how a release is cut.
 

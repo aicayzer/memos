@@ -16,6 +16,12 @@ actor JSONMemoStore: MemoStore {
         lockURL = fileURL.appendingPathExtension("lock")
     }
 
+    /// The file MEMOS_STORE names, if the environment sets one; the app and the tool both honor it.
+    static var fromEnvironment: JSONMemoStore? {
+        guard let path = ProcessInfo.processInfo.environment["MEMOS_STORE"], !path.isEmpty else { return nil }
+        return JSONMemoStore(fileURL: URL(fileURLWithPath: path))
+    }
+
     static func inApplicationSupport() throws -> JSONMemoStore {
         let directory = try FileManager.default.url(
             for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
