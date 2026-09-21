@@ -1,6 +1,6 @@
 import SwiftUI
 
-// SwiftUI exposes no NSWindow; this is the one place the app reaches it.
+// SwiftUI exposes no NSWindow; Settings reaches its own through this.
 struct WindowReader: NSViewRepresentable {
     let onWindow: (NSWindow) -> Void
 

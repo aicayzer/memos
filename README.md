@@ -8,7 +8,8 @@ A native window with a web editor inside it. The native side owns the window, th
 
 - ⌘K command palette, ⌘P browse memos, ⌘N new, ⌘D duplicate, ⇧⌘F favorite, ⌘[ and ⌘] back and forward, ⌘F find, ⇧⌘C copy as markdown, ⇧⌘S saves the memo as a markdown file, and Share… in the File menu hands that file to another app.
 - ⌃⌘S, or a double-click on the title bar, opens a side pane listing the memos with a search field; Settings can open it at launch.
-- Always on Top in the Window menu keeps it above other apps and on every space; the global show/hide shortcut, background, and accent are set in Settings (⌘,).
+- The window takes the keyboard without bringing the app to the front, so the app you were in keeps the menu bar while you type; a Dock click brings up the Memos menus, and everything in them is also in the palette.
+- Always on Top keeps it above other apps and on every space; the global show/hide shortcut, background, side pane and accent are set in Settings (⌘,).
 - Type markdown as you go: `# `, `- `, `1. `, `- [ ] `, `> ` and backticks turn into formatting. ⌘-click opens a link.
 
 ## Build
