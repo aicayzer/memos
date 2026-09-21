@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model: AppModel
     private var panel: MemoPanel?
     private var watcher: StoreWatcher?
+    let updater = Updater()
 
     /// The test host must not touch the real store or defaults, and must not hand over to a running app.
     private static let isTestHost = ProcessInfo.processInfo.environment.keys.contains { $0.hasPrefix("XCTest") }

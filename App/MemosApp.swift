@@ -12,7 +12,7 @@ struct MemosApp: App {
             SettingsView()
                 .environment(model)
         }
-        .commands { AppCommands(model: model) }
+        .commands { AppCommands(model: model, updater: delegate.updater) }
 
         MenuBarExtra(Bundle.main.displayName, systemImage: "scribble", isInserted: Binding(
             get: { model.menuBarItem }, set: { model.menuBarItem = $0 }

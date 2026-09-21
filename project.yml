@@ -17,6 +17,9 @@ packages:
   ArgumentParser:
     url: https://github.com/apple/swift-argument-parser
     exactVersion: "1.8.2"
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: "2.10.0"
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -47,6 +50,7 @@ targets:
           - Resources/AppIcon.png
     dependencies:
       - package: KeyboardShortcuts
+      - package: Sparkle
       # The tool ships inside the app, at Contents/SharedSupport/bin/memos, for a symlink onto the PATH;
       # not beside the app's own binary, whose name it shares on a case-insensitive disk.
       - target: MemosTool
@@ -62,6 +66,11 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.productivity
+        # Updates: the appcast and the images behind it, signed with the key whose public half is here.
+        SUFeedURL: https://memos.cyzr.me/appcast.xml
+        SUPublicEDKey: apMBXLwhW5Rjrq2BSNCShF6yTNCwcGKPH+U01Hg5sOg=
+        # The app is sandboxed, so an update is installed by Sparkle's launcher service.
+        SUEnableInstallerLauncherService: true
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
         NSHighResolutionCapable: true
         # memos://memo/<id> shows a memo; the tool's open command sends it.
@@ -76,6 +85,10 @@ targets:
         com.apple.security.network.client: true
         # Save As writes wherever the save panel points.
         com.apple.security.files.user-selected.read-write: true
+        # The names Sparkle's installer tools are reached by from inside the sandbox.
+        com.apple.security.temporary-exception.mach-lookup.global-name:
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spks
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
     settings:
       base:
         PRODUCT_NAME: Memos
@@ -118,6 +131,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(MEMOS_APP_IDENTIFIER).cli
         # A tool has no bundle; the plist rides in the binary, and is its main bundle's wherever it runs from.
         CREATE_INFOPLIST_SECTION_IN_BINARY: YES
+        # Installed on its own into an archive, the tool would make it a generic one that cannot be exported.
+        SKIP_INSTALL: YES
   MemosTests:
     type: bundle.unit-test
     platform: macOS
