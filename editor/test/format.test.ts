@@ -208,5 +208,15 @@ test('list items indent with Tab alone, leaving Mod-[ and Mod-] to the app', asy
     expect(press('[', { metaKey: true })).toBeFalsy()
     expect(press('Tab', { shiftKey: true })).toBe(true)
     expect(serialize(ctxOf(editor))).toBe('- one\n- two\n')
+
+test('the heading under the caret carries its marks, the others do not', async () => {
+  await withMemoEditor('# One\n\nText\n\n## Two\n', (editor) => {
+    const view = ctxOf(editor).get(editorViewCtx)
+    placeCaret(editor, 2)
+    expect(view.dom.querySelector('h1.editing')).not.toBeNull()
+    expect(view.dom.querySelector('h2.editing')).toBeNull()
+    placeCaret(editor, 9)
+    expect(view.dom.querySelector('.editing')).toBeNull()
+    expect(serialize(ctxOf(editor))).toBe('# One\n\nText\n\n## Two\n')
   })
 })

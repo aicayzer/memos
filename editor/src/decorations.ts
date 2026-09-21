@@ -71,3 +71,22 @@ export const placeholderPlugin = $prose(
       },
     }),
 )
+
+// The heading holding the caret shows its markdown marks, drawn by CSS from the class, so the level can be
+// read while editing; the document never holds them.
+export const headingMarkPlugin = $prose(
+  () =>
+    new Plugin({
+      key: new PluginKey('headingMark'),
+      props: {
+        decorations(state: EditorState) {
+          const { $from, $to } = state.selection
+          if (!$from.sameParent($to) || $from.parent.type.name !== 'heading') return null
+          const pos = $from.before()
+          return DecorationSet.create(state.doc, [
+            Decoration.node(pos, pos + $from.parent.nodeSize, { class: 'editing' }),
+          ])
+        },
+      },
+    }),
+)

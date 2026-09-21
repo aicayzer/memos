@@ -101,6 +101,36 @@ body {
   margin: 20px 0 6px;
 }
 
+.ProseMirror .editing::before {
+  color: var(--muted);
+  font-weight: 400;
+  user-select: none;
+}
+
+.ProseMirror h1.editing::before {
+  content: '# ';
+}
+
+.ProseMirror h2.editing::before {
+  content: '## ';
+}
+
+.ProseMirror h3.editing::before {
+  content: '### ';
+}
+
+.ProseMirror h4.editing::before {
+  content: '#### ';
+}
+
+.ProseMirror h5.editing::before {
+  content: '##### ';
+}
+
+.ProseMirror h6.editing::before {
+  content: '###### ';
+}
+
 .ProseMirror strong {
   font-weight: 700;
 }

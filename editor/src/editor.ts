@@ -44,7 +44,7 @@ import {
   type EditorState,
 } from '@milkdown/kit/prose/state'
 import { $prose, callCommand, replaceAll } from '@milkdown/kit/utils'
-import { codeCopyPlugin, placeholderPlugin } from './decorations'
+import { codeCopyPlugin, headingMarkPlugin, placeholderPlugin } from './decorations'
 import { dialect, serialize, stringifyOptions } from './dialect'
 import { highlightPlugin } from './highlight'
 import { taskListPlugin, toggleTaskList } from './tasks'
@@ -267,6 +267,7 @@ export class MemoEditor {
       .use(dropControlCharacters)
       .use(codeCopyPlugin((text) => events.copy(text)))
       .use(placeholderPlugin)
+      .use(headingMarkPlugin)
       .use(highlightPlugin)
       .create()
     root.addEventListener('click', (event) => {
