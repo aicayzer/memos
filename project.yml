@@ -33,6 +33,8 @@ targets:
     type: application
     platform: macOS
     sources:
+      # The model and the store are shared with the command line tool, so they live outside App.
+      - path: Core
       - path: App
         excludes:
           - "**/.DS_Store"
