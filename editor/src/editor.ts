@@ -16,6 +16,7 @@ import {
   inlineCodeSchema,
   liftListItemCommand,
   linkSchema,
+  listItemKeymap,
   toggleEmphasisCommand,
   toggleInlineCodeCommand,
   toggleLinkCommand,
@@ -236,6 +237,12 @@ export class MemoEditor {
         ctx.set(rootCtx, root)
         ctx.set(defaultValueCtx, '')
         ctx.set(remarkStringifyOptionsCtx, stringifyOptions)
+        // The preset also binds Mod-[ and Mod-] here; the app uses those for back and forward.
+        ctx.update(listItemKeymap.key, (keys) => ({
+          ...keys,
+          SinkListItem: { shortcuts: 'Tab' },
+          LiftListItem: { shortcuts: 'Shift-Tab' },
+        }))
         // The caret is kept above the fade under the formatting bar.
         ctx.update(editorViewOptionsCtx, (options) => ({
           ...options,

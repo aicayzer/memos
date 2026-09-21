@@ -195,3 +195,18 @@ test('control characters typed into the memo are dropped', async () => {
     expect(serialize(ctxOf(editor))).toBe('Plan\n')
   })
 })
+
+test('list items indent with Tab alone, leaving Mod-[ and Mod-] to the app', async () => {
+  await withMemoEditor('- one\n- two\n', (editor) => {
+    placeCaret(editor, 9)
+    const view = ctxOf(editor).get(editorViewCtx)
+    const press = (key: string, init: KeyboardEventInit = {}) =>
+      view.someProp('handleKeyDown', (f) => f(view, new KeyboardEvent('keydown', { key, ...init })))
+    expect(press(']', { metaKey: true })).toBeFalsy()
+    expect(press('Tab')).toBe(true)
+    expect(serialize(ctxOf(editor))).toBe('- one\n  - two\n')
+    expect(press('[', { metaKey: true })).toBeFalsy()
+    expect(press('Tab', { shiftKey: true })).toBe(true)
+    expect(serialize(ctxOf(editor))).toBe('- one\n- two\n')
+  })
+})
