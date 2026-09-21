@@ -17,6 +17,10 @@ final class EditorController: NSObject {
     var accentOverride: NSColor? {
         didSet { applyAccent() }
     }
+    /// The editor's key bindings, by shortcut name; the app owns them, since Settings edits them.
+    var keymap: [String: [String]] = [:] {
+        didSet { applyKeymap() }
+    }
 
     @ObservationIgnored let webView: EditorWebView
     @ObservationIgnored private var pendingMarkdown: String?
@@ -125,6 +129,11 @@ final class EditorController: NSObject {
         return String(decoding: data, as: UTF8.self)
     }
 
+    private func applyKeymap() {
+        guard isReady else { return }
+        call("setKeymap", json(keymap))
+    }
+
     @objc private func systemColorsDidChange() {
         applyAccent()
     }
@@ -146,6 +155,7 @@ final class EditorController: NSObject {
             log.info("editor ready")
             isReady = true
             applyAccent()
+            applyKeymap()
             if let pendingMarkdown {
                 self.pendingMarkdown = nil
                 load(pendingMarkdown)

@@ -5,6 +5,8 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.colorScheme) private var colorScheme
     @State private var hasShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow) != nil
+    /// The shortcut a key is being added to, as a row below its others.
+    @State private var adding: Shortcut?
 
     var body: some View {
         TabView {
@@ -101,17 +103,20 @@ struct SettingsView: View {
             Section("Global Shortcuts") {
                 KeyboardShortcuts.Recorder("Show or hide the window", name: .toggleWindow) { hasShortcut = $0 != nil }
             }
-            Section("Memos") {
-                ForEach(Shortcut.allCases) { shortcut in
-                    LabeledContent(shortcut.title) {
-                        keys(shortcut.alternate.map { "\(shortcut.label) or \($0.label)" } ?? shortcut.label)
-                    }
-                }
+            Section {
+                ForEach(Shortcut.app, content: rows)
+            } header: {
+                Text("Memos")
+            } footer: {
+                Text("Click a shortcut to change it. Right-click for another key on the same action.")
             }
             Section("Editor") {
-                ForEach(Shortcut.editor, id: \.title) { shortcut in
-                    LabeledContent(shortcut.title) { keys(shortcut.label) }
-                }
+                ForEach(Shortcut.editor, content: rows)
+            }
+            HStack {
+                Spacer()
+                Button("Restore Defaults") { model.shortcuts.reset() }
+                    .disabled(model.shortcuts.isDefault)
             }
         }
         .formStyle(.grouped)
@@ -119,11 +124,44 @@ struct SettingsView: View {
         .frame(width: 420, height: 560)
     }
 
-    private func keys(_ label: String) -> some View {
-        Text(label)
-            .font(.system(size: 12, weight: .medium))
-            .monospacedDigit()
-            .foregroundStyle(.secondary)
+    /// The shortcut's keys, one row each; the first carries the title.
+    @ViewBuilder private func rows(_ shortcut: Shortcut) -> some View {
+        let keys = model.shortcuts.keys(for: shortcut)
+        let conflicts = model.shortcuts.conflicts
+        ForEach(Array(keys.enumerated()), id: \.offset) { index, key in
+            LabeledContent(index == 0 ? shortcut.title : "") {
+                KeyRecorder(key: key, conflict: Self.others(sharing: key, with: shortcut, in: conflicts)) { recorded in
+                    var keys = keys
+                    if let recorded { keys[index] = recorded } else { keys.remove(at: index) }
+                    model.shortcuts.setKeys(keys, for: shortcut)
+                }
+            }
+            .contextMenu {
+                Button("Add Shortcut") { adding = shortcut }
+                if keys.count > 1 {
+                    Button("Remove Shortcut") {
+                        var keys = keys
+                        keys.remove(at: index)
+                        model.shortcuts.setKeys(keys, for: shortcut)
+                    }
+                }
+            }
+        }
+        if keys.isEmpty || adding == shortcut {
+            LabeledContent(keys.isEmpty ? shortcut.title : "") {
+                KeyRecorder(key: nil, conflict: nil, recordsOnAppear: adding == shortcut) { recorded in
+                    adding = nil
+                    if let recorded { model.shortcuts.setKeys(keys + [recorded], for: shortcut) }
+                } onCancel: {
+                    adding = nil
+                }
+            }
+        }
+    }
+
+    private static func others(sharing key: KeyCombo, with shortcut: Shortcut, in conflicts: [KeyCombo: [Shortcut]]) -> String? {
+        let others = (conflicts[key] ?? []).filter { $0 != shortcut }.map(\.title)
+        return others.isEmpty ? nil : "Also " + others.joined(separator: ", ")
     }
 
     private enum AccentChoice: Hashable {

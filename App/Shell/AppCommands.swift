@@ -5,54 +5,59 @@ struct AppCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("New Memo") { Task { await model.newMemo() } }
-                .keyboardShortcut(Shortcut.newMemo.keyboardShortcut)
-            Button("Duplicate Memo") { Task { await model.duplicate() } }
-                .keyboardShortcut(Shortcut.duplicate.keyboardShortcut)
-            Button(model.current?.favorite == true ? "Unfavorite Memo" : "Favorite Memo") { Task { await model.toggleFavorite() } }
-                .keyboardShortcut(Shortcut.favorite.keyboardShortcut)
+            item(.newMemo)
+            item(.duplicate)
+            item(.favorite, title: model.current?.favorite == true ? "Unfavorite Memo" : "Favorite Memo")
             Divider()
-            Button("Browse Memos") { model.toggle(.browse) }
-                .keyboardShortcut(Shortcut.browse.keyboardShortcut)
-            Button("Go Back") { Task { await model.goBack() } }
-                .keyboardShortcut(Shortcut.back.keyboardShortcut)
-                .disabled(!model.history.canGoBack)
-            Button("Go Forward") { Task { await model.goForward() } }
-                .keyboardShortcut(Shortcut.forward.keyboardShortcut)
-                .disabled(!model.history.canGoForward)
+            item(.browse)
+            item(.back).disabled(!model.history.canGoBack)
+            item(.forward).disabled(!model.history.canGoForward)
             Divider()
-            Button("Copy as Markdown") { model.copyAsMarkdown() }
-                .keyboardShortcut(Shortcut.copyMarkdown.keyboardShortcut)
+            item(.copyMarkdown)
         }
         CommandGroup(after: .saveItem) {
             Divider()
-            Button("Save As…") { Task { await model.saveAs() } }
-                .keyboardShortcut(Shortcut.saveAs.keyboardShortcut)
+            item(.saveAs)
             Button("Share…") { Task { await model.share() } }
         }
         CommandGroup(after: .pasteboard) {
             Divider()
-            Button("Find in Memo") { model.toggle(.find) }
-                .keyboardShortcut(Shortcut.find.keyboardShortcut)
+            item(.find)
         }
-        // The editor's own keys (⌘B, ⌘I) reach the web view first; these are the ones it does not have.
+        // The editor handles its own keys first; these items are the same actions by mouse, and where the keys show.
         CommandMenu("Format") {
-            Button("Bulleted List") { model.editor.format(.bulletList) }
-                .keyboardShortcut(Shortcut.bulletList.keyboardShortcut)
-            Button("Task List") { model.editor.format(.taskList) }
-                .keyboardShortcut(Shortcut.taskList.keyboardShortcut)
+            item(.heading1)
+            item(.heading2)
+            item(.heading3)
+            item(.paragraph)
+            Divider()
+            item(.bold)
+            item(.italic)
+            item(.strikethrough)
+            item(.code)
+            Divider()
+            item(.codeBlock)
+            item(.quote)
+            Divider()
+            item(.bulletList)
+            item(.orderedList)
+            item(.taskList)
         }
         // Replacing drops Show/Hide Toolbar, which would collapse the title bar the top row is drawn in.
         CommandGroup(replacing: .toolbar) {
-            Button("Command Palette") { model.toggle(.palette) }
-                .keyboardShortcut(Shortcut.palette.keyboardShortcut)
+            item(.palette)
             Toggle("Formatting Bar", isOn: Binding(get: { !model.formatBarHidden }, set: { model.formatBarHidden = !$0 }))
-            Button(model.sidePane ? "Hide Side Pane" : "Show Side Pane") { model.toggleSidePane() }
-                .keyboardShortcut(Shortcut.sidePane.keyboardShortcut)
+            item(.sidePane, title: model.sidePane ? "Hide Side Pane" : "Show Side Pane")
         }
         CommandGroup(before: .windowArrangement) {
             Toggle("Always on Top", isOn: $model.floating)
             Divider()
         }
+    }
+
+    /// A menu item carries the shortcut's first key; the window matches the others.
+    private func item(_ shortcut: Shortcut, title: String? = nil) -> some View {
+        Button(title ?? shortcut.title) { model.perform(shortcut) }
+            .keyboardShortcut(model.shortcuts.keyboardShortcut(shortcut))
     }
 }

@@ -3,34 +3,34 @@ import Foundation
 extension AppModel {
     var paletteItems: [PaletteItem] {
         [
-            PaletteItem(id: "new", title: "New Memo", symbol: "plus", shortcut: Shortcut.newMemo.label) {
+            PaletteItem(id: "new", title: "New Memo", symbol: "plus", shortcut: shortcuts.label(.newMemo)) {
                 Task { await self.newMemo() }
             },
-            PaletteItem(id: "duplicate", title: "Duplicate Memo", symbol: "plus.square.on.square", shortcut: Shortcut.duplicate.label) {
+            PaletteItem(id: "duplicate", title: "Duplicate Memo", symbol: "plus.square.on.square", shortcut: shortcuts.label(.duplicate)) {
                 Task { await self.duplicate() }
             },
             PaletteItem(
                 id: "favorite", title: current?.favorite == true ? "Unfavorite Memo" : "Favorite Memo",
-                symbol: current?.favorite == true ? "star.slash" : "star", shortcut: Shortcut.favorite.label
+                symbol: current?.favorite == true ? "star.slash" : "star", shortcut: shortcuts.label(.favorite)
             ) {
                 Task { await self.toggleFavorite() }
             },
-            PaletteItem(id: "browse", title: "Browse Memos", symbol: "square.stack", shortcut: Shortcut.browse.label) {
+            PaletteItem(id: "browse", title: "Browse Memos", symbol: "square.stack", shortcut: shortcuts.label(.browse)) {
                 self.toggle(.browse)
             },
-            PaletteItem(id: "back", title: "Go Back", symbol: "arrow.left.circle", shortcut: Shortcut.back.label, enabled: history.canGoBack) {
+            PaletteItem(id: "back", title: "Go Back", symbol: "arrow.left.circle", shortcut: shortcuts.label(.back), enabled: history.canGoBack) {
                 Task { await self.goBack() }
             },
-            PaletteItem(id: "forward", title: "Go Forward", symbol: "arrow.right.circle", shortcut: Shortcut.forward.label, enabled: history.canGoForward) {
+            PaletteItem(id: "forward", title: "Go Forward", symbol: "arrow.right.circle", shortcut: shortcuts.label(.forward), enabled: history.canGoForward) {
                 Task { await self.goForward() }
             },
-            PaletteItem(id: "find", title: "Find in Memo", symbol: "text.magnifyingglass", shortcut: Shortcut.find.label, section: 1) {
+            PaletteItem(id: "find", title: "Find in Memo", symbol: "text.magnifyingglass", shortcut: shortcuts.label(.find), section: 1) {
                 self.toggle(.find)
             },
-            PaletteItem(id: "copy", title: "Copy as Markdown", symbol: "doc.on.clipboard", shortcut: Shortcut.copyMarkdown.label, section: 1) {
+            PaletteItem(id: "copy", title: "Copy as Markdown", symbol: "doc.on.clipboard", shortcut: shortcuts.label(.copyMarkdown), section: 1) {
                 self.copyAsMarkdown()
             },
-            PaletteItem(id: "saveAs", title: "Save As…", symbol: "square.and.arrow.down", shortcut: Shortcut.saveAs.label, section: 1) {
+            PaletteItem(id: "saveAs", title: "Save As…", symbol: "square.and.arrow.down", shortcut: shortcuts.label(.saveAs), section: 1) {
                 Task { await self.saveAs() }
             },
             PaletteItem(id: "share", title: "Share…", symbol: "square.and.arrow.up", section: 1) {
@@ -50,7 +50,7 @@ extension AppModel {
             },
             PaletteItem(
                 id: "sidePane", title: sidePane ? "Hide Side Pane" : "Show Side Pane",
-                symbol: "sidebar.left", shortcut: Shortcut.sidePane.label, section: 1
+                symbol: "sidebar.left", shortcut: shortcuts.label(.sidePane), section: 1
             ) {
                 self.toggleSidePane()
             },

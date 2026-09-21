@@ -253,3 +253,22 @@ test('dropped paths become paragraphs after the block, or replace an empty one',
     expect(serialize(ctxOf(editor))).toBe('/only\n')
   })
 })
+
+test('formatting keys are the ones the app sets', async () => {
+  await withMemoEditor('word\n', (editor) => {
+    const view = ctxOf(editor).get(editorViewCtx)
+    const press = (key: string, init: KeyboardEventInit = {}) =>
+      view.someProp('handleKeyDown', (f) => f(view, new KeyboardEvent('keydown', { key, ...init })))
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, 5)))
+    // The preset's own Mod-b is gone until the app binds something.
+    expect(press('b', { metaKey: true })).toBeFalsy()
+    editor.setKeymap({ bold: ['Mod-b'], heading2: ['Mod-Alt-2'], unknown: ['Mod-u'] })
+    expect(press('b', { metaKey: true })).toBe(true)
+    expect(serialize(ctxOf(editor))).toBe('**word**\n')
+    expect(press('2', { metaKey: true, altKey: true })).toBe(true)
+    expect(serialize(ctxOf(editor))).toBe('## **word**\n')
+    expect(press('u', { metaKey: true })).toBeFalsy()
+    editor.setKeymap({ bold: ['Mod-Shift-b'] })
+    expect(press('b', { metaKey: true })).toBeFalsy()
+  })
+})

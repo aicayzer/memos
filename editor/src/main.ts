@@ -1,5 +1,5 @@
 import { postToHost } from './bridge'
-import { MemoEditor, type FormatCommand } from './editor'
+import { MemoEditor, type FormatCommand, type Keymap } from './editor'
 import './style.css'
 
 declare global {
@@ -11,6 +11,7 @@ declare global {
       focus(): void
       insertPaths(paths: string[], x: number, y: number): void
       setAccent(color: string): void
+      setKeymap(keymap: Keymap): void
     }
   }
 }
@@ -48,6 +49,7 @@ window.editor = {
   focus: () => editor.focus(),
   insertPaths: (paths, x, y) => editor.insertPaths(paths, x, y),
   setAccent: (color) => document.documentElement.style.setProperty('--accent', color),
+  setKeymap: (keymap) => editor.setKeymap(keymap),
 }
 
 postToHost({ type: 'ready' })

@@ -12,6 +12,7 @@ private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "ap
 final class AppModel {
     let editor = EditorController()
     let store: any MemoStore
+    let shortcuts: ShortcutSettings
     private let defaults: UserDefaults
 
     private(set) var current: Memo?
@@ -96,6 +97,7 @@ final class AppModel {
     init(store: any MemoStore, defaults: UserDefaults = .standard) {
         self.store = store
         self.defaults = defaults
+        shortcuts = ShortcutSettings(defaults: defaults)
         floating = defaults.object(forKey: Self.floatingKey) as? Bool ?? true
         formatBarHidden = defaults.bool(forKey: Self.formatBarHiddenKey)
         let paneAtLaunch = defaults.bool(forKey: Self.sidePaneAtLaunchKey)
@@ -107,6 +109,11 @@ final class AppModel {
         windowTint = defaults.string(forKey: Self.windowTintKey).flatMap(NSColor.init(hexString:))
         accent = Accent(stored: defaults.string(forKey: Self.accentKey))
         editor.accentOverride = accent.color
+        editor.keymap = shortcuts.editorKeymap
+        shortcuts.onChange = { [weak self] in
+            guard let self else { return }
+            editor.keymap = shortcuts.editorKeymap
+        }
         editor.onChanged = { [weak self] markdown in self?.changed(markdown) }
         editor.onOpenLink = { NSWorkspace.shared.open($0) }
         editor.onCopy = { Self.copy($0) }
@@ -173,6 +180,36 @@ final class AppModel {
             self.current = try await store.setFavorite(current.id, !current.favorite)
         } catch {
             report(error)
+        }
+    }
+
+    /// Every shortcut's action, for the keys the menu does not carry.
+    func perform(_ shortcut: Shortcut) {
+        switch shortcut {
+        case .newMemo: Task { await newMemo() }
+        case .duplicate: Task { await duplicate() }
+        case .favorite: Task { await toggleFavorite() }
+        case .browse: toggle(.browse)
+        case .back: Task { await goBack() }
+        case .forward: Task { await goForward() }
+        case .copyMarkdown: copyAsMarkdown()
+        case .saveAs: Task { await saveAs() }
+        case .find: toggle(.find)
+        case .palette: toggle(.palette)
+        case .sidePane: toggleSidePane()
+        case .heading1: editor.format(.heading, argument: "1")
+        case .heading2: editor.format(.heading, argument: "2")
+        case .heading3: editor.format(.heading, argument: "3")
+        case .paragraph: editor.format(.paragraph)
+        case .bold: editor.format(.bold)
+        case .italic: editor.format(.italic)
+        case .strikethrough: editor.format(.strikethrough)
+        case .code: editor.format(.code)
+        case .codeBlock: editor.format(.codeBlock)
+        case .quote: editor.format(.quote)
+        case .bulletList: editor.format(.bulletList)
+        case .orderedList: editor.format(.orderedList)
+        case .taskList: editor.format(.taskList)
         }
     }
 
