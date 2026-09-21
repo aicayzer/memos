@@ -30,6 +30,12 @@ extension AppModel {
             PaletteItem(id: "copy", title: "Copy as Markdown", symbol: "doc.on.clipboard", shortcut: "⇧⌘C", section: 1) {
                 self.copyAsMarkdown()
             },
+            PaletteItem(id: "saveAs", title: "Save As…", symbol: "square.and.arrow.down", shortcut: "⇧⌘S", section: 1) {
+                Task { await self.saveAs() }
+            },
+            PaletteItem(id: "share", title: "Share…", symbol: "square.and.arrow.up", section: 1) {
+                Task { await self.share() }
+            },
             PaletteItem(
                 id: "float", title: floating ? "Turn Off Always on Top" : "Turn On Always on Top",
                 symbol: floating ? "pin.slash.fill" : "macwindow.on.rectangle", section: 1

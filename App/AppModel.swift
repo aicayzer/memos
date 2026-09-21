@@ -2,6 +2,7 @@ import AppKit
 import Observation
 import OSLog
 import SwiftUI
+import UniformTypeIdentifiers
 import WebKit
 
 private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "app")
@@ -77,6 +78,7 @@ final class AppModel {
     @ObservationIgnored private let chrome = WindowChrome()
     @ObservationIgnored private var windowBehavior: NSWindow.CollectionBehavior = []
     @ObservationIgnored private var unsaved: String?
+    @ObservationIgnored private var sharePicker: NSSharingServicePicker?
     @ObservationIgnored private var saveTask: Task<Void, Never>?
 
     static let defaultWindowOpacity = 0.6
@@ -110,8 +112,13 @@ final class AppModel {
         editor.onCopy = { Self.copy($0) }
     }
 
+    /// Shared files wait here for the service that took them; a sandboxed app's temporary items are not purged
+    /// by the system, so the folder is cleared at the next launch, when no transfer can still be reading it.
+    private static let shareFolder = FileManager.default.temporaryDirectory.appending(path: "Share")
+
     func start() async {
         guard current == nil else { return }
+        try? FileManager.default.removeItem(at: Self.shareFolder)
         do {
             let memos = try await store.list(matching: nil)
             let last = defaults.string(forKey: Self.lastMemoKey).flatMap(UUID.init(uuidString:))
@@ -172,6 +179,46 @@ final class AppModel {
     func copyAsMarkdown() {
         guard let current else { return }
         Self.copy(current.markdown)
+    }
+
+    func saveAs() async {
+        showWindowIfHidden()
+        await flush()
+        guard let current, let window else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .plainText]
+        panel.nameFieldStringValue = Memo.fileName(for: current.title)
+        panel.canCreateDirectories = true
+        guard await panel.beginSheetModal(for: window) == .OK, let url = panel.url else { return }
+        do {
+            try current.markdown.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            report(error)
+        }
+    }
+
+    /// Shares the memo as a markdown file, from a picker hanging under the title.
+    func share() async {
+        showWindowIfHidden()
+        await flush()
+        guard let current, let contentView = window?.contentView else { return }
+        do {
+            // Its own folder, so the file carries the title as its name.
+            let folder = Self.shareFolder.appending(path: UUID().uuidString)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let url = folder.appending(path: Memo.fileName(for: current.title))
+            try current.markdown.write(to: url, atomically: true, encoding: .utf8)
+            let picker = NSSharingServicePicker(items: [url])
+            sharePicker = picker
+            // The hosting view is flipped, so the top row is the first row-height from y = 0.
+            let left = sidePane ? Chrome.paneWidth + 1 : 0
+            let bounds = contentView.bounds
+            let top = contentView.isFlipped ? bounds.minY : bounds.maxY - Chrome.rowHeight
+            let anchor = NSRect(x: (left + bounds.maxX) / 2 - 1, y: top, width: 2, height: Chrome.rowHeight)
+            picker.show(relativeTo: anchor, of: contentView, preferredEdge: contentView.isFlipped ? .maxY : .minY)
+        } catch {
+            report(error)
+        }
     }
 
     private static func copy(_ text: String) {
