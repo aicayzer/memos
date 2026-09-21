@@ -47,12 +47,14 @@ import Testing
         #expect(Memo.title(for: "\\[not a link](x)") == "[not a link](x)")
     }
 
-    // remark writes a space that would otherwise be dropped, such as one ending the line, as a character reference.
     @Test func characterReferencesAreDecoded() {
         #expect(Memo.title(for: "Memos&#x20;") == "Memos")
-        #expect(Memo.title(for: "&#x20;&#x20;Indented") == "Indented")
+        #expect(Memo.title(for: "&#x20; Indented") == "Indented")
         #expect(Memo.title(for: "Tab&#9;stop") == "Tab\tstop")
         #expect(Memo.title(for: "Star &#x2A;not italic&#x2A;") == "Star *not italic*")
+        // A letter next to an emphasis whose text starts with a space is encoded; the marks must go first.
+        #expect(Memo.title(for: "fo&#x6F;*&#x20;bar*") == "foo bar")
+        #expect(Memo.title(for: "**&#x20;both&#x20;**&#x78;") == "both x")
         #expect(Memo.title(for: "&#x20;\n\nSecond line") == "Second line")
         #expect(Memo.title(for: "`&#x20;`") == "&#x20;")
         #expect(Memo.title(for: "\\&#x20;") == "&#x20;")
