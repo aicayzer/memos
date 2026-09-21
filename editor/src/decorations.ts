@@ -62,10 +62,35 @@ export const placeholderPlugin = $prose(
       props: {
         decorations(state: EditorState) {
           const first = state.doc.firstChild
-          if (state.doc.childCount !== 1 || !first?.isTextblock || first.content.size > 0)
+          // A lone empty heading shows its marks instead.
+          if (
+            state.doc.childCount !== 1 ||
+            !first?.isTextblock ||
+            first.type.name === 'heading' ||
+            first.content.size > 0
+          )
             return null
           return DecorationSet.create(state.doc, [
             Decoration.node(0, first.nodeSize, { class: 'empty', 'data-placeholder': 'New memo…' }),
+          ])
+        },
+      },
+    }),
+)
+
+// The heading holding the caret shows its marks, so the level can be read while editing; a decoration,
+// so the document never holds them.
+export const headingMarkPlugin = $prose(
+  () =>
+    new Plugin({
+      key: new PluginKey('headingMark'),
+      props: {
+        decorations(state: EditorState) {
+          const { $from, $to } = state.selection
+          if (!$from.sameParent($to) || $from.parent.type.name !== 'heading') return null
+          const pos = $from.before()
+          return DecorationSet.create(state.doc, [
+            Decoration.node(pos, pos + $from.parent.nodeSize, { class: 'editing' }),
           ])
         },
       },
