@@ -60,9 +60,9 @@ struct SidePane: View {
             }
         }
         .frame(width: Chrome.paneWidth)
-        // The store changes only on save and on favoriting, so those and the query drive the list, and the day,
-        // since the sections follow it; the title of the memo being edited comes from the model until then.
-        .task(id: RefreshKey(query: query, memo: model.current, day: day)) {
+        // The store changes on save, on favoriting and from outside, so those and the query drive the list, and
+        // the day, since the sections follow it; the title of the memo being edited comes from the model until then.
+        .task(id: RefreshKey(query: query, memo: model.current, day: day, store: model.storeGeneration)) {
             let listed = await model.memos(matching: query)
             guard !Task.isCancelled else { return }
             groups = MemoGroup.grouped(listed)
@@ -76,13 +76,15 @@ struct SidePane: View {
         let updatedAt: Date?
         let favorite: Bool?
         let day: Int
+        let store: Int
 
-        init(query: String, memo: Memo?, day: Int) {
+        init(query: String, memo: Memo?, day: Int, store: Int) {
             self.query = query
             id = memo?.id
             updatedAt = memo?.updatedAt
             favorite = memo?.favorite
             self.day = day
+            self.store = store
         }
     }
 

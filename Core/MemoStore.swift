@@ -10,6 +10,14 @@ protocol MemoStore: Sendable {
     func delete(_ id: Memo.ID) async throws
 }
 
-enum MemoStoreError: Error {
+enum MemoStoreError: LocalizedError {
     case missing(Memo.ID)
+    case locked(URL, Int32)
+
+    var errorDescription: String? {
+        switch self {
+        case .missing(let id): "There is no memo \(id.uuidString.lowercased())."
+        case .locked(let url, let code): "The store could not be locked at \(url.path): \(String(cString: strerror(code)))."
+        }
+    }
 }

@@ -79,6 +79,10 @@ final class AppModel {
     @ObservationIgnored private var unsaved: String?
     @ObservationIgnored private var sharePicker: NSSharingServicePicker?
     @ObservationIgnored private var saveTask: Task<Void, Never>?
+    @ObservationIgnored private var storeChangeTask: Task<Void, Never>?
+
+    /// Counts the store's changes from outside; lists keyed on it read again.
+    private(set) var storeGeneration = 0
 
     static let defaultWindowOpacity = 0.6
 
@@ -177,7 +181,10 @@ final class AppModel {
     func toggleFavorite() async {
         guard let current else { return }
         do {
-            self.current = try await store.setFavorite(current.id, !current.favorite)
+            // The file's memo may lag an edit that has not saved yet; only the flag is taken from it.
+            let saved = try await store.setFavorite(current.id, !current.favorite)
+            self.current?.favorite = saved.favorite
+            self.current?.updatedAt = saved.updatedAt
         } catch {
             report(error)
         }
@@ -424,6 +431,37 @@ final class AppModel {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             await save()
+            // A later edit's task is the one to keep.
+            if !Task.isCancelled { saveTask = nil }
+        }
+    }
+
+    /// The store's folder changed. The app's own writes land here too, a few events per save, so the look
+    /// waits for the burst to end; the memo on screen is reread unless an edit is on its way to the file.
+    func storeChanged() {
+        storeChangeTask?.cancel()
+        storeChangeTask = Task {
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled else { return }
+            storeGeneration += 1
+            guard let current, unsaved == nil, saveTask == nil else { return }
+            do {
+                let fresh = try await store.get(current.id)
+                guard !Task.isCancelled, self.current?.id == current.id else { return }
+                guard let fresh else {
+                    // Deleted elsewhere: the newest memo, or a new one.
+                    if let memo = try await store.list(matching: nil).first { show(memo) } else { show(try await store.create(markdown: "")) }
+                    return
+                }
+                if fresh.markdown != current.markdown {
+                    show(fresh, recording: false)
+                } else {
+                    self.current?.favorite = fresh.favorite
+                    self.current?.updatedAt = fresh.updatedAt
+                }
+            } catch {
+                report(error)
+            }
         }
     }
 
@@ -435,6 +473,20 @@ final class AppModel {
             let saved = try await store.update(id, markdown: markdown)
             if current?.id == id { current?.updatedAt = saved.updatedAt }
             return true
+        } catch MemoStoreError.missing {
+            // Deleted elsewhere while being written: the text on screen becomes a memo again, in place.
+            do {
+                let recreated = try await store.create(markdown: markdown)
+                if current?.id == id {
+                    current = recreated
+                    defaults.set(recreated.id.uuidString, forKey: Self.lastMemoKey)
+                }
+                return true
+            } catch {
+                unsaved = markdown
+                report(error)
+                return false
+            }
         } catch {
             if unsaved == nil { unsaved = markdown }
             report(error)
