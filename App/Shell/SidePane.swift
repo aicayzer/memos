@@ -45,7 +45,7 @@ struct SidePane: View {
                             }
                         } header: {
                             Text(group.title)
-                                .font(.caption.weight(.semibold))
+                                .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 8)
                                 .padding(.top, 14)

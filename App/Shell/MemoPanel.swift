@@ -22,5 +22,20 @@ final class MemoPanel: NSPanel {
         setFrameAutosaveName(Self.frameName)
     }
 
+    /// Keys the menu cannot carry, matched once the content has declined the event.
+    var alternateKeys: [(shortcut: Shortcut, action: () -> Void)] = []
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if super.performKeyEquivalent(with: event) { return true }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        for (shortcut, action) in alternateKeys {
+            guard let alternate = shortcut.alternate, event.charactersIgnoringModifiers == alternate.key,
+                  flags == alternate.modifiers else { continue }
+            action()
+            return true
+        }
+        return false
+    }
+
     private static let frameName = "main"
 }

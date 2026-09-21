@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The app's shortcuts in one place: the menus, the palette and Settings read it, so they cannot disagree.
@@ -50,6 +51,14 @@ enum Shortcut: String, CaseIterable, Identifiable {
     }
 
     var keyboardShortcut: KeyboardShortcut { KeyboardShortcut(key, modifiers: modifiers) }
+
+    /// A second key for the same action. A menu item carries one key, so the window takes this one.
+    var alternate: (key: String, modifiers: NSEvent.ModifierFlags, label: String)? {
+        switch self {
+        case .sidePane: (".", .command, "⌘.")
+        default: nil
+        }
+    }
 
     /// As the palette and Settings show it, modifiers in the system's order.
     var label: String {
