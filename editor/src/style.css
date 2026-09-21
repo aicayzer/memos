@@ -102,8 +102,8 @@ body {
 }
 
 .ProseMirror .editing::before {
-  color: var(--muted);
-  font-weight: 400;
+  color: color-mix(in srgb, CanvasText 40%, transparent);
+  font-weight: 500;
   user-select: none;
 }
 
