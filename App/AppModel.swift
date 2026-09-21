@@ -79,6 +79,10 @@ final class AppModel {
     @ObservationIgnored private var unsaved: String?
     @ObservationIgnored private var sharePicker: NSSharingServicePicker?
     @ObservationIgnored private var saveTask: Task<Void, Never>?
+    @ObservationIgnored private var storeChangeTask: Task<Void, Never>?
+
+    /// Counts the store's changes from outside; lists keyed on it read again.
+    private(set) var storeGeneration = 0
 
     static let defaultWindowOpacity = 0.6
 
@@ -424,6 +428,33 @@ final class AppModel {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             await save()
+            saveTask = nil
+        }
+    }
+
+    /// The store's folder changed. The app's own writes land here too, a few events per save, so the look
+    /// waits for the burst to end; the memo on screen is reread unless an edit is on its way to the file.
+    func storeChanged() {
+        storeChangeTask?.cancel()
+        storeChangeTask = Task {
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled else { return }
+            storeGeneration += 1
+            guard let current, unsaved == nil, saveTask == nil else { return }
+            do {
+                guard let fresh = try await store.get(current.id) else {
+                    // Deleted elsewhere: the newest memo, or a new one.
+                    if let memo = try await store.list(matching: nil).first { show(memo) } else { show(try await store.create(markdown: "")) }
+                    return
+                }
+                if fresh.markdown != current.markdown || fresh.favorite != current.favorite {
+                    show(fresh, recording: false)
+                } else {
+                    self.current?.updatedAt = fresh.updatedAt
+                }
+            } catch {
+                report(error)
+            }
         }
     }
 

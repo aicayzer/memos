@@ -5,7 +5,7 @@ import Testing
 @Suite struct JSONMemoStoreTests {
     private func makeStore() throws -> (JSONMemoStore, URL) {
         let url = FileManager.default.temporaryDirectory.appending(path: "memos-\(UUID().uuidString).json")
-        return (try JSONMemoStore(fileURL: url), url)
+        return (JSONMemoStore(fileURL: url), url)
     }
 
     @Test func createsListsAndReadsBack() async throws {
@@ -15,7 +15,7 @@ import Testing
         let listed = try await store.list(matching: nil).map(\.id)
         #expect(listed == [second.id, first.id])
 
-        let reopened = try JSONMemoStore(fileURL: url)
+        let reopened = JSONMemoStore(fileURL: url)
         let again = try await reopened.get(first.id)
         #expect(again?.markdown == "First\n")
     }
@@ -34,7 +34,7 @@ import Testing
         let (store, url) = try makeStore()
         let memo = try await store.create(markdown: "Keep\n")
         _ = try await store.setFavorite(memo.id, true)
-        let reopened = try JSONMemoStore(fileURL: url)
+        let reopened = JSONMemoStore(fileURL: url)
         #expect(try await reopened.get(memo.id)?.favorite == true)
     }
 
@@ -78,20 +78,58 @@ import Testing
 @Suite struct JSONMemoStoreFileTests {
     @Test func aMissingFileStartsEmpty() async throws {
         let url = FileManager.default.temporaryDirectory.appending(path: "missing-\(UUID().uuidString).json")
-        let store = try JSONMemoStore(fileURL: url)
+        let store = JSONMemoStore(fileURL: url)
         let listed = try await store.list(matching: nil)
         #expect(listed.isEmpty)
+    }
+
+    @Test func wholeSecondDatesStillRead() async throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "seconds-\(UUID().uuidString).json")
+        let json = """
+        {"memos": [{"id": "6A3F2C8E-0000-4000-8000-000000000001", "markdown": "Old\\n", "pinned": false,
+                    "createdAt": "2026-09-21T00:06:11Z", "updatedAt": "2026-09-21T00:06:11Z"}]}
+        """
+        try Data(json.utf8).write(to: url)
+        let listed = try await JSONMemoStore(fileURL: url).list(matching: nil)
+        #expect(listed.first?.updatedAt == Date(timeIntervalSince1970: 1_789_949_171))
     }
 
     @Test func anUnreadableFileIsSetAsideNotOverwritten() async throws {
         let url = FileManager.default.temporaryDirectory.appending(path: "broken-\(UUID().uuidString).json")
         try Data("not json".utf8).write(to: url)
-        let store = try JSONMemoStore(fileURL: url)
+        let store = JSONMemoStore(fileURL: url)
         _ = try await store.create(markdown: "New\n")
         let siblings = try FileManager.default.contentsOfDirectory(atPath: url.deletingLastPathComponent().path)
         let setAside = siblings.filter { $0.hasPrefix(url.lastPathComponent + ".unreadable-") }
         #expect(setAside.count == 1)
         let rewritten = try String(contentsOf: url, encoding: .utf8)
         #expect(rewritten.contains("New"))
+    }
+}
+
+@Suite struct JSONMemoStoreSharingTests {
+    /// Two stores on one file stand in for the app and the command line tool.
+    @Test func aChangeByOneIsSeenByTheOther() async throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "shared-\(UUID().uuidString).json")
+        let app = JSONMemoStore(fileURL: url)
+        let tool = JSONMemoStore(fileURL: url)
+        let first = try await app.create(markdown: "From the app\n")
+        let second = try await tool.create(markdown: "From the tool\n")
+        #expect(try await app.list(matching: nil).map(\.id) == [second.id, first.id])
+        _ = try await tool.update(first.id, markdown: "Changed by the tool\n")
+        #expect(try await app.get(first.id)?.markdown == "Changed by the tool\n")
+    }
+
+    @Test func writesFromManyTasksAllLand() async throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "busy-\(UUID().uuidString).json")
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for index in 0..<20 {
+                group.addTask {
+                    _ = try await JSONMemoStore(fileURL: url).create(markdown: "Memo \(index)\n")
+                }
+            }
+            try await group.waitForAll()
+        }
+        #expect(try await JSONMemoStore(fileURL: url).list(matching: nil).count == 20)
     }
 }
