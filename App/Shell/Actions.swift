@@ -50,7 +50,7 @@ extension AppModel {
             },
             PaletteItem(
                 id: "sidePane", title: sidePane ? "Hide Side Pane" : "Show Side Pane",
-                symbol: "sidebar.left", shortcut: "⌃⌘S", section: 1
+                symbol: "sidebar.left", shortcut: "⌥⌘←", section: 1
             ) {
                 self.toggleSidePane()
             },
