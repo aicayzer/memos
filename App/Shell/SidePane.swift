@@ -29,9 +29,9 @@ struct SidePane: View {
                     }
             }
             .font(.system(size: 12))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(.quaternary, in: .rect(cornerRadius: 6))
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .glassEffect(.regular, in: .capsule)
             .padding(.horizontal, 12)
             ScrollView {
                 LazyVStack(spacing: 0) {
