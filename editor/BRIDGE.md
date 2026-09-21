@@ -28,6 +28,7 @@ Called with `evaluateJavaScript` on `window.editor`.
 | `markdown()`                 | Return the document as markdown, or `null` while it is still what was loaded.                                                                                         |
 | `format(command, arg?)`      | Apply a formatting command at the selection, then focus the editor.                                                                                                   |
 | `focus()`                    | Focus the editor.                                                                                                                                                     |
+| `insertPaths(paths, x, y)`   | Insert the paths, one paragraph each, at the point (from the page's top left): in place of an empty block, after the top-level block otherwise. The caret follows.    |
 | `setAccent(color)`           | Set the accent color used for links, markers and the caret.                                                                                                           |
 
 `command` is one of `heading` (with `arg` 1 to 3; the same level again turns the block back into a paragraph), `paragraph`, `bold`, `italic`, `strikethrough`, `code` (at a caret, what is typed next), `codeBlock` (with `arg` an optional language), `quote` (lifts out of the quote when already inside one), `bulletList`, `orderedList`, `taskList`, `link` (with `arg` the URL).

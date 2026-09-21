@@ -6,3 +6,5 @@ Range.prototype.getClientRects ??= none
 Range.prototype.getBoundingClientRect ??= zero
 // The editor runs in a macOS web view, so Mod means Meta; jsdom reports no platform.
 Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+// Nor does it hit-test; a drop point then resolves to the caret.
+document.elementFromPoint ??= () => null

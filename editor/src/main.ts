@@ -9,6 +9,7 @@ declare global {
       markdown(): string | null
       format(command: FormatCommand, arg?: string | number): void
       focus(): void
+      insertPaths(paths: string[], x: number, y: number): void
       setAccent(color: string): void
     }
   }
@@ -45,6 +46,7 @@ window.editor = {
   markdown: () => editor.markdown(),
   format: (command, arg) => editor.format(command, arg),
   focus: () => editor.focus(),
+  insertPaths: (paths, x, y) => editor.insertPaths(paths, x, y),
   setAccent: (color) => document.documentElement.style.setProperty('--accent', color),
 }
 
