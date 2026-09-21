@@ -12,7 +12,7 @@ A native window with a web editor inside it. The native side owns the window, th
 
 ## Install
 
-Download the DMG from the [latest release](https://github.com/aicayzer/memos/releases/latest), open it and drag Memos to Applications. It needs macOS 26. The app updates itself: it offers to check on its own, and Check for Updates… in the Memos menu checks now.
+Download the DMG from the [latest release](https://github.com/aicayzer/memos/releases/latest), open it and drag Memos to Applications. It needs macOS 26. The app updates itself: it offers to check on its own, and Check for Updates… in the Memos menu or in Settings' About tab checks now.
 
 ## Using it
 

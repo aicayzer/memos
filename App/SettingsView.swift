@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
+    @Environment(Updater.self) private var updater
     @Environment(\.colorScheme) private var colorScheme
     @State private var globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
     /// The empty box a key is being typed into, below one of a shortcut's others.
@@ -15,6 +16,7 @@ struct SettingsView: View {
         TabView {
             Tab("App", systemImage: "macwindow") { app }
             Tab("Shortcuts", systemImage: "keyboard") { shortcuts }
+            Tab("About", systemImage: "info.circle") { about }
         }
         .tint(model.accentColor)
         // Otherwise the always-on-top memo window covers it.
@@ -135,6 +137,39 @@ struct SettingsView: View {
         .formStyle(.grouped)
         // The list outgrows a laptop screen, so this tab scrolls at a set height.
         .frame(width: 420, height: 560)
+    }
+
+    private var about: some View {
+        Form {
+            Section {
+                HStack(spacing: 14) {
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .frame(width: 64, height: 64)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(Bundle.main.displayName).font(.title2.weight(.semibold))
+                        Text("Version \(Bundle.main.shortVersion) (\(Bundle.main.buildNumber))")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            Section {
+                LabeledContent("Updates") {
+                    Button("Check for Updates…") { updater.check() }
+                        .disabled(!updater.canCheck)
+                }
+            } footer: {
+                Text(updater.isAvailable ? "The app checks on its own and offers what it finds." : "A build from the tree carries no updater.")
+            }
+            Section {
+                Link("Source and releases", destination: URL(string: "https://github.com/aicayzer/memos")!)
+                Link("License", destination: URL(string: "https://github.com/aicayzer/memos/blob/main/LICENSE")!)
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 420)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     /// A global hotkey takes its key before any window sees it, so it cannot be one the system or the app's

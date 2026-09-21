@@ -17,4 +17,4 @@ A release is a Developer ID-signed, notarized app on a DMG, listed in an EdDSA-s
 
 The script archives the app with the commit count as its build number, exports it with Developer ID signing (which re-signs the framework, its XPC services and the tool with the hardened runtime and a timestamp), notarizes and staples the app, builds the DMG and notarizes and staples that too, fetches the appcast from the bucket and adds the release to it with `generate_appcast`, uploads the DMG and the appcast, tags `v<version>` and creates the GitHub release with the DMG attached. `releases/` holds the local copies and is ignored.
 
-Installed apps ask once whether to check for updates automatically; **Check for Updates…** in the app menu checks on demand. A Debug build carries no updater.
+Installed apps ask once whether to check for updates automatically; **Check for Updates…** in the app menu, or in Settings' About tab, checks on demand. A Debug build carries no updater.
