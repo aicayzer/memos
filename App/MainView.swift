@@ -33,7 +33,7 @@ struct MainView: View {
         .ignoresSafeArea(edges: .top)
         .frame(minHeight: 240)
         .background(WindowReader { model.attach($0) })
-        .containerBackground(for: .window) { WindowBackdrop(opacity: model.windowOpacity) }
+        .containerBackground(for: .window) { WindowBackdrop(opacity: model.windowOpacity, tint: model.windowTint) }
         .navigationTitle(model.title)
         .task { await model.start() }
         .onAppear { model.openMainWindow = { openWindow(id: "main") } }

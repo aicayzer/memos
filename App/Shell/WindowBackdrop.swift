@@ -2,15 +2,20 @@ import SwiftUI
 
 struct WindowBackdrop: View {
     let opacity: Double
+    let tint: NSColor?
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ZStack {
             Glass()
-            // Black rather than the system window color, so the blur's own tint comes through.
-            (colorScheme == .dark ? Color.black : Color.white).opacity(opacity)
+            Color(nsColor: tint ?? Self.baseColor(for: colorScheme)).opacity(opacity)
         }
         .clipShape(.rect(cornerRadius: Chrome.cornerRadius))
+    }
+
+    // Black rather than the system window color, so the blur's own tint comes through.
+    static func baseColor(for scheme: ColorScheme) -> NSColor {
+        scheme == .dark ? .black : .white
     }
 
     // SwiftUI materials go flat while the window is inactive, which for a floating window is most of the time.
