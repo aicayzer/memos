@@ -3,14 +3,15 @@ import Testing
 @testable import Memos
 
 @Suite struct JSONMemoStoreTests {
-    private func makeStore() throws -> (JSONMemoStore, URL) {
+    private func makeStore() -> (JSONMemoStore, URL) {
         let url = FileManager.default.temporaryDirectory.appending(path: "memos-\(UUID().uuidString).json")
         return (JSONMemoStore(fileURL: url), url)
     }
 
     @Test func createsListsAndReadsBack() async throws {
-        let (store, url) = try makeStore()
+        let (store, url) = makeStore()
         let first = try await store.create(markdown: "First\n")
+        try await Task.sleep(for: .milliseconds(2))
         let second = try await store.create(markdown: "Second\n")
         let listed = try await store.list(matching: nil).map(\.id)
         #expect(listed == [second.id, first.id])
@@ -21,9 +22,11 @@ import Testing
     }
 
     @Test func updatingMovesAMemoToTheTop() async throws {
-        let (store, _) = try makeStore()
+        let (store, _) = makeStore()
         let first = try await store.create(markdown: "First\n")
         _ = try await store.create(markdown: "Second\n")
+        // The file keeps milliseconds, so two writes in one would tie.
+        try await Task.sleep(for: .milliseconds(2))
         _ = try await store.update(first.id, markdown: "First again\n")
         let listed = try await store.list(matching: nil)
         #expect(listed.first?.id == first.id)
@@ -31,7 +34,7 @@ import Testing
     }
 
     @Test func favoriteSurvivesReopening() async throws {
-        let (store, url) = try makeStore()
+        let (store, url) = makeStore()
         let memo = try await store.create(markdown: "Keep\n")
         _ = try await store.setFavorite(memo.id, true)
         let reopened = JSONMemoStore(fileURL: url)
@@ -39,7 +42,7 @@ import Testing
     }
 
     @Test func favoritesSortFirst() async throws {
-        let (store, _) = try makeStore()
+        let (store, _) = makeStore()
         let old = try await store.create(markdown: "Old\n")
         _ = try await store.create(markdown: "New\n")
         _ = try await store.setFavorite(old.id, true)
@@ -48,7 +51,7 @@ import Testing
     }
 
     @Test func queryMatchesTitleAndBodyIgnoringCase() async throws {
-        let (store, _) = try makeStore()
+        let (store, _) = makeStore()
         let groceries = try await store.create(markdown: "Groceries\n\n- Milk\n")
         _ = try await store.create(markdown: "Plan\n\n- call the bank\n")
         let byTitle = try await store.list(matching: "grocer").map(\.id)
@@ -60,7 +63,7 @@ import Testing
     }
 
     @Test func deleteRemovesTheMemo() async throws {
-        let (store, _) = try makeStore()
+        let (store, _) = makeStore()
         let memo = try await store.create(markdown: "Gone\n")
         try await store.delete(memo.id)
         let listed = try await store.list(matching: nil)
@@ -68,7 +71,7 @@ import Testing
     }
 
     @Test func updatingAMissingMemoThrows() async throws {
-        let (store, _) = try makeStore()
+        let (store, _) = makeStore()
         await #expect(throws: MemoStoreError.self) {
             try await store.update(UUID(), markdown: "")
         }
@@ -114,6 +117,7 @@ import Testing
         let app = JSONMemoStore(fileURL: url)
         let tool = JSONMemoStore(fileURL: url)
         let first = try await app.create(markdown: "From the app\n")
+        try await Task.sleep(for: .milliseconds(2))
         let second = try await tool.create(markdown: "From the tool\n")
         #expect(try await app.list(matching: nil).map(\.id) == [second.id, first.id])
         _ = try await tool.update(first.id, markdown: "Changed by the tool\n")
