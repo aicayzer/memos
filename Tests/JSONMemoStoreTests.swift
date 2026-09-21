@@ -133,3 +133,24 @@ import Testing
         #expect(try await JSONMemoStore(fileURL: url).list(matching: nil).count == 20)
     }
 }
+
+@Suite struct JSONMemoStoreDateTests {
+    @Test func whatIsHandedBackIsWhatTheFileHolds() async throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "dates-\(UUID().uuidString).json")
+        let store = JSONMemoStore(fileURL: url)
+        let created = try await store.create(markdown: "Now\n")
+        #expect(try await store.get(created.id) == created)
+        let updated = try await store.update(created.id, markdown: "Later\n")
+        #expect(try await store.get(created.id) == updated)
+    }
+
+    @Test func tiesOrderTheSameWayEveryTime() async throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "ties-\(UUID().uuidString).json")
+        let store = JSONMemoStore(fileURL: url)
+        for index in 0..<8 { _ = try await store.create(markdown: "Memo \(index)\n") }
+        let first = try await store.list(matching: nil).map(\.id)
+        for _ in 0..<5 {
+            #expect(try await JSONMemoStore(fileURL: url).list(matching: nil).map(\.id) == first)
+        }
+    }
+}
