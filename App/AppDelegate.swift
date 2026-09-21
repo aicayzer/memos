@@ -53,6 +53,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
     }
 
+    /// memos://memo/<id> opens that memo; anything else on the scheme just shows the window.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            if url.host() == "memo", let id = UUID(uuidString: url.lastPathComponent) {
+                Task { await model.open(id) }
+            } else {
+                model.showWindow()
+            }
+        }
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         model.showWindow()
         return false

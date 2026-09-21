@@ -4,6 +4,7 @@
 # Generated from project.yml by XcodeGen
 *.xcodeproj/
 App/Info.plist
+CLI/Info.plist
 App/*.entitlements
 build*/
 DerivedData/
