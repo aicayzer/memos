@@ -7,6 +7,12 @@ App/Info.plist
 CLI/Info.plist
 App/*.entitlements
 build*/
+# Intermediates that a stray xcodebuild without a derived data path leaves at the root
+*.o
+*.d
+*.dia
+*.swiftdeps
+*.swiftconstvalues
 DerivedData/
 xcuserdata/
 *.xcresult

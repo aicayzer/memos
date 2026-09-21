@@ -16,13 +16,15 @@ struct MemosCommand: AsyncParsableCommand {
     )
 }
 
-/// A memo as the commands name it: an id, the start of one, a title, or the start of one.
+/// A memo as the commands name it.
 struct Reference: ExpressibleByArgument {
     let text: String
     init?(argument: String) { text = argument }
+
+    static let help = ArgumentHelp("A memo: its id, the start of one (4 or more characters), its title, or the start of that.")
 }
 
-struct Failure: Error, CustomStringConvertible {
+struct ToolError: Error, CustomStringConvertible {
     let description: String
 }
 
@@ -33,11 +35,11 @@ enum Shared {
             return JSONMemoStore(fileURL: URL(fileURLWithPath: path))
         }
         guard let identifier = Bundle.main.object(forInfoDictionaryKey: "MemosAppIdentifier") as? String else {
-            throw Failure(description: "the tool was built without the app's identifier")
+            throw ToolError(description: "the tool was built without the app's identifier")
         }
         let container = URL.homeDirectory.appending(path: "Library/Containers/\(identifier)/Data/Library/Application Support")
         guard FileManager.default.fileExists(atPath: container.path) else {
-            throw Failure(description: "Memos has not run yet; open it once first")
+            throw ToolError(description: "Memos has not run yet; open it once first")
         }
         return JSONMemoStore(fileURL: container.appending(path: "store.json"))
     }
@@ -46,18 +48,18 @@ enum Shared {
         do {
             return try MemoLookup.find(reference.text, in: try await store.list(matching: nil))
         } catch MemoLookup.Failure.none(let text) {
-            throw Failure(description: "no memo matches \"\(text)\"")
+            throw ToolError(description: "no memo matches \"\(text)\"")
         } catch MemoLookup.Failure.several(let text, let memos) {
             let names = memos.map { "  \($0.id.uuidString.prefix(8).lowercased())  \($0.title)" }.joined(separator: "\n")
-            throw Failure(description: "\"\(text)\" matches several memos:\n\(names)")
+            throw ToolError(description: "\"\(text)\" matches several memos:\n\(names)")
         }
     }
 
-    /// The arguments as one text, or standard input when there are none.
+    /// The arguments as one text, or standard input when there are none and it is not the keyboard.
     static func text(_ words: [String]) throws -> String {
         if !words.isEmpty { return words.joined(separator: " ") }
-        guard let data = try FileHandle.standardInput.readToEnd(), !data.isEmpty else {
-            throw Failure(description: "nothing to add: give text, or pipe it in")
+        guard isatty(STDIN_FILENO) == 0, let data = try FileHandle.standardInput.readToEnd(), !data.isEmpty else {
+            throw ToolError(description: "nothing to add: give text, or pipe it in")
         }
         return String(decoding: data, as: UTF8.self)
     }
@@ -95,7 +97,7 @@ struct List: AsyncParsableCommand {
 struct Show: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Print a memo's markdown.")
 
-    @Argument var memo: Reference
+    @Argument(help: Reference.help) var memo: Reference
     @Flag(name: .long, help: "Every field, as JSON.") var json = false
 
     func run() async throws {
@@ -108,7 +110,7 @@ struct Show: AsyncParsableCommand {
 struct New: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Make a memo from the text given, or from standard input.")
 
-    @Argument(parsing: .captureForPassthrough, help: "The memo's text.") var text: [String] = []
+    @Argument(help: "The memo's text.") var text: [String] = []
 
     func run() async throws {
         let memo = try await Shared.store().create(markdown: try Shared.text(text))
@@ -117,27 +119,22 @@ struct New: AsyncParsableCommand {
 }
 
 struct Append: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(abstract: "Add text to the end of a memo, on its own line.")
+    static let configuration = CommandConfiguration(abstract: "Add text to the end of a memo, as a paragraph of its own.")
 
-    @Argument var memo: Reference
-    @Argument(parsing: .captureForPassthrough, help: "The text to add.") var text: [String] = []
+    @Argument(help: Reference.help) var memo: Reference
+    @Argument(help: "The text to add.") var text: [String] = []
 
     func run() async throws {
         let store = try Shared.store()
         let found = try await Shared.find(memo, in: store)
-        var markdown = found.markdown
-        if !markdown.isEmpty, !markdown.hasSuffix("\n") { markdown += "\n" }
-        if !markdown.isEmpty { markdown += "\n" }
-        markdown += try Shared.text(text)
-        if !markdown.hasSuffix("\n") { markdown += "\n" }
-        _ = try await store.update(found.id, markdown: markdown)
+        _ = try await store.update(found.id, markdown: Memo.appending(try Shared.text(text), to: found.markdown))
     }
 }
 
 struct Replace: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Replace a memo's text with standard input.")
 
-    @Argument var memo: Reference
+    @Argument(help: Reference.help) var memo: Reference
 
     func run() async throws {
         let store = try Shared.store()
@@ -149,21 +146,24 @@ struct Replace: AsyncParsableCommand {
 struct Edit: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Open a memo in $EDITOR and save what comes back.")
 
-    @Argument var memo: Reference
+    @Argument(help: Reference.help) var memo: Reference
 
     func run() async throws {
         let store = try Shared.store()
         let found = try await Shared.find(memo, in: store)
-        let file = FileManager.default.temporaryDirectory.appending(path: Memo.fileName(for: found.title))
+        // Its own folder, so two edits of one title do not share a file.
+        let folder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let file = folder.appending(path: Memo.fileName(for: found.title))
         try found.markdown.write(to: file, atomically: true, encoding: .utf8)
-        defer { try? FileManager.default.removeItem(at: file) }
         let editor = ProcessInfo.processInfo.environment["EDITOR"] ?? "vi"
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
         process.arguments = ["-c", "\(editor) \"$1\"", "--", file.path]
         try process.run()
         process.waitUntilExit()
-        guard process.terminationStatus == 0 else { throw Failure(description: "\(editor) exited with \(process.terminationStatus); nothing saved") }
+        guard process.terminationStatus == 0 else { throw ToolError(description: "\(editor) exited with \(process.terminationStatus); nothing saved") }
         let edited = try String(contentsOf: file, encoding: .utf8)
         if edited != found.markdown { _ = try await store.update(found.id, markdown: edited) }
     }
@@ -172,7 +172,7 @@ struct Edit: AsyncParsableCommand {
 struct Favorite: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Mark a memo as a favorite.")
 
-    @Argument var memo: Reference
+    @Argument(help: Reference.help) var memo: Reference
 
     func run() async throws {
         let store = try Shared.store()
@@ -183,7 +183,7 @@ struct Favorite: AsyncParsableCommand {
 struct Unfavorite: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Take a memo off the favorites.")
 
-    @Argument var memo: Reference
+    @Argument(help: Reference.help) var memo: Reference
 
     func run() async throws {
         let store = try Shared.store()
@@ -194,7 +194,7 @@ struct Unfavorite: AsyncParsableCommand {
 struct Delete: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Delete a memo. There is no undo.")
 
-    @Argument var memo: Reference
+    @Argument(help: Reference.help) var memo: Reference
 
     func run() async throws {
         let store = try Shared.store()
@@ -207,7 +207,7 @@ struct Delete: AsyncParsableCommand {
 struct Open: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Show the app, on a memo when one is named.")
 
-    @Argument var memo: Reference?
+    @Argument(help: Reference.help) var memo: Reference?
 
     func run() async throws {
         var url = URLComponents()
@@ -217,7 +217,7 @@ struct Open: AsyncParsableCommand {
             url.host = "memo"
             url.path = "/\(found.id.uuidString.lowercased())"
         }
-        guard NSWorkspace.shared.open(url.url!) else { throw Failure(description: "Memos is not registered to open memos:// links; open the app once") }
+        guard NSWorkspace.shared.open(url.url!) else { throw ToolError(description: "Memos is not registered to open memos:// links; open the app once") }
     }
 }
 
