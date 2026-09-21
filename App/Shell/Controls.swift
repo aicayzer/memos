@@ -20,7 +20,7 @@ enum Chrome {
     static let barHeight: CGFloat = 32
     static let closeSize: CGFloat = 30
     static let iconSize: CGFloat = 15
-    static let cornerRadius: CGFloat = 16
+    static let cornerRadius: CGFloat = 22
     static let paneWidth: CGFloat = 220
     /// The pane and its divider.
     static let paneRoom = paneWidth + 1
