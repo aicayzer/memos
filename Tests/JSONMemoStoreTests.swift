@@ -86,10 +86,10 @@ import Testing
         #expect(listed.isEmpty)
     }
 
-    @Test func wholeSecondDatesStillRead() async throws {
+    @Test func datesWithoutFractionsStillRead() async throws {
         let url = FileManager.default.temporaryDirectory.appending(path: "seconds-\(UUID().uuidString).json")
         let json = """
-        {"memos": [{"id": "6A3F2C8E-0000-4000-8000-000000000001", "markdown": "Old\\n", "pinned": false,
+        {"memos": [{"id": "6A3F2C8E-0000-4000-8000-000000000001", "markdown": "Old\\n", "favorite": false,
                     "createdAt": "2026-09-21T00:06:11Z", "updatedAt": "2026-09-21T00:06:11Z"}]}
         """
         try Data(json.utf8).write(to: url)

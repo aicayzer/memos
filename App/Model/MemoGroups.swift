@@ -8,8 +8,8 @@ struct MemoGroup: Identifiable {
 }
 
 extension MemoGroup {
-    /// Favorites first, then sections by last edit in the spans Apple Notes uses. Memos keep their order
-    /// within a group.
+    /// Favorites first, then sections by last edit in the spans the system's own notes app uses. Memos keep
+    /// their order within a group.
     static func grouped(_ memos: [Memo], now: Date = .now, calendar: Calendar = .current) -> [MemoGroup] {
         var groups: [MemoGroup] = []
         var index: [String: Int] = [:]

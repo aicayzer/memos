@@ -59,6 +59,8 @@ targets:
       properties:
         CFBundleDisplayName: Memos
         CFBundleName: Memos
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.productivity
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
         NSHighResolutionCapable: true
@@ -106,6 +108,8 @@ targets:
       path: CLI/Info.plist
       properties:
         MemosAppIdentifier: $(MEMOS_APP_IDENTIFIER)
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
     settings:
       base:
         PRODUCT_NAME: memos

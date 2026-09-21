@@ -185,7 +185,8 @@ private final class MessageProxy: NSObject, WKScriptMessageHandler {
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let parsed = EditorMessage(body: message.body) else {
-            log.error("unreadable editor message: \(String(describing: message.body), privacy: .public)")
+            // The body may hold the memo, which does not belong in the log; its type says what went wrong.
+            log.error("unreadable editor message of type \(String(describing: (message.body as? [String: Any])?["type"]), privacy: .public)")
             return
         }
         target?.receive(parsed)

@@ -9,7 +9,6 @@ export const autolinkInputRule = $inputRule((ctx) => {
     (state, match, _start, end) => {
       const url = match[1]
       if (!url) return null
-      // The URL ends where the space was typed.
       const to = end
       const from = to - url.length
       const mark = linkSchema.type(ctx).create({ href: url })
