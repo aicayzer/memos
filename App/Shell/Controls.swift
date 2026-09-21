@@ -22,6 +22,8 @@ enum Chrome {
     static let iconSize: CGFloat = 15
     static let cornerRadius: CGFloat = 16
     static let paneWidth: CGFloat = 220
+    /// The pane and its divider.
+    static let paneRoom = paneWidth + 1
     /// Narrower and the bar's controls crop.
     static let minWidth: CGFloat = 400
 }

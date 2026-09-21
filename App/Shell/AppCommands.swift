@@ -48,7 +48,7 @@ struct AppCommands: Commands {
                 .keyboardShortcut("k")
             Toggle("Formatting Bar", isOn: Binding(get: { !model.formatBarHidden }, set: { model.formatBarHidden = !$0 }))
             Button(model.sidePane ? "Hide Side Pane" : "Show Side Pane") { model.toggleSidePane() }
-                .keyboardShortcut("s", modifiers: [.command, .control])
+                .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
         }
         CommandGroup(before: .windowArrangement) {
             Toggle("Always on Top", isOn: $model.floating)

@@ -12,7 +12,6 @@ struct MainView: View {
         HStack(spacing: 0) {
             if model.sidePane {
                 SidePane(active: active)
-                    .transition(.move(edge: .leading))
                 Divider()
             }
             VStack(spacing: 0) {
