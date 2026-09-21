@@ -47,6 +47,26 @@ import Testing
         #expect(Memo.title(for: "\\[not a link](x)") == "[not a link](x)")
     }
 
+    @Test func characterReferencesAreDecoded() {
+        #expect(Memo.title(for: "Memos&#x20;") == "Memos")
+        #expect(Memo.title(for: "&#x20; Indented") == "Indented")
+        #expect(Memo.title(for: "Tab&#9;stop") == "Tab\tstop")
+        #expect(Memo.title(for: "Star &#x2A;not italic&#x2A;") == "Star *not italic*")
+        // A letter next to an emphasis whose text starts with a space is encoded; the marks must go first.
+        #expect(Memo.title(for: "fo&#x6F;*&#x20;bar*") == "foo bar")
+        #expect(Memo.title(for: "**&#x20;both&#x20;**&#x78;") == "both x")
+        #expect(Memo.title(for: "&#x20;\n\nSecond line") == "Second line")
+        #expect(Memo.title(for: "`&#x20;`") == "&#x20;")
+        #expect(Memo.title(for: "\\&#x20;") == "&#x20;")
+        #expect(Memo.title(for: "&#x110000; stays") == "&#x110000; stays")
+    }
+
+    @Test func hardBreakIsNotPartOfTheTitle() {
+        #expect(Memo.title(for: "Memos\\\nReference") == "Memos")
+        #expect(Memo.title(for: "Memos&#x20;\\\nReference") == "Memos")
+        #expect(Memo.title(for: "Ends in \\\\") == "Ends in \\")
+    }
+
     @Test func wordsAreLeftAlone() {
         #expect(Memo.title(for: "snake_case_name") == "snake_case_name")
         #expect(Memo.title(for: "2 * 3 = 6") == "2 * 3 = 6")

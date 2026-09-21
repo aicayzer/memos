@@ -87,6 +87,16 @@ struct Memo: Identifiable, Codable, Equatable, Sendable {
         plain = plain.replacing(/(\*\*|__|~~)([^*_~]+)\1/) { String($0.2) }
         plain = plain.replacing(/\*([^*\s][^*]*)\*/) { String($0.1) }
         plain = plain.replacing(/\b_([^_\s][^_]*)_\b/) { String($0.1) }
+        // A backslash ending the line is a hard break.
+        if plain.hasSuffix("\\") { plain.removeLast() }
+        // remark writes a character that would otherwise change the parse, such as a space ending the line or a
+        // letter beside an emphasis marker, as a numeric reference; the only kind the store holds, since `&` is
+        // otherwise escaped.
+        plain = plain.replacing(/&#(x[0-9A-Fa-f]{1,6}|[0-9]{1,7});/) { match in
+            let reference = match.1
+            let value = reference.first == "x" ? UInt32(reference.dropFirst(), radix: 16) : UInt32(reference)
+            return value.flatMap(Unicode.Scalar.init).map(String.init) ?? String(match.0)
+        }
         return String(String.UnicodeScalarView(plain.unicodeScalars.map(unshielded)))
     }
 
