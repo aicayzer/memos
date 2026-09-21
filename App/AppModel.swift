@@ -30,11 +30,8 @@ final class AppModel {
         didSet { defaults.set(formatBarHidden, forKey: Self.formatBarHiddenKey) }
     }
 
-    /// Open and closed within a session; each launch starts from the setting. The last state is kept
-    /// because the window's saved frame includes the pane when it was open.
-    var sidePane: Bool {
-        didSet { defaults.set(sidePane, forKey: Self.sidePaneOpenKey) }
-    }
+    /// Open and closed within a session; each launch starts from the setting.
+    var sidePane: Bool
 
     var sidePaneAtLaunch: Bool {
         didSet { defaults.set(sidePaneAtLaunch, forKey: Self.sidePaneAtLaunchKey) }
@@ -88,7 +85,8 @@ final class AppModel {
     private static let floatingKey = "floating"
     private static let formatBarHiddenKey = "formatBarHidden"
     private static let sidePaneAtLaunchKey = "sidePaneAtLaunch"
-    private static let sidePaneOpenKey = "sidePaneOpen"
+    /// Whether the autosaved frame has room for the pane.
+    private static let paneRoomKey = "paneRoom"
     private static let menuBarItemKey = "menuBarItem"
     private static let showInDockKey = "showInDock"
     private static let windowOpacityKey = "windowOpacity"
@@ -216,7 +214,7 @@ final class AppModel {
             sharePicker = picker
             NSApp.activate()
             // The hosting view is flipped, so the top row is the first row-height from y = 0.
-            let left = sidePane ? Chrome.paneWidth + 1 : 0
+            let left = sidePane ? Chrome.paneRoom : 0
             let bounds = contentView.bounds
             let top = contentView.isFlipped ? bounds.minY : bounds.maxY - Chrome.rowHeight
             let anchor = NSRect(x: (left + bounds.maxX) / 2 - 1, y: top, width: 2, height: Chrome.rowHeight)
@@ -239,7 +237,8 @@ final class AppModel {
 
     func toggleSidePane() {
         showWindowIfHidden()
-        // The frame first: a window narrower than its content is widened to the right.
+        // The frame first: a window narrower than its content is widened to the right, and setFrame is
+        // not held to the minimum, so closing can shrink it before the content lets the minimum down.
         resizeWindow(forPane: !sidePane)
         sidePane.toggle()
         // Closing takes the search field with it; typing should land in the memo again.
@@ -249,15 +248,16 @@ final class AppModel {
     /// The pane takes its room on the left, so the memo stays where it is, and gives it back on closing.
     private func resizeWindow(forPane open: Bool) {
         guard let window else { return }
-        let delta = (Chrome.paneWidth + 1) * (open ? 1 : -1)
+        let delta = open ? Chrome.paneRoom : -Chrome.paneRoom
         var frame = window.frame
         frame.origin.x -= delta
         frame.size.width += delta
         // Against the screen edge, what does not fit on the left goes on the right.
-        if let screen = window.screen, frame.minX < screen.visibleFrame.minX {
-            frame.origin.x = screen.visibleFrame.minX
+        if let screen = window.screen {
+            frame.origin.x = max(frame.origin.x, min(window.frame.minX, screen.visibleFrame.minX))
         }
         window.setFrame(frame, display: true)
+        defaults.set(open, forKey: Self.paneRoomKey)
     }
 
     /// The list as browse and the side pane show it; a failure logs and shows nothing rather than stale rows.
@@ -292,8 +292,8 @@ final class AppModel {
         windowBehavior = window.collectionBehavior
         chrome.attach(window)
         applyWindowLevel()
-        // The saved frame is from the last quit, with the pane as it was then.
-        if defaults.bool(forKey: Self.sidePaneOpenKey) != sidePane { resizeWindow(forPane: sidePane) }
+        // The frame was saved with the pane as it was then, which the launch setting may not match.
+        if defaults.bool(forKey: Self.paneRoomKey) != sidePane { resizeWindow(forPane: sidePane) }
     }
 
     /// Without a Dock icon the app is an accessory: no menu bar, though its key equivalents still work.
