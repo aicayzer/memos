@@ -107,7 +107,7 @@ struct MainView: View {
         case .browse:
             PaletteView(placeholder: "Search memos…", items: browseItems, query: $browseQuery, dismiss: model.dismissOverlay)
                 .padding(paletteInsets)
-                .task(id: browseQuery) { browseItems = await model.browseItems(browseQuery) }
+                .task(id: "\(model.storeGeneration) \(browseQuery)") { browseItems = await model.browseItems(browseQuery) }
         default:
             EmptyView()
         }

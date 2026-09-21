@@ -9,20 +9,24 @@ private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "ap
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model: AppModel
     private var panel: MemoPanel?
+    private var watcher: StoreWatcher?
 
     override init() {
+        let store: JSONMemoStore
         do {
             // The test host must not touch the real store or defaults.
             if ProcessInfo.processInfo.environment.keys.contains(where: { $0.hasPrefix("XCTest") }) {
-                let file = FileManager.default.temporaryDirectory.appending(path: "store-\(UUID().uuidString).json")
-                model = AppModel(store: try JSONMemoStore(fileURL: file), defaults: UserDefaults(suiteName: "tests")!)
+                store = JSONMemoStore(fileURL: FileManager.default.temporaryDirectory.appending(path: "store-\(UUID().uuidString).json"))
+                model = AppModel(store: store, defaults: UserDefaults(suiteName: "tests")!)
             } else {
-                model = AppModel(store: try JSONMemoStore.inApplicationSupport())
+                store = try JSONMemoStore.inApplicationSupport()
+                model = AppModel(store: store)
             }
         } catch {
             fatalError("memo store unavailable: \(error)")
         }
         super.init()
+        watcher = StoreWatcher(directory: store.fileURL.deletingLastPathComponent()) { [model] in model.storeChanged() }
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
