@@ -10,6 +10,10 @@ A small native Mac app for memos: one window that floats above whatever you are 
 
 A native window with a web editor inside it. The native side owns the window, the command palette, browsing, shortcuts and saving; the editor is a bundled web page that works offline.
 
+## Install
+
+Download the DMG from the [latest release](https://github.com/aicayzer/memos/releases/latest), open it and drag Memos to Applications. It needs macOS 26. The app updates itself: it offers to check on its own, and Check for Updates… in the Memos menu checks now.
+
 ## Using it
 
 - A file dropped on the memo inserts its path where it lands.
@@ -19,7 +23,6 @@ A native window with a web editor inside it. The native side owns the window, th
 - ⌥⌘← (or ⌘.), or a double-click on the title bar, opens a side pane listing the memos with a search field; the window grows to the left to make room and shrinks back when it closes. Settings can open it at launch.
 - The window takes the keyboard without bringing the app to the front, so the app you were in keeps the menu bar while you type; a Dock click brings up the Memos menus, whose Memo and Window items are also in the palette.
 - Always on Top keeps it above other apps and on every space; the background, side pane and accent are set in Settings (⌘,), whose Shortcuts tab records the global show/hide shortcut and lets every other shortcut, the editor's included, be changed or given more keys.
-- Updates arrive through Sparkle: the app offers to check on its own, and Check for Updates… in the Memos menu checks now.
 - Type markdown as you go: `# `, `- `, `1. `, `- [ ] `, `> ` and backticks turn into formatting. ⌘-click opens a link.
 
 ## From the shell
