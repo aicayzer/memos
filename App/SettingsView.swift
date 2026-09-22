@@ -86,13 +86,12 @@ struct SettingsView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 }
-                LabeledContent("Text size") {
-                    Stepper(value: $model.textSize, in: AppModel.textSizes, step: 1) {
-                        Text("\(Int(model.textSize)) pt")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
+                Picker("Text size", selection: $model.textSize) {
+                    ForEach(AppModel.textSizes, id: \.self) { size in
+                        Text("\(Int(size)) pt").tag(size)
                     }
                 }
+                .tint(.primary)
                 ColorPicker("Tint", selection: Binding(
                     get: { Color(nsColor: model.windowTint ?? WindowBackdrop.baseColor(for: colorScheme)) },
                     set: { picked in

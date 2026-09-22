@@ -94,7 +94,7 @@ final class AppModel {
 
     static let defaultWindowOpacity = 0.6
     static let defaultTextSize = EditorController.defaultTextSize
-    static let textSizes = 12.0...22.0
+    static let textSizes = [12.0, 13, 14, 15, 16, 17, 18, 19, 20]
 
     private static let lastMemoKey = "lastMemoID"
     private static let floatingKey = "floating"
@@ -123,9 +123,9 @@ final class AppModel {
         windowOpacity = defaults.object(forKey: Self.windowOpacityKey) as? Double ?? Self.defaultWindowOpacity
         windowTint = defaults.string(forKey: Self.windowTintKey).flatMap(NSColor.init(hexString:))
         accent = Accent(stored: defaults.string(forKey: Self.accentKey))
-        // A stored size from a later version, or an edited preference, still has to be one the stepper can show.
+        // A stored size from a later version, or an edited preference, still has to be one the menu can show.
         let storedSize = defaults.object(forKey: Self.textSizeKey) as? Double ?? Self.defaultTextSize
-        textSize = min(max(storedSize.rounded(), Self.textSizes.lowerBound), Self.textSizes.upperBound)
+        textSize = Self.textSizes.min { abs($0 - storedSize) < abs($1 - storedSize) } ?? Self.defaultTextSize
         editor.accentOverride = accent.color
         editor.textSize = textSize
         editor.keymap = shortcuts.editorKeymap
