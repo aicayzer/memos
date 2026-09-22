@@ -320,12 +320,18 @@ final class ShortcutSettings {
         return owners.filter { $0.value.count > 1 }
     }
 
-    /// The app's keys beyond the first of each, which the menu cannot carry, for the window to match. A key
-    /// some shortcut shows as its first stays with the menu, so what the menu shows is what happens.
-    var alternates: [(key: KeyCombo, shortcut: Shortcut)] {
-        let shown = Set(Shortcut.allCases.compactMap(first))
+    /// Every key of the app's own shortcuts, for the window to match. The menu is offered the event first,
+    /// so this is what answers a key it has no item for, or cannot carry, before the web view claims it. A
+    /// key some other shortcut shows as its first stays with the menu, so what the menu shows is what happens.
+    var windowKeys: [(key: KeyCombo, shortcut: Shortcut)] {
+        let shown = Dictionary(
+            Shortcut.allCases.compactMap { shortcut in first(shortcut).map { ($0, shortcut) } },
+            uniquingKeysWith: { first, _ in first }
+        )
         return Shortcut.app.flatMap { shortcut in
-            keys(for: shortcut).dropFirst().filter { !shown.contains($0) }.map { (key: $0, shortcut: shortcut) }
+            keys(for: shortcut)
+                .filter { shown[$0] == nil || shown[$0] == shortcut }
+                .map { (key: $0, shortcut: shortcut) }
         }
     }
 

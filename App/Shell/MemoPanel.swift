@@ -22,13 +22,14 @@ final class MemoPanel: NSPanel {
         setFrameAutosaveName(Self.frameName)
     }
 
-    /// A menu item carries one key; a shortcut's other keys are matched here. Before the content, since the
-    /// web view claims every Command chord and turns some, ⌘. among them, into commands that never come back.
-    var alternates: () -> [(key: KeyCombo, shortcut: Shortcut)] = { [] }
+    /// The app's shortcuts, matched here before the content, since the web view claims every Command chord
+    /// and turns some into editing commands that never come back: ⌘. and ⌘⌫ among them. The menu is offered
+    /// the event first, so a key it answers never reaches this.
+    var keys: () -> [(key: KeyCombo, shortcut: Shortcut)] = { [] }
     var perform: (Shortcut) -> Void = { _ in }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if let pressed = KeyCombo(event: event), let match = alternates().first(where: { $0.key == pressed }) {
+        if let pressed = KeyCombo(event: event), let match = keys().first(where: { $0.key == pressed }) {
             perform(match.shortcut)
             return true
         }
