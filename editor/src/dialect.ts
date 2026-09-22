@@ -13,7 +13,7 @@ import {
 } from '@milkdown/kit/preset/gfm'
 import { $remark } from '@milkdown/kit/utils'
 import { autolinkInputRule } from './autolink'
-import { imageView, imageWithWidth } from './images'
+import { imageView } from './images'
 import type { Link, Parents, PhrasingContent } from 'mdast'
 import { defaultHandlers, type Options as StringifyOptions } from 'mdast-util-to-markdown'
 import {
@@ -117,6 +117,7 @@ export const dialect: MilkdownPlugin[] = [
   toggleStrikethroughCommand,
   wrapInTaskListInputRule,
   remarkDialectPlugin,
+  imageView,
 ].flat()
 
 // One output form, so a memo written back unchanged is byte-stable.

@@ -25,39 +25,14 @@ export function splitAlt(alt: string): { alt: string; width: number | null } {
   return { alt: match[1] ?? '', width: Number(match[2]) }
 }
 
-export function joinAlt(alt: string, width: unknown): string {
-  return typeof width === 'number' ? `${alt}|${width}` : alt
+export function joinAlt(alt: string, width: number | null): string {
+  return width == null ? alt : `${alt}|${width}`
 }
-
-export const imageWithWidth = imageSchema.extendSchema((prev) => (ctx) => {
-  const base = prev(ctx)
-  return {
-    ...base,
-    attrs: { ...base.attrs, width: { default: null } },
-    parseMarkdown: {
-      match: base.parseMarkdown.match,
-      runner: (state, node, type) => {
-        const { alt, width } = splitAlt(String(node.alt ?? ''))
-        state.addNode(type, { src: String(node.url ?? ''), alt, title: node.title ?? '', width })
-      },
-    },
-    toMarkdown: {
-      match: base.toMarkdown.match,
-      runner: (state, node) => {
-        state.addNode('image', undefined, undefined, {
-          title: node.attrs.title,
-          url: node.attrs.src,
-          alt: joinAlt(node.attrs.alt, node.attrs.width),
-        })
-      },
-    },
-  }
-})
 
 const minimumWidth = 48
 
-/** Draws the image and the handle that sizes it. A width is set in pixels and capped to the memo, so a
- *  narrow window shows the whole picture without changing what the memo says. */
+/** Draws the image and the handle that sizes it. The width is kept in the alt text, so the schema is the
+ *  one commonmark gives us; a picture is never wider than the memo, whatever number the alt text holds. */
 class ImageView implements NodeView {
   dom: HTMLElement
   private image?: HTMLImageElement
@@ -90,21 +65,23 @@ class ImageView implements NodeView {
   }
 
   private render(): void {
-    const { src, alt, title, width } = this.node.attrs
+    const src = String(this.node.attrs.src ?? '')
+    const { alt, width } = splitAlt(String(this.node.attrs.alt ?? ''))
+    this.width = width
     this.dom.textContent = ''
-    this.width = typeof width === 'number' ? width : null
+    this.image = undefined
     // An image from the web is never fetched; the memo shows what it was called instead.
-    if (!isOwn(String(src))) {
+    if (!isOwn(src)) {
       this.dom.classList.add('image-absent')
-      this.dom.textContent = String(alt || src)
+      this.dom.textContent = alt || src
       return
     }
     this.dom.classList.remove('image-absent')
     const image = document.createElement('img')
-    image.src = assetURL(String(src))
-    image.alt = String(alt ?? '')
-    if (title) image.title = String(title)
-    if (this.width != null) image.style.width = `${this.width}px`
+    image.src = assetURL(src)
+    image.alt = alt
+    if (this.node.attrs.title) image.title = String(this.node.attrs.title)
+    if (width != null) image.style.width = `${width}px`
     this.image = image
     const handle = document.createElement('span')
     handle.className = 'image-handle'
@@ -120,7 +97,7 @@ class ImageView implements NodeView {
     const startX = event.clientX
     const startWidth = image.getBoundingClientRect().width
     const limit = this.view.dom.clientWidth
-    handle.setPointerCapture(event.pointerId)
+    handle.setPointerCapture?.(event.pointerId)
     const move = (moved: PointerEvent) => {
       const next = Math.round(
         Math.min(limit, Math.max(minimumWidth, startWidth + (moved.clientX - startX))),
@@ -141,15 +118,16 @@ class ImageView implements NodeView {
 
   private commit(): void {
     const pos = this.getPos()
-    if (pos == null || this.width === this.node.attrs.width) return
+    if (pos == null) return
+    const { alt } = splitAlt(String(this.node.attrs.alt ?? ''))
+    const next = joinAlt(alt, this.width)
+    if (next === this.node.attrs.alt) return
     const { state } = this.view
-    this.view.dispatch(
-      state.tr.setNodeMarkup(pos, undefined, { ...this.node.attrs, width: this.width }),
-    )
+    this.view.dispatch(state.tr.setNodeMarkup(pos, undefined, { ...this.node.attrs, alt: next }))
   }
 }
 
 export const imageView = $view(
-  imageWithWidth.node,
+  imageSchema.node,
   () => (node, view, getPos) => new ImageView(node, view, getPos),
 )

@@ -351,3 +351,52 @@ test('a memo changed under the caret keeps it where it was', async () => {
     expect(editor.markdown()).toBe(null)
   })
 })
+
+const own = `images/${'a'.repeat(64)}.png`
+
+test("a memo's own image is drawn from the app, at the width in its alt text", async () => {
+  await withMemoEditor(`![Dusk|320](${own})\n`, (editor) => {
+    const image = ctxOf(editor)
+      .get(editorViewCtx)
+      .dom.querySelector('.image img') as HTMLImageElement
+    expect(image.getAttribute('src')).toBe(`memo-image://memo/${own}`)
+    expect(image.alt).toBe('Dusk')
+    expect(image.style.width).toBe('320px')
+  })
+})
+
+test('an image from the web is shown as its alt text, never fetched', async () => {
+  await withMemoEditor('![Somewhere else](https://example.com/far.png)\n', (editor) => {
+    const dom = ctxOf(editor).get(editorViewCtx).dom
+    expect(dom.querySelector('.image img')).toBe(null)
+    expect(dom.querySelector('.image-absent')?.textContent).toBe('Somewhere else')
+  })
+})
+
+test('dragging the handle writes the new width into the memo', async () => {
+  await withMemoEditor(`![Dusk|320](${own})\n`, (editor) => {
+    const dom = ctxOf(editor).get(editorViewCtx).dom
+    const handle = dom.querySelector('.image-handle') as HTMLElement
+    const image = dom.querySelector('.image img') as HTMLImageElement
+    image.getBoundingClientRect = () => ({ width: 320 }) as DOMRect
+    Object.defineProperty(dom, 'clientWidth', { value: 600, configurable: true })
+    handle.dispatchEvent(new PointerEvent('pointerdown', { clientX: 0, bubbles: true }))
+    handle.dispatchEvent(new PointerEvent('pointermove', { clientX: 60, bubbles: true }))
+    handle.dispatchEvent(new PointerEvent('pointerup', { clientX: 60, bubbles: true }))
+    expect(serialize(ctxOf(editor))).toBe(`![Dusk|380](${own})\n`)
+  })
+})
+
+test('a picture sized wider than the memo is held to it', async () => {
+  await withMemoEditor(`![Dusk|320](${own})\n`, (editor) => {
+    const dom = ctxOf(editor).get(editorViewCtx).dom
+    const handle = dom.querySelector('.image-handle') as HTMLElement
+    const image = dom.querySelector('.image img') as HTMLImageElement
+    image.getBoundingClientRect = () => ({ width: 320 }) as DOMRect
+    Object.defineProperty(dom, 'clientWidth', { value: 400, configurable: true })
+    handle.dispatchEvent(new PointerEvent('pointerdown', { clientX: 0, bubbles: true }))
+    handle.dispatchEvent(new PointerEvent('pointermove', { clientX: 900, bubbles: true }))
+    handle.dispatchEvent(new PointerEvent('pointerup', { clientX: 900, bubbles: true }))
+    expect(serialize(ctxOf(editor))).toBe(`![Dusk|400](${own})\n`)
+  })
+})
