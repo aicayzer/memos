@@ -94,6 +94,8 @@ targets:
         PRODUCT_NAME: Memos
         PRODUCT_BUNDLE_IDENTIFIER: $(MEMOS_APP_IDENTIFIER)
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # The app's accent, which the system uses for its own controls too unless the user chose one.
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
     preBuildScripts:
       - name: Build editor
         basedOnDependencyAnalysis: false

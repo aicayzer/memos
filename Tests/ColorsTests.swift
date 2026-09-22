@@ -14,13 +14,13 @@ import Testing
         #expect(color.hexString?.hasPrefix("#FF00") == true)
     }
 
-    @Test func standardAccentFollowsAppearance() {
+    @Test func standardAccentIsOneColorInBothAppearances() {
         var light: String?
         var dark: String?
         NSAppearance(named: .aqua)!.performAsCurrentDrawingAppearance { light = Accent.standardColor.hexString }
         NSAppearance(named: .vibrantDark)!.performAsCurrentDrawingAppearance { dark = Accent.standardColor.hexString }
-        #expect(light == "#FFCC00")
-        #expect(dark == "#FFD60A")
+        #expect(light == "#FCB827")
+        #expect(dark == "#FCB827")
     }
 
     @Test func malformedHexIsRejected() {
