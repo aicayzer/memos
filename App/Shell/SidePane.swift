@@ -18,8 +18,7 @@ struct SidePane: View {
                 .overlay(alignment: .trailing) {
                     Button { model.toggleSidePane() } label: {
                         Image(systemName: "sidebar.left")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 12, weight: .semibold))
                             .frame(width: Chrome.closeSize, height: Chrome.closeSize)
                             .glassEffect(.regular, in: .circle)
                     }

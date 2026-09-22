@@ -67,6 +67,8 @@ struct SettingsView: View {
                     Text("System").tag(AccentChoice.system)
                     Text("Custom").tag(AccentChoice.custom)
                 }
+                // A picker draws its value in the tint; the accent belongs to what it sets, not to its name.
+                .tint(.primary)
                 if case .custom(let color) = model.accent {
                     ColorPicker("Custom color", selection: Binding(
                         get: { Color(nsColor: color) },
@@ -84,6 +86,12 @@ struct SettingsView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 }
+                Picker("Text size", selection: $model.textSize) {
+                    ForEach(AppModel.textSizes, id: \.self) { size in
+                        Text("\(Int(size)) pt").tag(size)
+                    }
+                }
+                .tint(.primary)
                 ColorPicker("Tint", selection: Binding(
                     get: { Color(nsColor: model.windowTint ?? WindowBackdrop.baseColor(for: colorScheme)) },
                     set: { picked in
@@ -96,6 +104,8 @@ struct SettingsView: View {
                 HStack {
                     Spacer()
                     Button("Reset Appearance") { model.resetAppearance() }
+                        .buttonStyle(.bordered)
+                        .tint(.primary)
                         .disabled(model.isDefaultAppearance)
                 }
             }
@@ -133,6 +143,8 @@ struct SettingsView: View {
                     KeyboardShortcuts.reset(.toggleWindow)
                     globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
                 }
+                .buttonStyle(.bordered)
+                .tint(.primary)
                 .disabled(model.shortcuts.isDefault && globalShortcut == KeyboardShortcuts.Name.toggleWindow.initialShortcut)
             }
         }
@@ -159,6 +171,8 @@ struct SettingsView: View {
             Section {
                 LabeledContent("Updates") {
                     Button("Check for Updates…") { updater.check() }
+                        .buttonStyle(.bordered)
+                        .tint(.primary)
                         .disabled(!updater.canCheck)
                 }
             } footer: {
@@ -168,6 +182,8 @@ struct SettingsView: View {
                 Link("Source and releases", destination: URL(string: "https://github.com/aicayzer/memos")!)
                 Link("License", destination: URL(string: "https://github.com/aicayzer/memos/blob/main/LICENSE")!)
             }
+            // A link is drawn in the system's link color, which is blue whatever the app's accent is.
+            .foregroundStyle(.tint)
         }
         .formStyle(.grouped)
         .frame(width: 420)

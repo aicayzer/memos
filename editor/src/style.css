@@ -1,4 +1,6 @@
 :root {
+  /* The memo's text size, which the app sets; every text metric below is in rem, so they scale with it. */
+  font-size: 15px;
   --accent: #0a84ff;
   --text: CanvasText;
   --muted: color-mix(in srgb, CanvasText 55%, transparent);
@@ -14,9 +16,12 @@ body {
   margin: 0;
   overflow: hidden;
   background: transparent;
+}
+
+body {
   color: var(--text);
   font:
-    15px/1.55 -apple-system,
+    1rem/1.55 -apple-system,
     BlinkMacSystemFont,
     system-ui,
     sans-serif;
@@ -67,7 +72,7 @@ body {
 }
 
 .ProseMirror p {
-  margin: 0 0 10px;
+  margin: 0 0 0.667rem;
 }
 
 .ProseMirror h1,
@@ -75,30 +80,30 @@ body {
 .ProseMirror h3 {
   line-height: 1.25;
   letter-spacing: -0.01em;
-  margin: 28px 0 8px;
+  margin: 1.867rem 0 0.533rem;
 }
 
 .ProseMirror h1 {
-  font-size: 26px;
+  font-size: 1.733rem;
   font-weight: 700;
 }
 
 .ProseMirror h2 {
-  font-size: 21px;
+  font-size: 1.4rem;
   font-weight: 700;
 }
 
 .ProseMirror h3 {
-  font-size: 17px;
+  font-size: 1.133rem;
   font-weight: 600;
 }
 
 .ProseMirror h4,
 .ProseMirror h5,
 .ProseMirror h6 {
-  font-size: 15px;
+  font-size: 1rem;
   font-weight: 600;
-  margin: 20px 0 6px;
+  margin: 1.333rem 0 0.4rem;
 }
 
 .ProseMirror .editing::before {
@@ -154,32 +159,32 @@ body {
   font-size: 0.88em;
   background: var(--code-bg);
   border-radius: 5px;
-  padding: 1px 5px;
+  padding: 0.067rem 0.333rem;
 }
 
 .ProseMirror pre {
   position: relative;
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 0.867rem;
   line-height: 1.5;
   background: var(--code-bg);
   border-radius: 8px;
-  padding: 12px 14px;
-  margin: 0 0 12px;
+  padding: 0.8rem 0.933rem;
+  margin: 0 0 0.8rem;
   overflow-x: auto;
 }
 
 .ProseMirror pre[data-language] {
-  padding-top: 30px;
+  padding-top: max(2rem, 30px);
 }
 
 .ProseMirror pre[data-language]::before {
   content: attr(data-language);
   position: absolute;
-  top: 8px;
-  left: 14px;
+  top: 0.533rem;
+  left: 0.933rem;
   font:
-    11px/1 -apple-system,
+    0.733rem/1 -apple-system,
     system-ui,
     sans-serif;
   color: var(--muted);
@@ -221,8 +226,8 @@ body {
 }
 
 .ProseMirror blockquote {
-  margin: 0 0 12px;
-  padding: 2px 0 2px 12px;
+  margin: 0 0 0.8rem;
+  padding: 2px 0 2px 0.8rem;
   border-left: 2px solid var(--accent);
 }
 
@@ -237,17 +242,17 @@ body {
 .ProseMirror hr {
   border: 0;
   border-top: 1px solid var(--rule);
-  margin: 20px 0;
+  margin: 1.333rem 0;
 }
 
 .ProseMirror ul,
 .ProseMirror ol {
-  margin: 0 0 10px;
-  padding-left: 26px;
+  margin: 0 0 0.667rem;
+  padding-left: 1.733rem;
 }
 
 .ProseMirror li {
-  margin: 0 0 4px;
+  margin: 0 0 0.267rem;
 }
 
 .ProseMirror li > p {
@@ -256,7 +261,7 @@ body {
 
 .ProseMirror li ul,
 .ProseMirror li ol {
-  margin-top: 4px;
+  margin-top: 0.267rem;
   margin-bottom: 0;
 }
 
@@ -273,10 +278,10 @@ body {
 .ProseMirror li[data-item-type='task']::before {
   content: '';
   position: absolute;
-  left: -25px;
+  left: -1.667rem;
   top: 0.32em;
-  width: 14px;
-  height: 14px;
+  width: 0.933rem;
+  height: 0.933rem;
   box-sizing: border-box;
   border: 1.5px solid color-mix(in srgb, CanvasText 35%, transparent);
   border-radius: 4px;
@@ -291,11 +296,11 @@ body {
 .ProseMirror li[data-item-type='task'][data-checked='true']::after {
   content: '';
   position: absolute;
-  left: -20px;
+  left: -1.333rem;
   top: 0.32em;
-  margin-top: 2px;
-  width: 3px;
-  height: 7px;
+  margin-top: 0.133rem;
+  width: 0.2rem;
+  height: 0.467rem;
   border: solid Canvas;
   border-width: 0 1.5px 1.5px 0;
   transform: rotate(45deg);

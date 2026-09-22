@@ -69,6 +69,14 @@ final class AppModel {
         }
     }
 
+    /// The memo's text size in points; headings and the rest scale with it.
+    var textSize: Double {
+        didSet {
+            defaults.set(textSize, forKey: Self.textSizeKey)
+            editor.textSize = textSize
+        }
+    }
+
     var accentColor: Color { accent.color.map(Color.init(nsColor:)) ?? .accentColor }
 
     var title: String { current?.title ?? Memo.untitled }
@@ -85,6 +93,8 @@ final class AppModel {
     private(set) var storeGeneration = 0
 
     static let defaultWindowOpacity = 0.6
+    static let defaultTextSize = EditorController.defaultTextSize
+    static let textSizes = [12.0, 13, 14, 15, 16, 17, 18, 19, 20]
 
     private static let lastMemoKey = "lastMemoID"
     private static let floatingKey = "floating"
@@ -97,6 +107,7 @@ final class AppModel {
     private static let windowOpacityKey = "windowOpacity"
     private static let windowTintKey = "windowTint"
     private static let accentKey = "accent"
+    private static let textSizeKey = "textSize"
 
     init(store: any MemoStore, defaults: UserDefaults = .standard) {
         self.store = store
@@ -112,7 +123,11 @@ final class AppModel {
         windowOpacity = defaults.object(forKey: Self.windowOpacityKey) as? Double ?? Self.defaultWindowOpacity
         windowTint = defaults.string(forKey: Self.windowTintKey).flatMap(NSColor.init(hexString:))
         accent = Accent(stored: defaults.string(forKey: Self.accentKey))
+        // A stored size from a later version, or an edited preference, still has to be one the menu can show.
+        let storedSize = defaults.object(forKey: Self.textSizeKey) as? Double ?? Self.defaultTextSize
+        textSize = Self.textSizes.min { abs($0 - storedSize) < abs($1 - storedSize) } ?? Self.defaultTextSize
         editor.accentOverride = accent.color
+        editor.textSize = textSize
         editor.keymap = shortcuts.editorKeymap
         shortcuts.onChange = { [weak self] in
             guard let self else { return }
@@ -275,11 +290,13 @@ final class AppModel {
     }
 
     var isDefaultAppearance: Bool {
-        accent == .standard && windowOpacity == Self.defaultWindowOpacity && windowTint == nil
+        accent == .standard && textSize == Self.defaultTextSize
+            && windowOpacity == Self.defaultWindowOpacity && windowTint == nil
     }
 
     func resetAppearance() {
         accent = .standard
+        textSize = Self.defaultTextSize
         windowOpacity = Self.defaultWindowOpacity
         windowTint = nil
     }
