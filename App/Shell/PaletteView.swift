@@ -7,7 +7,8 @@ struct PaletteItem: Identifiable {
     var symbol: String? = nil
     var shortcut: String? = nil
     var accented = false
-    var section = 0
+    /// The group the row sits in, shown as a label above the first of them.
+    var section: String? = nil
     var enabled = true
     let action: () -> Void
 }
@@ -26,11 +27,11 @@ struct PaletteView: View {
     static let fieldHeight: CGFloat = 42
     private static let rowHeight: CGFloat = 35
     private static let listPadding: CGFloat = 8
-    private static let sectionSpacing: CGFloat = 6
-    /// Eight rows of actions with the divider between their sections, and a sliver of the ninth, so a longer
-    /// list reads as one that scrolls. The memo list, with its taller rows, is cut at the same height, so both
+    private static let labelHeight: CGFloat = 24
+    /// Two group labels, seven rows of actions and a sliver of the eighth, so a longer list reads as one
+    /// that scrolls. The memo list, with its taller rows and no labels, is cut at the same height, so both
     /// palettes are one size at their tallest.
-    static let listHeight = listPadding + rowHeight * 8.45 + 1 + sectionSpacing * 2
+    static let listHeight = listPadding + labelHeight * 2 + rowHeight * 7.45
     static let maxHeight = fieldHeight + 1 + listHeight
 
     var body: some View {
@@ -55,8 +56,14 @@ struct PaletteView: View {
                     ScrollView {
                         VStack(spacing: 0) {
                             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                                if index > 0, items[index - 1].section != item.section {
-                                    Divider().padding(.vertical, Self.sectionSpacing)
+                                if let section = item.section, index == 0 || items[index - 1].section != section {
+                                    Text(section)
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.horizontal, 10)
+                                        .frame(height: Self.labelHeight, alignment: .bottom)
+                                        .padding(.bottom, 2)
                                 }
                                 row(item, selected: index == selected && item.enabled)
                                     .id(item.id)

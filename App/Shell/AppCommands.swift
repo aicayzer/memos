@@ -14,6 +14,7 @@ struct AppCommands: Commands {
         CommandGroup(replacing: .newItem) {
             item(.newMemo)
             item(.duplicate)
+            item(.delete)
             item(.favorite, title: model.current?.favorite == true ? "Unfavorite Memo" : "Favorite Memo")
             Divider()
             item(.browse)

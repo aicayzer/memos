@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FormatBar: View {
-    let editor: EditorController
+    let editor: any Editing
 
     @Environment(\.chrome) private var chrome
 

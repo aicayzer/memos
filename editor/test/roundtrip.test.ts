@@ -22,7 +22,17 @@ const variants: Array<[string, string, string]> = [
   ['star bullets', '* one\n* two\n', '- one\n- two\n'],
   ['two-space hard break', 'first  \nsecond\n', 'first\\\nsecond\n'],
   ['star rule', '***\n', '---\n'],
-  ['bare url', 'See https://example.com now\n', 'See <https://example.com> now\n'],
+  ['bare url stays bare', 'See https://example.com now\n', 'See https://example.com now\n'],
+  [
+    'angle brackets become the bare url',
+    'See <https://example.com> now\n',
+    'See https://example.com now\n',
+  ],
+  [
+    'a url with its own words keeps its form',
+    '[a site](https://example.com)\n',
+    '[a site](https://example.com)\n',
+  ],
   ['indented code stays fenced', '    code\n', '```\ncode\n```\n'],
   ['heading with closing marks', '## Title ##\n', '## Title\n'],
 ]
@@ -56,5 +66,27 @@ test('a typed url becomes a link when a space follows it', async () => {
     view.dispatch(view.state.tr.insertText('now'))
     return serialize(editor.ctx)
   })
-  expect(out).toBe('see <https://example.com/page> now\n')
+  expect(out).toBe('see https://example.com/page now\n')
+})
+
+test('trailing punctuation is not swallowed into a bare url', async () => {
+  expect(await roundTrip('See https://example.com, then stop.\n')).toBe(
+    'See https://example.com, then stop.\n',
+  )
+})
+
+test('a url that would read differently keeps its angle brackets', async () => {
+  expect(await roundTrip('<https://example.com/page.>\n')).toBe('<https://example.com/page.>\n')
+})
+
+test("an image's width rides in its alt text", async () => {
+  const markdown =
+    '![Wide|320](images/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png)\n'
+  expect(await roundTrip(markdown)).toBe(markdown)
+})
+
+test('an image without a width is written without one', async () => {
+  const markdown =
+    '![](images/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png)\n'
+  expect(await roundTrip(markdown)).toBe(markdown)
 })

@@ -16,7 +16,7 @@ struct MainView: View {
             }
             VStack(spacing: 0) {
                 TopRow(active: active)
-                EditorView(controller: model.editor)
+                EditorView(editor: model.editor)
                     .overlay(alignment: .bottom) { bottomBar }
                     .overlay(alignment: .topTrailing) {
                         if model.overlay == .find {

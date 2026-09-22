@@ -117,7 +117,10 @@ import Testing
         #expect(settings.isDefault)
         #expect(settings.keys(for: .newMemo) == [KeyCombo("n", [.command])])
         #expect(settings.label(.sidePane) == "⌥⌘←")
-        #expect(settings.alternates.map(\.key) == [KeyCombo(".", [.command])])
+        // Every key the window matches, the first of each shortcut included.
+        #expect(settings.windowKeys.contains { $0.key == KeyCombo("n", [.command]) && $0.shortcut == .newMemo })
+        #expect(settings.windowKeys.contains { $0.key == KeyCombo("Backspace", [.command]) && $0.shortcut == .delete })
+        #expect(settings.windowKeys.contains { $0.key == KeyCombo(".", [.command]) && $0.shortcut == .sidePane })
     }
 
     @Test func changesPersistAndDefaultsClear() {
@@ -125,7 +128,7 @@ import Testing
         settings.setKeys([KeyCombo("m", [.command]), KeyCombo("F2", [])], for: .newMemo)
         #expect(!settings.isDefault)
         #expect(settings.keyboardShortcut(.newMemo) == KeyboardShortcut("m"))
-        #expect(settings.alternates.contains { $0.key == KeyCombo("F2", []) && $0.shortcut == .newMemo })
+        #expect(settings.windowKeys.contains { $0.key == KeyCombo("F2", []) && $0.shortcut == .newMemo })
         let reopened = ShortcutSettings(defaults: defaults)
         #expect(reopened.keys(for: .newMemo) == [KeyCombo("m", [.command]), KeyCombo("F2", [])])
         // Setting the defaults back is the same as never having changed them.
@@ -143,11 +146,12 @@ import Testing
         #expect(settings.keys(for: .duplicate) == Shortcut.duplicate.defaultKeys)
     }
 
-    @Test func anAlternateNeverTakesAShownKey() {
+    @Test func theWindowNeverTakesAKeyAnotherShortcutShows() {
         let (settings, _) = settings()
         // ⌘F shows on Find in Memo; as a second key of New Memo it would take the menu's key first.
         settings.setKeys([KeyCombo("m", [.command]), KeyCombo("f", [.command])], for: .newMemo)
-        #expect(!settings.alternates.contains { $0.key == KeyCombo("f", [.command]) })
+        #expect(!settings.windowKeys.contains { $0.key == KeyCombo("f", [.command]) && $0.shortcut == .newMemo })
+        #expect(settings.windowKeys.contains { $0.key == KeyCombo("f", [.command]) && $0.shortcut == .find })
         #expect(settings.conflicts[KeyCombo("f", [.command])] == [.newMemo, .find])
     }
 

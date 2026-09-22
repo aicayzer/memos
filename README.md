@@ -22,14 +22,19 @@ Or download the DMG from the [latest release](https://github.com/aicayzer/memos/
 
 ## Using it
 
-- A file dropped on the memo inserts its path where it lands.
+- Images are pasted or dropped straight in, and a handle on the right edge sizes one. A file that is not an image still inserts its path where it lands.
 - `⌘K` command palette, `⌘P` browse memos, `⌘N` new, `⌘D` duplicate, `⇧⌘F` favorite, `⌘[` and `⌘]` back and forward, `⌘F` find, `⇧⌘C` copy as markdown, `⇧⌘S` saves the memo as a markdown file, and Share… in the File menu hands that file to another app.
 - `⌃⌥N` shows or hides the window from any app. A menu bar item and the Dock icon are the other ways in; either can be switched off in Settings, and both once a shortcut is set.
 - A formatting bar floats at the bottom of the memo: headings, bold, italic, strikethrough, link, code, quote and lists, showing what the caret sits in. Its close button hides it, and the palette brings it back.
 - `⌥⌘←` (or `⌘.`), or a double-click on the title bar, opens a side pane listing the memos with a search field; the window grows to the left to make room and shrinks back when it closes. Its own close button, or the same again, closes it, and Settings can open it at launch.
 - The window takes the keyboard without bringing the app to the front, so the app you were in keeps the menu bar while you type; a Dock click brings up the Memos menus, whose Memo and Window items are also in the palette.
 - Always on Top keeps it above other apps and on every space; the side pane, the window's opacity and tint, the accent, the text size, the size of the app's own controls and the menu bar icon are all set in Settings (`⌘,`), whose Shortcuts tab records the global show/hide shortcut and lets every other shortcut, the editor's included, be changed or given more keys.
-- Type markdown as you go: `# `, `- `, `1. `, `- [ ] `, `> ` and backticks turn into formatting. `⌘`-click opens a link.
+- Type markdown as you go: `# `, `- `, `1. `, `- [ ] `, `> ` and backticks turn into formatting. `⌘`-click opens a link, and a URL pasted over selected text links it.
+- `⌘⌫` deletes the memo, asking first; the memo after it in the list takes its place.
+
+## Where memos are kept
+
+One JSON file, which `memos path` prints. Images sit in an `images` folder beside it, one file per image, named for the SHA-256 of its bytes. A memo refers to one the ordinary way, as `![alt](images/<hash>.png)`, and a width after the alt text sizes it: `![a picture|400](images/<hash>.png)`, which is what the resize handle writes. An image no memo refers to is removed. Save As copies a memo's images into an `images` folder beside the file it writes, so the export stands alone.
 
 ## From the shell
 
@@ -53,11 +58,15 @@ memos edit plan            # in $EDITOR
 memos favorite plan
 memos unfavorite plan
 memos open plan            # shows the app on that memo
-memos delete plan          # the app itself has no delete yet
+memos delete plan
 memos path                 # the store file
 ```
 
 `--json` on `list` and `show` gives every field. `MEMOS_STORE` in the environment points the tool, or the app, at another store file.
+
+## From Shortcuts
+
+The same verbs are App Intents, so Shortcuts and Spotlight can use them: New Memo, Append to Memo, Open Memo, Search Memos, Favorite Memo, Unfavorite Memo and Delete Memo, which asks first. A memo is a value Shortcuts can pass between them, carrying its title and the start of its text. They work through the same store file under the same lock, so the window shows what a shortcut wrote.
 
 ## Build
 

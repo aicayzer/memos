@@ -1,8 +1,9 @@
 #!/bin/zsh
 # Opens the app on a sample store, so a screenshot shows made-up memos rather than anyone's own. The
-# sample sits inside the app's container, which is the one place the sandbox lets it read; it is written
-# afresh each time, with dates relative to now so the side pane's sections all show, and removed once the
-# app quits. The next ordinary launch reads the real store again.
+# sample sits in a folder of its own inside the app's container, which is the one place the sandbox lets
+# it read; a store's images sit beside it, so two stores must not share a folder. It is written afresh
+# each time, with dates relative to now so the side pane's sections all show, and removed once the app
+# quits. The next ordinary launch reads the real store again.
 #
 #   scripts/screenshots.sh [path/to/Memos.app]
 set -euo pipefail
@@ -14,7 +15,8 @@ app="${1:-/Applications/Memos.app}"
 id=$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")
 support="$HOME/Library/Containers/$id/Data/Library/Application Support"
 [[ -d "$support" ]] || fail "the app has not run yet; open it once first"
-sample="$support/sample.json"
+sample="$support/sample/sample.json"
+mkdir -p "${sample:h}"
 
 python3 - "$sample" <<'PY'
 import json, sys, uuid
@@ -150,5 +152,5 @@ open -a "$app" --env "MEMOS_STORE=$sample"
 print -- "screenshots: Memos is showing the sample; quit it when done"
 sleep 3
 while pgrep -qf "$app/Contents/MacOS/"; do sleep 1; done
-rm -f "$sample" "$sample.lock"
+rm -rf "${sample:h}"
 print -- "screenshots: sample removed"

@@ -7,7 +7,7 @@ private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "sh
 /// The app's shortcuts in one place: the menus, the palette, the editor's keymap and Settings read it, so
 /// they cannot disagree. The keys themselves come from `ShortcutSettings`, which starts from `defaultKeys`.
 enum Shortcut: String, CaseIterable, Identifiable {
-    case newMemo, duplicate, favorite, browse, back, forward, copyMarkdown, saveAs, find, palette, sidePane
+    case newMemo, duplicate, delete, favorite, browse, back, forward, copyMarkdown, saveAs, find, palette, sidePane
     case heading1, heading2, heading3, paragraph, bold, italic, strikethrough, code, codeBlock, quote
     case bulletList, orderedList, taskList
 
@@ -16,7 +16,7 @@ enum Shortcut: String, CaseIterable, Identifiable {
     /// Editor shortcuts are handled by the web editor, the rest by the app.
     var isEditor: Bool {
         switch self {
-        case .newMemo, .duplicate, .favorite, .browse, .back, .forward, .copyMarkdown, .saveAs, .find, .palette, .sidePane:
+        case .newMemo, .duplicate, .delete, .favorite, .browse, .back, .forward, .copyMarkdown, .saveAs, .find, .palette, .sidePane:
             false
         case .heading1, .heading2, .heading3, .paragraph, .bold, .italic, .strikethrough, .code, .codeBlock, .quote,
              .bulletList, .orderedList, .taskList:
@@ -31,6 +31,7 @@ enum Shortcut: String, CaseIterable, Identifiable {
         switch self {
         case .newMemo: "New Memo"
         case .duplicate: "Duplicate Memo"
+        case .delete: "Delete Memo"
         case .favorite: "Favorite or Unfavorite Memo"
         case .browse: "Browse Memos"
         case .back: "Go Back"
@@ -61,6 +62,7 @@ enum Shortcut: String, CaseIterable, Identifiable {
         switch self {
         case .newMemo: [KeyCombo("n", [.command])]
         case .duplicate: [KeyCombo("d", [.command])]
+        case .delete: [KeyCombo("Backspace", [.command])]
         case .favorite: [KeyCombo("f", [.shift, .command])]
         case .browse: [KeyCombo("p", [.command])]
         case .back: [KeyCombo("[", [.command])]
@@ -318,12 +320,18 @@ final class ShortcutSettings {
         return owners.filter { $0.value.count > 1 }
     }
 
-    /// The app's keys beyond the first of each, which the menu cannot carry, for the window to match. A key
-    /// some shortcut shows as its first stays with the menu, so what the menu shows is what happens.
-    var alternates: [(key: KeyCombo, shortcut: Shortcut)] {
-        let shown = Set(Shortcut.allCases.compactMap(first))
+    /// Every key of the app's own shortcuts, for the window to match. The menu is offered the event first,
+    /// so this is what answers a key it has no item for, or cannot carry, before the web view claims it. A
+    /// key some other shortcut shows as its first stays with the menu, so what the menu shows is what happens.
+    var windowKeys: [(key: KeyCombo, shortcut: Shortcut)] {
+        let shown = Dictionary(
+            Shortcut.allCases.compactMap { shortcut in first(shortcut).map { ($0, shortcut) } },
+            uniquingKeysWith: { first, _ in first }
+        )
         return Shortcut.app.flatMap { shortcut in
-            keys(for: shortcut).dropFirst().filter { !shown.contains($0) }.map { (key: $0, shortcut: shortcut) }
+            keys(for: shortcut)
+                .filter { shown[$0] == nil || shown[$0] == shortcut }
+                .map { (key: $0, shortcut: shortcut) }
         }
     }
 

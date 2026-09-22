@@ -10,8 +10,9 @@ private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "ap
 @MainActor
 @Observable
 final class AppModel {
-    let editor = EditorController()
+    let editor: any Editing
     let store: any MemoStore
+    let images: any ImageStore
     let shortcuts: ShortcutSettings
     private let defaults: UserDefaults
 
@@ -121,8 +122,16 @@ final class AppModel {
     private static let standardControlsKey = "standardControls"
     private static let menuBarIconKey = "menuBarIcon"
 
-    init(store: any MemoStore, defaults: UserDefaults = .standard) {
+    init(
+        store: any MemoStore,
+        images: any ImageStore,
+        defaults: UserDefaults = .standard,
+        editor: (any Editing)? = nil
+    ) {
         self.store = store
+        self.images = images
+        let editor = editor ?? EditorController(images: images)
+        self.editor = editor
         self.defaults = defaults
         shortcuts = ShortcutSettings(defaults: defaults)
         floating = defaults.object(forKey: Self.floatingKey) as? Bool ?? true
@@ -144,11 +153,19 @@ final class AppModel {
         editor.keymap = shortcuts.editorKeymap
         shortcuts.onChange = { [weak self] in
             guard let self else { return }
-            editor.keymap = shortcuts.editorKeymap
+            self.editor.keymap = shortcuts.editorKeymap
         }
         editor.onChanged = { [weak self] markdown in self?.changed(markdown) }
         editor.onOpenLink = { NSWorkspace.shared.open($0) }
         editor.onCopy = { Self.copy($0) }
+        editor.onDropFiles = { [weak self] urls, point in
+            guard let self else { return }
+            Task { await self.dropped(urls, at: point) }
+        }
+        editor.onPasteImage = { [weak self] in
+            guard let self else { return }
+            Task { await self.pasteImage() }
+        }
     }
 
     /// Shared files wait here for the service that took them; a sandboxed app's temporary items are not purged
@@ -171,6 +188,7 @@ final class AppModel {
         } catch {
             report(error)
         }
+        await ImageSweep.run(store: store, images: images, alsoKeeping: [current?.markdown].compactMap(\.self))
     }
 
     func open(_ id: Memo.ID, recording: Bool = true) async {
@@ -218,10 +236,123 @@ final class AppModel {
         }
     }
 
+    /// Asks first, naming the memo, and then shows what followed it in browse order.
+    func deleteMemo() async {
+        showWindowIfHidden()
+        guard let memo = current, let window else { return }
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Delete \u{201C}\(Memo.abbreviated(memo.title, to: 40))\u{201D}?"
+        alert.informativeText = "This memo will be deleted permanently."
+        alert.addButton(withTitle: "Delete").hasDestructiveAction = true
+        alert.addButton(withTitle: "Cancel")
+        guard await alert.beginSheetModal(for: window) == .alertFirstButtonReturn else { return }
+        await delete(memo)
+    }
+
+    /// The delete itself, once it is agreed.
+    func delete(_ memo: Memo) async {
+        // Nothing may write this memo again: a save in flight would put it back.
+        saveTask?.cancel()
+        saveTask = nil
+        unsaved = nil
+        do {
+            let ordered = try await store.list(matching: nil)
+            try await store.delete(memo.id)
+            history.remove(memo.id)
+            let following = ordered.drop(while: { $0.id != memo.id }).dropFirst().first
+            if let next = following ?? ordered.first(where: { $0.id != memo.id }) {
+                show(next)
+            } else {
+                show(try await store.create(markdown: ""))
+            }
+        } catch {
+            report(error)
+        }
+        await ImageSweep.run(store: store, images: images, alsoKeeping: [current?.markdown].compactMap(\.self))
+    }
+
+    /// Settings is a SwiftUI scene with no handle the app can hold; its menu item is what opens it, and
+    /// the selector behind that is only reachable when the menu bar is there.
+    func showSettings() {
+        NSApp.activate()
+        for menu in NSApp.mainMenu?.items.compactMap(\.submenu) ?? [] {
+            if let index = menu.items.firstIndex(where: { $0.title.hasPrefix("Settings") }) {
+                menu.performActionForItem(at: index)
+                return
+            }
+        }
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+    }
+
+    /// Dropped images are kept and shown; anything else still reads as its path.
+    private func dropped(_ urls: [URL], at point: CGPoint) async {
+        var references: [ImageReference] = []
+        var paths: [String] = []
+        var refused = false
+        for url in urls {
+            let data = try? Data(contentsOf: url)
+            if let data, let reference = await kept(data, called: url.deletingPathExtension().lastPathComponent) {
+                references.append(reference)
+            } else if (try? url.resourceValues(forKeys: [.contentTypeKey]).contentType)?.conforms(to: .image) == true {
+                refused = true
+            } else {
+                // A folder's path as Finder copies it, without the slash a URL carries.
+                let path = url.path(percentEncoded: false)
+                paths.append(path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path)
+            }
+        }
+        if refused { NSSound.beep() }
+        if !references.isEmpty { editor.insertImages(references, at: point) }
+        if !paths.isEmpty { editor.insertPaths(paths, at: point) }
+    }
+
+    /// The editor says an image was pasted rather than sending its bytes; they are already on the
+    /// pasteboard, where the app can read them natively.
+    private func pasteImage() async {
+        let pasteboard = NSPasteboard.general
+        var images: [(Data, String)] = []
+        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        for url in urls {
+            if let data = try? Data(contentsOf: url) { images.append((data, url.deletingPathExtension().lastPathComponent)) }
+        }
+        if images.isEmpty {
+            for type in [NSPasteboard.PasteboardType.png, .tiff] {
+                if let data = pasteboard.data(forType: type) {
+                    images.append((data, ""))
+                    break
+                }
+            }
+        }
+        var references: [ImageReference] = []
+        for (data, name) in images {
+            if let reference = await kept(data, called: name) { references.append(reference) }
+        }
+        guard !references.isEmpty else { return NSSound.beep() }
+        editor.insertImages(references, at: nil)
+    }
+
+    /// Keeps the bytes as they are when the store takes them, and as a PNG when it does not, so an image
+    /// from any app lands in one of the few types a memo holds.
+    private func kept(_ data: Data, called name: String) async -> ImageReference? {
+        var path: String?
+        if let reference = try? await images.save(data) {
+            path = reference.path
+        } else if let image = NSImage(data: data), let tiff = image.tiffRepresentation,
+                  let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]),
+                  let reference = try? await images.save(png) {
+            path = reference.path
+        }
+        // A bar in the name would read as a width when the memo is opened again.
+        return path.map { ImageReference(path: $0, alt: name.replacing("|", with: " ")) }
+    }
+
     /// Every shortcut's action, for the keys the menu does not carry.
     func perform(_ shortcut: Shortcut) {
         switch shortcut {
         case .newMemo: Task { await newMemo() }
+        case .delete: Task { await deleteMemo() }
         case .duplicate: Task { await duplicate() }
         case .favorite: Task { await toggleFavorite() }
         case .browse: toggle(.browse)
@@ -266,8 +397,24 @@ final class AppModel {
         guard await panel.beginSheetModal(for: window) == .OK, let url = panel.url else { return }
         do {
             try current.markdown.write(to: url, atomically: true, encoding: .utf8)
+            try await copyImages(of: current.markdown, besideFileAt: url)
         } catch {
             report(error)
+        }
+    }
+
+    /// An export stands alone: the images the memo refers to go into a folder of that name beside it, so
+    /// the relative paths in the file still find them.
+    private func copyImages(of markdown: String, besideFileAt url: URL) async throws {
+        let used = ImageReference.references(in: markdown)
+        guard !used.isEmpty else { return }
+        let folder = url.deletingLastPathComponent().appending(path: ImageReference.folder)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        for path in used {
+            guard let source = await images.url(for: path) else { continue }
+            let destination = folder.appending(path: source.lastPathComponent)
+            guard !FileManager.default.fileExists(atPath: destination.path) else { continue }
+            try FileManager.default.copyItem(at: source, to: destination)
         }
     }
 
@@ -362,9 +509,7 @@ final class AppModel {
 
     func find() {
         guard !findText.isEmpty else { return }
-        let configuration = WKFindConfiguration()
-        configuration.wraps = true
-        editor.webView.find(findText, configuration: configuration) { _ in }
+        editor.find(findText)
     }
 
     func attach(_ window: NSWindow) {
@@ -450,12 +595,12 @@ final class AppModel {
         return await save()
     }
 
-    private func show(_ memo: Memo, recording: Bool = true) {
+    private func show(_ memo: Memo, recording: Bool = true, keepingCaret: Bool = false) {
         current = memo
         unsaved = nil
         if recording { history.push(memo.id) }
         defaults.set(memo.id.uuidString, forKey: Self.lastMemoKey)
-        editor.load(memo.markdown)
+        if keepingCaret { editor.reload(memo.markdown) } else { editor.load(memo.markdown) }
     }
 
     private func changed(_ markdown: String) {
@@ -486,20 +631,26 @@ final class AppModel {
             try? await Task.sleep(for: .milliseconds(200))
             guard !Task.isCancelled else { return }
             storeGeneration += 1
-            guard let current, unsaved == nil, saveTask == nil else { return }
+            guard let id = current?.id else { return }
+            // An edit on its way to the file is the app's answer for this memo: it is written first, and
+            // what the store then holds is what the window shows. A write from outside in that moment is
+            // the one that loses.
+            if unsaved != nil || saveTask != nil { await flush() }
+            // A write that did not land keeps the text on screen; nothing is read over it.
+            guard !Task.isCancelled, current?.id == id, unsaved == nil else { return }
             do {
-                let fresh = try await store.get(current.id)
-                guard !Task.isCancelled, self.current?.id == current.id else { return }
+                let fresh = try await store.get(id)
+                guard !Task.isCancelled, current?.id == id else { return }
                 guard let fresh else {
-                    // Deleted elsewhere: the newest memo, or a new one.
+                    // Deleted elsewhere: the memo after it, or a new one.
                     if let memo = try await store.list(matching: nil).first { show(memo) } else { show(try await store.create(markdown: "")) }
                     return
                 }
-                if fresh.markdown != current.markdown {
-                    show(fresh, recording: false)
+                if fresh.markdown != current?.markdown {
+                    show(fresh, recording: false, keepingCaret: true)
                 } else {
-                    self.current?.favorite = fresh.favorite
-                    self.current?.updatedAt = fresh.updatedAt
+                    current?.favorite = fresh.favorite
+                    current?.updatedAt = fresh.updatedAt
                 }
             } catch {
                 report(error)
@@ -605,5 +756,13 @@ struct History: Equatable {
         guard canGoForward else { return nil }
         index += 1
         return ids[index]
+    }
+
+    /// A deleted memo leaves the stack altogether; the place in it moves back by what went before.
+    mutating func remove(_ id: Memo.ID) {
+        guard index >= 0 else { return }
+        let removedBefore = ids[..<index].count { $0 == id }
+        ids.removeAll { $0 == id }
+        index = min(index - removedBefore, ids.count - 1)
     }
 }

@@ -46,4 +46,12 @@ plain fence
 
 A standard link: [Example website](https://example.com).
 
-An automatic link: <https://example.com>.
+An automatic link: https://example.com.
+
+A link with its own words: [the example site](https://example.com).
+
+## Images
+
+![](images/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png)
+
+![A picture, sized|400](images/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.jpg)

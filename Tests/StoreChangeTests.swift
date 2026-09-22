@@ -47,7 +47,7 @@ actor ChangeableStore: MemoStore {
         let store = ChangeableStore([memo])
         let defaults = UserDefaults(suiteName: "store-change-tests")!
         defaults.removePersistentDomain(forName: "store-change-tests")
-        let model = AppModel(store: store, defaults: defaults)
+        let model = AppModel(store: store, images: FakeImageStore(), defaults: defaults, editor: FakeEditor())
         await model.start()
         return (model, store, memo)
     }
@@ -98,5 +98,28 @@ actor ChangeableStore: MemoStore {
         model.storeChanged()
         await model.settle()
         #expect(model.current?.id == other.id)
+    }
+
+    @Test func aChangeOutsideIsShownWithoutMovingTheCaret() async throws {
+        let (model, store, memo) = await model()
+        let editor = model.editor as! FakeEditor
+        await store.replace(memo.id, with: "Changed elsewhere\n")
+        model.storeChanged()
+        await model.settle()
+        #expect(editor.reloaded == ["Changed elsewhere\n"])
+        #expect(editor.loaded == ["On screen\n"])
+    }
+
+    @Test func anEditUnderAChangeOutsideIsWrittenFirst() async throws {
+        let (model, store, memo) = await model()
+        let editor = model.editor as! FakeEditor
+        editor.type("Typed here\n")
+        await store.replace(memo.id, with: "Changed elsewhere\n")
+        model.storeChanged()
+        await model.settle()
+        // The app's edit wins for this memo, and the window shows what the store then holds.
+        #expect(await store.get(memo.id)?.markdown == "Typed here\n")
+        #expect(model.current?.markdown == "Typed here\n")
+        #expect(editor.reloaded.isEmpty)
     }
 }

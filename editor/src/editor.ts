@@ -58,6 +58,7 @@ import { $prose, callCommand, replaceAll, type $UserKeymap } from '@milkdown/kit
 import { codeCopyPlugin, headingMarkPlugin, placeholderPlugin } from './decorations'
 import { dialect, serialize, stringifyOptions } from './dialect'
 import { highlightPlugin } from './highlight'
+import { pastePlugin } from './paste'
 import { taskListPlugin, toggleTaskList } from './tasks'
 
 export type Mark = 'bold' | 'italic' | 'strikethrough' | 'code' | 'link'
@@ -115,6 +116,13 @@ export interface EditorEvents {
   stateChanged(state: CaretState): void
   openLink(href: string): void
   copy(text: string): void
+  pasteImage(): void
+}
+
+/** An image the app has kept, as the memo refers to it. */
+export interface InsertedImage {
+  path: string
+  alt: string
 }
 
 const markNames: Record<string, Mark> = {
@@ -316,6 +324,7 @@ export class MemoEditor {
         })
       })
       .use(caretStatePlugin(events))
+      .use(pastePlugin(() => events.pasteImage()))
       .use(instance.keymapPlugin)
       .use(dialect)
       .use(listener)
@@ -357,6 +366,24 @@ export class MemoEditor {
     this.events.stateChanged(caretState(view.state))
   }
 
+  /** The same memo, written from outside while it was open: the text is replaced under the caret. */
+  reload(markdown: string, generation: number): void {
+    const view = this.editor.ctx.get(editorViewCtx)
+    const at = view.state.selection.from
+    const scroller = view.dom.parentElement
+    const scrollTop = scroller?.scrollTop ?? 0
+    this.generation = generation
+    this.editor.action(replaceAll(markdown, true))
+    this.baseline = serialize(this.editor.ctx)
+    this.lastMarkdown = this.baseline
+    const { doc } = view.state
+    const $at = doc.resolve(Math.min(at, doc.content.size))
+    const selection = Selection.findFrom($at, -1, true) ?? Selection.atEnd(doc)
+    view.dispatch(view.state.tr.setSelection(selection))
+    if (scroller) scroller.scrollTop = scrollTop
+    this.events.stateChanged(caretState(view.state))
+  }
+
   /** The document as markdown, or null while it is still what was loaded. */
   markdown(): string | null {
     const markdown = serialize(this.editor.ctx)
@@ -386,23 +413,53 @@ export class MemoEditor {
    *  the top-level block otherwise, so a list or quote is not opened up by them. */
   insertPaths(paths: string[], x: number, y: number): void {
     if (paths.length === 0) return
+    const { schema } = this.editor.ctx.get(editorViewCtx).state
+    this.insertBlocks(
+      paths.map((path) => schema.nodes.paragraph!.create(null, schema.text(path))),
+      x,
+      y,
+    )
+  }
+
+  /** Images the app has kept. A drop puts them where it landed, as blocks of their own; a paste puts
+   *  them where the caret is, in the line being written. */
+  insertImages(images: InsertedImage[], x: number | null, y: number | null): void {
+    if (images.length === 0) return
+    const view = this.editor.ctx.get(editorViewCtx)
+    const { schema } = view.state
+    const nodes = images.map((image) =>
+      schema.nodes.image!.create({ src: image.path, alt: image.alt, title: '' }),
+    )
+    if (x == null || y == null) {
+      let tr = view.state.tr
+      for (const node of nodes) tr = tr.replaceSelectionWith(node, false)
+      view.dispatch(tr.scrollIntoView())
+      this.focus()
+      return
+    }
+    this.insertBlocks(
+      nodes.map((node) => schema.nodes.paragraph!.create(null, node)),
+      x,
+      y,
+    )
+  }
+
+  private insertBlocks(blocks: ProseNode[], x: number, y: number): void {
     const view = this.editor.ctx.get(editorViewCtx)
     const { state } = view
-    const { schema } = state
     const $pos = state.doc.resolve(
       view.posAtCoords({ left: x, top: y })?.pos ?? state.selection.from,
     )
-    const paragraphs = paths.map((path) => schema.nodes.paragraph!.create(null, schema.text(path)))
     const tr = state.tr
     let at: number
     if ($pos.depth === 1 && $pos.parent.isTextblock && $pos.parent.content.size === 0) {
       at = $pos.before(1)
-      tr.replaceWith(at, $pos.after(1), paragraphs)
+      tr.replaceWith(at, $pos.after(1), blocks)
     } else {
       at = $pos.depth > 0 ? $pos.after(1) : $pos.pos
-      tr.insert(at, paragraphs)
+      tr.insert(at, blocks)
     }
-    const end = at + paragraphs.reduce((size, node) => size + node.nodeSize, 0) - 1
+    const end = at + blocks.reduce((size, node) => size + node.nodeSize, 0) - 1
     view.dispatch(tr.setSelection(TextSelection.create(tr.doc, end)).scrollIntoView())
     this.focus()
   }
