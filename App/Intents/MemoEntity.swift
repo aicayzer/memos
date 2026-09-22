@@ -51,11 +51,11 @@ struct MemoQuery: EntityStringQuery {
 /// The store the intents work through: the same file under the same lock the app and the tool use, so an
 /// intent works whether or not the window is open, and the app picks the change up.
 enum MemoIntents {
-    static func store() throws -> JSONMemoStore {
-        try JSONMemoStore.fromEnvironment ?? JSONMemoStore.inApplicationSupport()
+    static func store() throws -> LibraryStore {
+        try LibraryStore.inApplicationSupport()
     }
 
-    static func memo(_ entity: MemoEntity, in store: JSONMemoStore) async throws -> Memo {
+    static func memo(_ entity: MemoEntity, in store: LibraryStore) async throws -> Memo {
         guard let memo = try await store.get(entity.id) else { throw MemoStoreError.missing(entity.id) }
         return memo
     }

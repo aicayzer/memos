@@ -36,6 +36,7 @@ settings:
     CURRENT_PROJECT_VERSION: 1
     # The app's identifier, which the command line tool reads to find the app's container.
     MEMOS_APP_IDENTIFIER: me.cyzr.memos
+    MEMOS_DISPLAY_NAME: Memos
 targets:
   Memos:
     type: application
@@ -64,8 +65,8 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: Memos
-        CFBundleName: Memos
+        CFBundleDisplayName: $(MEMOS_DISPLAY_NAME)
+        CFBundleName: $(MEMOS_DISPLAY_NAME)
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.productivity
@@ -88,6 +89,7 @@ targets:
         com.apple.security.network.client: true
         # Save As writes wherever the save panel points.
         com.apple.security.files.user-selected.read-write: true
+        com.apple.security.files.bookmarks.app-scope: true
         # The names Sparkle's installer tools are reached by from inside the sandbox.
         com.apple.security.temporary-exception.mach-lookup.global-name:
           - $(PRODUCT_BUNDLE_IDENTIFIER)-spks

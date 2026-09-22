@@ -45,7 +45,7 @@ struct Memo: Identifiable, Codable, Equatable, Sendable {
 
     /// The first line as it reads, without its markdown: a quote or a list item titles the memo by its words.
     static func title(for markdown: String) -> String {
-        for line in markdown.split(whereSeparator: \.isNewline) {
+        for line in MarkdownDocument.body(of: markdown).split(whereSeparator: \.isNewline) {
             let text = plainText(of: line.prefix(300))
             if !text.isEmpty { return text }
         }

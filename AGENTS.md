@@ -9,7 +9,7 @@ This file governs every session that works in this repository.
 - **Feature branch plus pull request.** Never push to `main`. CI must be green before a merge; squash merge, branch deleted.
 - **Comments explain why, not what.** A comment survives only if it carries a reason the code cannot. Keep them short.
 - **No personal detail.** No absolute paths, machine names, account names or credentials in any file here.
-- **No legacy.** No compatibility shims, no deprecation aliases, no migration paths. Removed means gone.
+- **No legacy.** No compatibility shims, no deprecation aliases, no historical schema migration paths. Explicit conversion between the two supported storage modes is a product feature. Removed means gone.
 - **No time estimates.**
 - **Releases are patch releases.** The patch number goes up, features included. A minor bump is proposed and agreed first, never assumed, and only for something that demands it: a change to the store format, or to how the app is installed.
 - **The name lives in `project.yml`.** Product name, display name and bundle identifier are set there and nowhere else.
@@ -27,4 +27,4 @@ This file governs every session that works in this repository.
 
 ## Store
 
-The store behind `MemoStore` is a single JSON file. Keep the protocol small, so another store can stand behind it, and do not add fields for sync, tags or folders.
+The store behind `MemoStore` is `LibraryStore`, selecting internal JSON or Markdown files through a committed storage manifest. Settings converts the whole library, verifies it, then switches the manifest atomically. App, CLI and App Intents use this same store and lock. Keep the protocol small, so another store can stand behind it, and do not add fields for sync, tags or folders.

@@ -9,31 +9,31 @@ private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "ap
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model: AppModel
     private var panel: MemoPanel?
-    private var watcher: StoreWatcher?
+    private var watcher: LibraryWatcher?
     let updater = Updater()
 
     /// The test host must not touch the real store or defaults, and must not hand over to a running app.
     private static let isTestHost = ProcessInfo.processInfo.environment.keys.contains { $0.hasPrefix("XCTest") }
 
     override init() {
-        let store: JSONMemoStore
+        let store: LibraryStore
         do {
             if Self.isTestHost {
-                store = JSONMemoStore(fileURL: FileManager.default.temporaryDirectory.appending(path: "store-\(UUID().uuidString).json"))
+                store = LibraryStore(fileURL: FileManager.default.temporaryDirectory.appending(path: "store-\(UUID().uuidString).json"))
                 model = AppModel(
-                    store: store, images: FolderImageStore(besideStoreAt: store.fileURL),
+                    store: store, images: store,
                     defaults: UserDefaults(suiteName: "tests")!
                 )
             } else {
                 // Another file, inside the container, for a run that must not show the real memos.
-                store = try JSONMemoStore.fromEnvironment ?? JSONMemoStore.inApplicationSupport()
-                model = AppModel(store: store, images: FolderImageStore(besideStoreAt: store.fileURL))
+                store = try LibraryStore.inApplicationSupport()
+                model = AppModel(store: store, images: store)
             }
         } catch {
             fatalError("memo store unavailable: \(error)")
         }
         super.init()
-        watcher = StoreWatcher(directory: store.fileURL.deletingLastPathComponent()) { [model] in model.storeChanged() }
+        watcher = LibraryWatcher(store: store) { [model] in model.storeChanged() } onError: { [model] message in model.storageError = message }
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {

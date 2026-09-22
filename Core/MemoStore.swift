@@ -6,6 +6,7 @@ protocol MemoStore: Sendable {
     func get(_ id: Memo.ID) async throws -> Memo?
     func create(markdown: String) async throws -> Memo
     func update(_ id: Memo.ID, markdown: String) async throws -> Memo
+    func update(_ id: Memo.ID, markdown: String, expecting baseline: String?) async throws -> Memo
     func setFavorite(_ id: Memo.ID, _ favorite: Bool) async throws -> Memo
     func delete(_ id: Memo.ID) async throws
 }
@@ -19,5 +20,12 @@ enum MemoStoreError: LocalizedError {
         case .missing(let id): "There is no memo \(id.uuidString.lowercased())."
         case .locked(let url, let code): "The store could not be locked at \(url.path): \(String(cString: strerror(code)))."
         }
+    }
+}
+
+// In-memory test stores and isolated JSON stores do not expose external documents.
+extension MemoStore {
+    func update(_ id: Memo.ID, markdown: String, expecting baseline: String?) async throws -> Memo {
+        try await update(id, markdown: markdown)
     }
 }

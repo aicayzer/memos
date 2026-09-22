@@ -16,6 +16,7 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             Tab("App", systemImage: "macwindow") { app }
+            Tab("Storage", systemImage: "externaldrive") { StorageSettingsView() }
             Tab("Shortcuts", systemImage: "keyboard") { shortcuts }
             Tab("About", systemImage: "info.circle") { about }
         }

@@ -20,6 +20,12 @@ final class AppModel {
     private(set) var history = History()
     var overlay: Overlay?
     var findText = ""
+    var storageStatus: StorageStatus?
+    var convertingStorage = false
+    var storageError: String?
+    var storageNotice: String?
+    @ObservationIgnored private var savedMarkdown: String?
+
 
     var floating: Bool {
         didSet {
@@ -172,7 +178,10 @@ final class AppModel {
     /// by the system, so the folder is cleared at the next launch, when no transfer can still be reading it.
     private static let shareFolder = FileManager.default.temporaryDirectory.appending(path: "Share")
 
+    func didConvertStorage() { storeGeneration += 1 }
+
     func start() async {
+        await refreshStorage()
         guard current == nil else { return }
         try? FileManager.default.removeItem(at: Self.shareFolder)
         do {
@@ -194,7 +203,7 @@ final class AppModel {
     func open(_ id: Memo.ID, recording: Bool = true) async {
         showWindowIfHidden()
         guard id != current?.id else { return }
-        await flush()
+        guard !convertingStorage, await flush() else { return }
         do {
             guard let memo = try await store.get(id) else { return }
             show(memo, recording: recording)
@@ -205,7 +214,7 @@ final class AppModel {
 
     func newMemo() async {
         showWindowIfHidden()
-        await flush()
+        guard !convertingStorage, await flush() else { return }
         do {
             show(try await store.create(markdown: ""))
         } catch {
@@ -216,7 +225,7 @@ final class AppModel {
     func duplicate() async {
         guard let current else { return }
         showWindowIfHidden()
-        await flush()
+        guard !convertingStorage, await flush() else { return }
         do {
             show(try await store.create(markdown: current.markdown))
         } catch {
@@ -350,6 +359,7 @@ final class AppModel {
 
     /// Every shortcut's action, for the keys the menu does not carry.
     func perform(_ shortcut: Shortcut) {
+        guard !convertingStorage else { return }
         switch shortcut {
         case .newMemo: Task { await newMemo() }
         case .delete: Task { await deleteMemo() }
@@ -597,6 +607,7 @@ final class AppModel {
 
     private func show(_ memo: Memo, recording: Bool = true, keepingCaret: Bool = false) {
         current = memo
+        savedMarkdown = memo.markdown
         unsaved = nil
         if recording { history.push(memo.id) }
         defaults.set(memo.id.uuidString, forKey: Self.lastMemoKey)
@@ -604,6 +615,7 @@ final class AppModel {
     }
 
     private func changed(_ markdown: String) {
+        guard !convertingStorage else { return }
         guard let current, markdown != current.markdown else { return }
         unsaved = markdown
         self.current?.markdown = markdown
@@ -626,15 +638,15 @@ final class AppModel {
     /// The store's folder changed. The app's own writes land here too, a few events per save, so the look
     /// waits for the burst to end; the memo on screen is reread unless an edit is on its way to the file.
     func storeChanged() {
+        guard !convertingStorage else { return }
         storeChangeTask?.cancel()
         storeChangeTask = Task {
             try? await Task.sleep(for: .milliseconds(200))
             guard !Task.isCancelled else { return }
+            await refreshStorage()
             storeGeneration += 1
             guard let id = current?.id else { return }
-            // An edit on its way to the file is the app's answer for this memo: it is written first, and
-            // what the store then holds is what the window shows. A write from outside in that moment is
-            // the one that loses.
+            // Flush against the loaded revision; a conflict keeps both versions before any reload.
             if unsaved != nil || saveTask != nil { await flush() }
             // A write that did not land keeps the text on screen; nothing is read over it.
             guard !Task.isCancelled, current?.id == id, unsaved == nil else { return }
@@ -663,15 +675,37 @@ final class AppModel {
         guard let id = current?.id, let markdown = unsaved else { return true }
         unsaved = nil
         do {
-            let saved = try await store.update(id, markdown: markdown)
-            if current?.id == id { current?.updatedAt = saved.updatedAt }
+            let saved = try await store.update(id, markdown: markdown, expecting: savedMarkdown)
+            if current?.id == id { current?.updatedAt = saved.updatedAt; savedMarkdown = saved.markdown }
             return true
+        } catch StorageError.conflict {
+            do {
+                let recovered = try await store.create(markdown: markdown)
+                if current?.id == id {
+                    if let pending = unsaved {
+                        current = recovered
+                        current?.markdown = pending
+                        savedMarkdown = recovered.markdown
+                        defaults.set(recovered.id.uuidString, forKey: Self.lastMemoKey)
+                    } else {
+                        show(recovered, keepingCaret: true)
+                    }
+                }
+                storageNotice = "This memo changed elsewhere. Your edits are in a separate memo; the external version is unchanged."
+                return true
+            } catch {
+                if unsaved == nil { unsaved = markdown }
+                report(error)
+                return false
+            }
         } catch MemoStoreError.missing {
             // Deleted elsewhere while being written: the text on screen becomes a memo again, in place.
             do {
                 let recreated = try await store.create(markdown: markdown)
                 if current?.id == id {
                     current = recreated
+                    savedMarkdown = recreated.markdown
+                    storageNotice = "The original was deleted elsewhere. Your unsaved edits were recovered as a new memo."
                     defaults.set(recreated.id.uuidString, forKey: Self.lastMemoKey)
                 }
                 return true

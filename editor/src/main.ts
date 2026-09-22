@@ -1,6 +1,7 @@
 import { postToHost } from './bridge'
 import { MemoEditor, type FormatCommand, type InsertedImage, type Keymap } from './editor'
 import './style.css'
+import { SourceFallback } from './source-fallback'
 
 declare global {
   interface Window {
@@ -22,7 +23,9 @@ declare global {
 const root = document.getElementById('editor')
 if (!root) throw new Error('editor root missing')
 
-const editor = await MemoEditor.mount(root, {
+const formattedRoot = document.createElement('div')
+root.append(formattedRoot)
+const formatted = await MemoEditor.mount(formattedRoot, {
   changed(markdown, generation) {
     postToHost({ type: 'changed', markdown, generation })
   },
@@ -38,6 +41,10 @@ const editor = await MemoEditor.mount(root, {
   pasteImage() {
     postToHost({ type: 'pasteImage' })
   },
+})
+
+const editor = new SourceFallback(formatted, formattedRoot, root, (markdown, generation) => {
+  postToHost({ type: 'changed', markdown, generation })
 })
 
 // Links open on ⌘-click, so the pointer says so only while ⌘ is down.

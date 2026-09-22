@@ -453,3 +453,34 @@ body {
 .hljs-strong {
   font-weight: 700;
 }
+
+[hidden] {
+  display: none !important;
+}
+.source-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 12px 20px 70px;
+  box-sizing: border-box;
+}
+.source-label {
+  font:
+    12px -apple-system,
+    sans-serif;
+  opacity: 0.65;
+  padding-bottom: 12px;
+}
+.source-pane textarea {
+  flex: 1;
+  min-height: 120px;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font:
+    0.95rem/1.5 ui-monospace,
+    monospace;
+  tab-size: 2;
+}

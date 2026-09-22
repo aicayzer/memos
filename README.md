@@ -34,7 +34,19 @@ Or download the DMG from the [latest release](https://github.com/aicayzer/memos/
 
 ## Where memos are kept
 
-One JSON file, which `memos path` prints. Images sit in an `images` folder beside it, one file per image, named for the SHA-256 of its bytes. A memo refers to one the ordinary way, as `![alt](images/<hash>.png)`, and a width after the alt text sizes it: `![a picture|400](images/<hash>.png)`, which is what the resize handle writes. An image no memo refers to is removed. Save As copies a memo's images into an `images` folder beside the file it writes, so the export stands alone.
+Internal storage uses a JSON file; Markdown storage uses a folder. `memos path` prints the active location. Images sit in an `images` folder beside it, one file per image, named for the SHA-256 of its bytes. A memo refers to one the ordinary way, as `![alt](images/<hash>.png)`, and a width after the alt text sizes it: `![a picture|400](images/<hash>.png)`, which is what the resize handle writes. Images are retained to protect pending edits and recovery copies. Save As copies a memo's images into an `images` folder beside the file it writes, so the export stands alone.
+
+## Markdown storage
+
+Settings → Storage has **Store memos as Markdown files**. Turn it on, choose a parent folder, and Memos creates a new folder containing one Markdown file per memo and the images beside them. Turn it off to convert the current files back to internal storage. The app, command line tool and Shortcuts all follow this setting.
+
+Both directions preserve IDs, favorites, dates, text and images. Conversion verifies the destination before committing the switch. Previous storage is retained as a recovery snapshot; it is no longer active, and editing it does not change the current library. Each conversion to files creates a fresh folder so stale copies cannot resurrect deleted notes. Storage settings shows the active location and the previous snapshot.
+
+Files have readable names and a single `memos: {...}` line in YAML frontmatter containing Memos metadata. Keep that line intact. Other frontmatter remains intact. Ordinary UTF-8 `.md` files added to the active folder appear without being rewritten; Memos adds its metadata when you edit or favorite them. Renames and changes made in another editor appear automatically. Files whose formatting the visual editor cannot preserve open in a source editor.
+
+If a memo changes elsewhere while you are editing, Memos preserves the external version and recovers your edit as a separate memo. An unavailable folder shows an error and can be located again in Storage settings; the app never silently falls back to an old copy. iCloud or another folder-sync service is not configured or guaranteed by this feature.
+
+For an isolated development preview, run `./script/build_and_run.sh --verify`. It builds a Debug app with its own identifier and storage; release updates are disabled in Debug builds.
 
 ## From the shell
 
@@ -59,7 +71,7 @@ memos favorite plan
 memos unfavorite plan
 memos open plan            # shows the app on that memo
 memos delete plan
-memos path                 # the store file
+memos path                 # the active storage location
 ```
 
 `--json` on `list` and `show` gives every field. `MEMOS_STORE` in the environment points the tool, or the app, at another store file.
