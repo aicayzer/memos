@@ -96,7 +96,11 @@ struct Memo: Identifiable, Codable, Equatable, Sendable {
         // Escaped punctuation and code span contents are literal; they sit out the stripping as private-use characters.
         var plain = text.replacing(/\\([!-\/:-@\[-`{-~])/) { shielded($0.1) }
         plain = plain.replacing(/`([^`]+)`/) { shielded($0.1) }
-        plain = plain.replacing(/!?\[([^\[\]]*)\]\(([^()\s]*)\)/) { String($0.1) }
+        plain = plain.replacing(/(!?)\[([^\[\]]*)\]\(([^()\s]*)\)/) { match in
+            let text = String(match.2)
+            // An image's width rides in its alt text; the title is the words alone.
+            return match.1 == "!" ? text.replacing(/\|\d{1,5}$/, with: "") : text
+        }
         plain = plain.replacing(/<(https?:\/\/[^<>\s]+)>/) { String($0.1) }
         plain = plain.replacing(/(\*\*|__|~~)([^*_~]+)\1/) { String($0.2) }
         plain = plain.replacing(/\*([^*\s][^*]*)\*/) { String($0.1) }

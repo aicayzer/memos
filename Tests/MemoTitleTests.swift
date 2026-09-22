@@ -149,4 +149,10 @@ import Testing
         #expect(Memo.appending("- milk\n", to: "# Shopping\n\n\n") == "# Shopping\n\n- milk\n")
         #expect(Memo.appending("First", to: "") == "First\n")
     }
+
+    @Test func anImageTitlesAMemoByItsAltTextWithoutTheWidth() {
+        #expect(Memo.title(for: "![Dusk over the water|420](images/abc.png)\n") == "Dusk over the water")
+        #expect(Memo.title(for: "![A picture](images/abc.png)\n") == "A picture")
+        #expect(Memo.title(for: "![](images/abc.png)\n\nBelow it\n") == "Below it")
+    }
 }
