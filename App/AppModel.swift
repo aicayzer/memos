@@ -93,7 +93,7 @@ final class AppModel {
     private(set) var storeGeneration = 0
 
     static let defaultWindowOpacity = 0.6
-    static let defaultTextSize = 15.0
+    static let defaultTextSize = EditorController.defaultTextSize
     static let textSizes = 12.0...22.0
 
     private static let lastMemoKey = "lastMemoID"

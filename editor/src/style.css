@@ -16,6 +16,9 @@ body {
   margin: 0;
   overflow: hidden;
   background: transparent;
+}
+
+body {
   color: var(--text);
   font:
     1rem/1.55 -apple-system,
@@ -156,7 +159,7 @@ body {
   font-size: 0.88em;
   background: var(--code-bg);
   border-radius: 5px;
-  padding: 1px 5px;
+  padding: 0.067rem 0.333rem;
 }
 
 .ProseMirror pre {
@@ -172,7 +175,7 @@ body {
 }
 
 .ProseMirror pre[data-language] {
-  padding-top: 2rem;
+  padding-top: max(2rem, 30px);
 }
 
 .ProseMirror pre[data-language]::before {

@@ -37,6 +37,23 @@ function placeCaret(editor: MemoEditor, pos: number) {
   view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)))
 }
 
+test('a loaded memo opens with the caret at its end', async () =>
+  withMemoEditor('# Heading\n\nA line.\n', (editor) => {
+    const { doc, selection } = ctxOf(editor).get(editorViewCtx).state
+    expect(selection.empty).toBe(true)
+    expect(selection.from).toBe(doc.content.size - 1)
+  }))
+
+test('a memo ending in a rule still opens with a caret', async () =>
+  withMemoEditor('A line.\n\n---\n', (editor) => {
+    expect(ctxOf(editor).get(editorViewCtx).state.selection.empty).toBe(true)
+  }))
+
+test('a loaded memo is not yet changed', async () =>
+  withMemoEditor('# Heading\n\nA line.\n', (editor) => {
+    expect(editor.markdown()).toBe(null)
+  }))
+
 test('quote toggles rather than nesting', async () => {
   await withMemoEditor('A line\n', (editor, states) => {
     placeCaret(editor, 2)

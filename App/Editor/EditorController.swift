@@ -17,7 +17,9 @@ final class EditorController: NSObject {
     var accentOverride: NSColor? {
         didSet { applyAccent() }
     }
-    var textSize = AppModel.defaultTextSize {
+    /// The memo's text size in points, which the stylesheet's own default matches.
+    static let defaultTextSize = 15.0
+    var textSize = defaultTextSize {
         didSet { applyTextSize() }
     }
     /// The editor's key bindings, by shortcut name; the app owns them, since Settings edits them.
