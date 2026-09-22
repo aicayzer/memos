@@ -32,7 +32,7 @@ settings:
     ENABLE_HARDENED_RUNTIME: YES
     # Script sandboxing would block the editor phase's write into the bundle.
     ENABLE_USER_SCRIPT_SANDBOXING: NO
-    MARKETING_VERSION: "0.1.2"
+    MARKETING_VERSION: "0.2.0"
     CURRENT_PROJECT_VERSION: 1
     # The app's identifier, which the command line tool reads to find the app's container.
     MEMOS_APP_IDENTIFIER: me.cyzr.memos
