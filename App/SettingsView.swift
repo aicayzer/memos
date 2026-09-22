@@ -29,6 +29,9 @@ struct SettingsView: View {
         @Bindable var model = model
         return Form {
             Section {
+                // Without a shortcut, the last way back to the window cannot be switched off.
+                Toggle("Show in menu bar", isOn: $model.menuBarItem)
+                    .disabled(model.menuBarItem && !model.showInDock && !hasShortcut)
                 // The icons alone: their names would say less than the shapes, in the menu and in the bar.
                 Picker("Menu bar icon", selection: $model.menuBarIcon) {
                     ForEach(MenuBarIcon.allCases) { icon in
@@ -45,9 +48,6 @@ struct SettingsView: View {
                 }
                 .tint(.primary)
                 .disabled(!model.menuBarItem)
-                // Without a shortcut, the last way back to the window cannot be switched off.
-                Toggle("Show in menu bar", isOn: $model.menuBarItem)
-                    .disabled(model.menuBarItem && !model.showInDock && !hasShortcut)
                 Toggle("Show in Dock", isOn: $model.showInDock)
                     .disabled(model.showInDock && !model.menuBarItem && !hasShortcut)
             } header: {
@@ -155,7 +155,7 @@ struct SettingsView: View {
             } header: {
                 Text("Memos")
             } footer: {
-                Text("Click a shortcut to change it. Hover a row to add another key.")
+                Text("Click to change, the cross to remove, hover a row to add a key.")
             }
             Section {
                 ForEach(model.shortcuts.rows(for: Shortcut.editor, adding: adding)) { row($0, conflicts: conflicts) }
@@ -269,7 +269,10 @@ struct SettingsView: View {
                 Button("Add Shortcut") { adding = ShortcutRow(shortcut: row.shortcut, index: row.index + 1, key: nil, isAdded: true) }
                 Button("Remove Shortcut") { model.shortcuts.clear(row) }
             }
-            Button("Reset to Default") { model.shortcuts.reset(row.shortcut) }
+            Button("Reset to Default") {
+                adding = nil
+                model.shortcuts.reset(row.shortcut)
+            }
                 .disabled(model.shortcuts.isDefault(row.shortcut))
         }
     }

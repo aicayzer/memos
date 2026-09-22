@@ -28,7 +28,7 @@ Or download the DMG from the [latest release](https://github.com/aicayzer/memos/
 - A formatting bar floats at the bottom of the memo: headings, bold, italic, strikethrough, link, code, quote and lists, showing what the caret sits in. Its close button hides it, and the palette brings it back.
 - `⌥⌘←` (or `⌘.`), or a double-click on the title bar, opens a side pane listing the memos with a search field; the window grows to the left to make room and shrinks back when it closes. Its own close button, or the same again, closes it, and Settings can open it at launch.
 - The window takes the keyboard without bringing the app to the front, so the app you were in keeps the menu bar while you type; a Dock click brings up the Memos menus, whose Memo and Window items are also in the palette.
-- Always on Top keeps it above other apps and on every space; the background, side pane, accent and text size are set in Settings (`⌘,`), whose Shortcuts tab records the global show/hide shortcut and lets every other shortcut, the editor's included, be changed or given more keys.
+- Always on Top keeps it above other apps and on every space; the side pane, the window's opacity and tint, the accent, the text size, the size of the app's own controls and the menu bar icon are all set in Settings (`⌘,`), whose Shortcuts tab records the global show/hide shortcut and lets every other shortcut, the editor's included, be changed or given more keys.
 - Type markdown as you go: `# `, `- `, `1. `, `- [ ] `, `> ` and backticks turn into formatting. `⌘`-click opens a link.
 
 ## From the shell

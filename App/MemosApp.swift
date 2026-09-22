@@ -23,12 +23,7 @@ struct MemosApp: App {
             Divider()
             Button("Quit \(Bundle.main.displayName)") { NSApp.terminate(nil) }
         } label: {
-            // The image alone: a label with text beside it draws that text in the menu bar as well.
-            if let symbol = model.menuBarIcon.systemImage {
-                Image(systemName: symbol).accessibilityLabel(Bundle.main.displayName)
-            } else {
-                Image(MenuBarIcon.asset).accessibilityLabel(Bundle.main.displayName)
-            }
+            MenuBarLabel(model: model)
         }
     }
 }
@@ -45,4 +40,50 @@ extension Bundle {
     var buildNumber: String {
         object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
     }
+}
+
+/// The menu bar item's image. A view of its own, so the icon the model holds is read where a change to it
+/// is seen; the image alone, since a label with text beside it draws that text in the menu bar as well.
+private struct MenuBarLabel: View {
+    let model: AppModel
+
+    var body: some View {
+        Group {
+            if let symbol = model.menuBarIcon.systemImage {
+                Image(systemName: symbol)
+            } else {
+                Image(MenuBarIcon.asset)
+            }
+        }
+        .accessibilityLabel(Bundle.main.displayName)
+    }
+}
+
+/// What the menu bar item shows: the app's own mark, drawn as a template so the menu bar colors it, or
+/// one of the system's symbols.
+enum MenuBarIcon: String, CaseIterable, Identifiable {
+    case squiggle, scribble, note, compose
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .squiggle: "Squiggle"
+        case .scribble: "Scribble"
+        case .note: "Note"
+        case .compose: "Compose"
+        }
+    }
+
+    /// nil for the app's own mark, which is an asset rather than a symbol.
+    var systemImage: String? {
+        switch self {
+        case .squiggle: nil
+        case .scribble: "scribble"
+        case .note: "note.text"
+        case .compose: "square.and.pencil"
+        }
+    }
+
+    static let asset = "MenuBarIcon"
 }

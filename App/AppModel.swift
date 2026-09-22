@@ -93,7 +93,7 @@ final class AppModel {
     var title: String { current?.title ?? Memo.untitled }
 
     @ObservationIgnored private(set) weak var window: NSWindow?
-    @ObservationIgnored private let chrome = WindowChrome()
+    @ObservationIgnored private let windowChrome = WindowChrome()
     @ObservationIgnored private var windowBehavior: NSWindow.CollectionBehavior = []
     @ObservationIgnored private var unsaved: String?
     @ObservationIgnored private var sharePicker: NSSharingServicePicker?
@@ -370,7 +370,7 @@ final class AppModel {
     func attach(_ window: NSWindow) {
         self.window = window
         windowBehavior = window.collectionBehavior
-        chrome.attach(window)
+        windowChrome.attach(window)
         applyWindowLevel()
         // The frame was saved with the pane as it was then, which the launch setting may not match.
         if defaults.bool(forKey: Self.paneRoomKey) != sidePane { resizeWindow(forPane: sidePane) }

@@ -2,8 +2,8 @@ import AppKit
 import KeyboardShortcuts
 import SwiftUI
 
-/// Records a shortcut in place: a click empties the box and the next chord typed fills it, the cross in the
-/// box leaves the shortcut with no key, Escape or a click elsewhere brings the old one back. The chord is
+/// Records a shortcut in place: a click sets the box waiting and the next chord typed takes its place, the
+/// cross in the box leaves the shortcut with no key, Escape or a click elsewhere leaves it as it was. The chord is
 /// taken by a local monitor, ahead of the menu and with the global hotkeys paused, so pressing ⌘N records
 /// rather than making a memo. One control serves the app's shortcuts and the global hotkey; what each
 /// accepts is the caller's.
