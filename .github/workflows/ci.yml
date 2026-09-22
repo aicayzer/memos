@@ -38,7 +38,9 @@ jobs:
 
   app:
     name: App
-    runs-on: macos-26
+    # macOS 27 with Xcode 27, which is what the app is built and released with; the deployment target
+    # stays at 26, which the 27 SDK builds for as a matter of course.
+    runs-on: xcode-27
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -47,7 +49,7 @@ jobs:
           package_json_file: editor/package.json
       - name: Select Xcode
         run: |
-          XCODE="$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+          XCODE="$(ls -d /Applications/Xcode_27*.app | sort -V | tail -1)"
           echo "DEVELOPER_DIR=$XCODE/Contents/Developer" >> "$GITHUB_ENV"
           "$XCODE/Contents/Developer/usr/bin/xcodebuild" -version
       - name: Install XcodeGen
