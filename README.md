@@ -55,7 +55,7 @@ memos path                 # the store file
 
 ## Build
 
-Requires Xcode 26 or later, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and [pnpm](https://pnpm.io). The app build looks for pnpm in `~/Library/pnpm`, `/opt/homebrew/bin` and `/usr/local/bin` as well as the PATH Xcode runs with.
+Requires Xcode 27 or later, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and [pnpm](https://pnpm.io). The app build looks for pnpm in `~/Library/pnpm`, `/opt/homebrew/bin` and `/usr/local/bin` as well as the PATH Xcode runs with.
 
 ```sh
 xcodegen generate
