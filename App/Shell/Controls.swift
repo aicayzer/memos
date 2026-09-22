@@ -16,13 +16,37 @@ struct HoverHighlight<Content: View>: View {
 
 enum Chrome {
     static let rowHeight: CGFloat = 52
-    static let pillHeight: CGFloat = 30
-    static let barHeight: CGFloat = 32
-    static let closeSize: CGFloat = 30
-    static let iconSize: CGFloat = 15
     static let cornerRadius: CGFloat = 22
     static let paneWidth: CGFloat = 220
     static let paneRoom = paneWidth + 1
-    /// Narrower and the bar's controls crop.
-    static let minWidth: CGFloat = 400
+}
+
+/// The size of the app's own controls: the title bar's actions, the formatting bar and the two glass
+/// circles. Compact is what the window is drawn for; standard matches a toolbar's own buttons, which
+/// the title bar's fixed height still has room for.
+struct ChromeMetrics: Equatable {
+    let pillHeight: CGFloat
+    let iconSize: CGFloat
+    let buttonWidth: CGFloat
+    let buttonHeight: CGFloat
+    let circleSize: CGFloat
+    let barHeight: CGFloat
+    /// Narrower and the formatting bar's controls crop.
+    let minWidth: CGFloat
+
+    /// The formatting bar's buttons take the menus' glyphs, which need the extra couple of points.
+    var barButtonHeight: CGFloat { buttonHeight + 2 }
+
+    static let compact = ChromeMetrics(
+        pillHeight: 30, iconSize: 15, buttonWidth: 28, buttonHeight: 24, circleSize: 30, barHeight: 32,
+        minWidth: 400
+    )
+    static let standard = ChromeMetrics(
+        pillHeight: 34, iconSize: 17, buttonWidth: 32, buttonHeight: 28, circleSize: 34, barHeight: 36,
+        minWidth: 440
+    )
+}
+
+extension EnvironmentValues {
+    @Entry var chrome: ChromeMetrics = .compact
 }

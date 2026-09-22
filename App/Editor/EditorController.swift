@@ -5,6 +5,27 @@ import WebKit
 
 private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "editor")
 
+/// The memo's text size, in points. The stylesheet's own default is Medium's.
+enum TextSize: Double, CaseIterable, Identifiable {
+    case small = 13, medium = 15, large = 17
+
+    var id: Double { rawValue }
+    var points: Double { rawValue }
+
+    var title: String {
+        switch self {
+        case .small: "Small"
+        case .medium: "Medium"
+        case .large: "Large"
+        }
+    }
+
+    /// The nearest size to a stored one, which may come from another version or an edited preference.
+    init(nearest points: Double) {
+        self = Self.allCases.min { abs($0.rawValue - points) < abs($1.rawValue - points) } ?? .medium
+    }
+}
+
 @MainActor
 @Observable
 final class EditorController: NSObject {
@@ -17,9 +38,7 @@ final class EditorController: NSObject {
     var accentOverride: NSColor? {
         didSet { applyAccent() }
     }
-    /// The memo's text size in points, which the stylesheet's own default matches.
-    static let defaultTextSize = 15.0
-    var textSize = defaultTextSize {
+    var textSize = TextSize.medium.points {
         didSet { applyTextSize() }
     }
     /// The editor's key bindings, by shortcut name; the app owns them, since Settings edits them.

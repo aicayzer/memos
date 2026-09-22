@@ -2,10 +2,11 @@ import AppKit
 import KeyboardShortcuts
 import SwiftUI
 
-/// Records a shortcut in place: a click empties the box and the next chord typed fills it, a click elsewhere
-/// leaves it empty, Escape brings the old one back. The chord is taken by a local monitor, ahead of the menu
-/// and with the global hotkeys paused, so pressing ⌘N records rather than making a memo. One control serves
-/// the app's shortcuts and the global hotkey; what each accepts is the caller's.
+/// Records a shortcut in place: a click empties the box and the next chord typed fills it, the cross in the
+/// box leaves the shortcut with no key, Escape or a click elsewhere brings the old one back. The chord is
+/// taken by a local monitor, ahead of the menu and with the global hotkeys paused, so pressing ⌘N records
+/// rather than making a memo. One control serves the app's shortcuts and the global hotkey; what each
+/// accepts is the caller's.
 struct KeyRecorder: View {
     /// The shortcut as shown, nil when there is none.
     let label: String?
@@ -14,7 +15,7 @@ struct KeyRecorder: View {
     var recordsOnAppear = false
     /// Given each chord typed; true takes it as the shortcut, false keeps the box waiting.
     let onRecord: (NSEvent) -> Bool
-    /// The box was left empty: the shortcut is gone.
+    /// The cross, or a delete key: the shortcut is gone.
     let onClear: () -> Void
     /// Escape, or the app going to the back: nothing changes.
     var onCancel: () -> Void = {}
@@ -38,7 +39,9 @@ struct KeyRecorder: View {
                     .help(conflict)
                     .accessibilityLabel(conflict)
             }
-            Text(recording ? "Type a shortcut" : label ?? "")
+            // A space rather than nothing when there is no shortcut: an empty string carries no baseline, and
+            // the row's label is aligned to the box's, so the two would stack and the row would grow.
+            Text(recording ? "Press keys" : label ?? " ")
                 .foregroundStyle(recording ? .secondary : .primary)
                 .lineLimit(1)
                 .frame(width: Self.width, height: Self.height)
@@ -46,6 +49,21 @@ struct KeyRecorder: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 6)
                         .strokeBorder(recording ? AnyShapeStyle(.tint) : AnyShapeStyle(.quaternary), lineWidth: recording ? 2 : 1)
+                }
+                // Over the box rather than beside the chord, which stays centered in it.
+                .overlay(alignment: .trailing) {
+                    if recording, label != nil {
+                        Button(action: clear) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                                .padding(.trailing, 4)
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Remove Shortcut")
+                        .help("Remove Shortcut")
+                    }
                 }
                 .background(AnchorView(anchor: anchor))
                 .contentShape(.rect)
@@ -68,16 +86,17 @@ struct KeyRecorder: View {
         recording = true
         // A registered hotkey takes its key before any window sees it, so it could not be recorded again.
         KeyboardShortcuts.isEnabled = false
-        // A click outside the box ends the recording with the box empty, rather than leaving it to swallow
-        // keys meant for whatever was clicked. On the box itself a click changes nothing, and a right-click
-        // is kept from opening the row's menu, whose actions would move the keys under the recording.
+        // A click outside the box ends the recording with the shortcut as it was, rather than leaving the box
+        // to swallow keys meant for whatever was clicked; the cross in the box is what removes a shortcut. On
+        // the box itself a click changes nothing, and a right-click is kept from opening the row's menu,
+        // whose actions would move the keys under the recording.
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]) { event in
             if event.type == .keyDown {
                 handle(event)
                 return nil
             }
             guard anchor.contains(event) else {
-                clear()
+                cancel()
                 return event
             }
             return event.type == .leftMouseDown ? event : nil

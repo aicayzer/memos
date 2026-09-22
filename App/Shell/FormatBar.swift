@@ -3,6 +3,8 @@ import SwiftUI
 struct FormatBar: View {
     let editor: EditorController
 
+    @Environment(\.chrome) private var chrome
+
     @State private var linkPopover = false
     @State private var linkURL = ""
 
@@ -17,7 +19,7 @@ struct FormatBar: View {
                     })
                 }
             } label: {
-                Image(nsImage: Self.headingGlyph(active: caret.block.isHeading))
+                Image(nsImage: Self.headingGlyph(active: caret.block.isHeading, size: chrome.iconSize))
             }
 
             menu("Text Style", active: !caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough])) {
@@ -25,10 +27,12 @@ struct FormatBar: View {
                 Toggle("Italic", isOn: toggle(caret.marks.contains(.italic)) { editor.format(.italic) })
                 Toggle("Strikethrough", isOn: toggle(caret.marks.contains(.strikethrough)) { editor.format(.strikethrough) })
             } label: {
-                Image(nsImage: Self.styleGlyph(active: !caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough])))
+                Image(nsImage: Self.styleGlyph(
+                    active: !caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough]), size: chrome.iconSize
+                ))
             }
 
-            button("link", "Link", size: Chrome.iconSize - 1, active: caret.marks.contains(.link)) {
+            button("link", "Link", size: chrome.iconSize - 1, active: caret.marks.contains(.link)) {
                 if caret.marks.contains(.link) {
                     editor.format(.link)
                 } else {
@@ -47,13 +51,15 @@ struct FormatBar: View {
                         if !url.isEmpty { editor.format(.link, argument: url) }
                     }
             }
-            button("chevron.left.forwardslash.chevron.right", "Inline Code", size: Chrome.iconSize - 2, active: caret.marks.contains(.code)) {
+            button("chevron.left.forwardslash.chevron.right", "Inline Code", size: chrome.iconSize - 2, active: caret.marks.contains(.code)) {
                 editor.format(.code)
             }
 
             divider
 
-            button("curlybraces", "Code Block", active: caret.block == .codeBlock) { editor.format(.codeBlock) }
+            button("curlybraces", "Code Block", size: chrome.iconSize - 1, active: caret.block == .codeBlock) {
+                editor.format(.codeBlock)
+            }
             button("text.quote", "Quote", active: caret.quoted) { editor.format(.quote) }
 
             divider
@@ -64,14 +70,14 @@ struct FormatBar: View {
                 Toggle("Task List", isOn: toggle(caret.block == .taskList) { editor.format(.taskList) })
             } label: {
                 // The list glyphs read smaller than the rest at the same point size.
-                Image(systemName: listSymbol).font(.system(size: Chrome.iconSize + 1, weight: .medium))
+                Image(systemName: listSymbol).font(.system(size: chrome.iconSize + 2, weight: .medium))
             }
         }
         .menuStyle(.button)
         .menuIndicator(.visible)
         .buttonStyle(.borderless)
         .padding(.horizontal, 8)
-        .frame(height: Chrome.barHeight)
+        .frame(height: chrome.barHeight)
         .glassEffect(.regular, in: .capsule)
     }
 
@@ -87,15 +93,26 @@ struct FormatBar: View {
     // A borderless menu draws a text label, and a template image, in the label color whatever the tint,
     // so the glyph is drawn in the label color it should have. The drawing handler runs at draw time,
     // so the dynamic colors follow the appearance.
-    private static let headingFont = NSFont.systemFont(ofSize: Chrome.iconSize + 1, weight: .semibold).withDesign(.rounded)
-    private static let styleFont = NSFont.systemFont(ofSize: Chrome.iconSize, weight: .medium).withDesign(.serif)
-    private static let headingGlyphs = (on: glyph("H", headingFont, .labelColor), off: glyph("H", headingFont, .secondaryLabelColor))
-    private static let styleGlyphs = (on: glyph("I", styleFont, .labelColor), off: glyph("I", styleFont, .secondaryLabelColor))
+    private static func headingGlyph(active: Bool, size: CGFloat) -> NSImage {
+        glyph("H", NSFont.systemFont(ofSize: size + 1, weight: .semibold).withDesign(.rounded), active)
+    }
 
-    private static func headingGlyph(active: Bool) -> NSImage { active ? headingGlyphs.on : headingGlyphs.off }
-    private static func styleGlyph(active: Bool) -> NSImage { active ? styleGlyphs.on : styleGlyphs.off }
+    private static func styleGlyph(active: Bool, size: CGFloat) -> NSImage {
+        glyph("I", NSFont.systemFont(ofSize: size, weight: .medium).withDesign(.serif), active)
+    }
 
-    private static func glyph(_ text: String, _ font: NSFont, _ color: NSColor) -> NSImage {
+    // The same few images every time the caret moves, so they are drawn once per size and state.
+    @MainActor private static var glyphs: [String: NSImage] = [:]
+
+    @MainActor private static func glyph(_ text: String, _ font: NSFont, _ active: Bool) -> NSImage {
+        let key = "\(text) \(font.pointSize) \(active)"
+        if let drawn = glyphs[key] { return drawn }
+        let drawn = draw(text, font, active ? .labelColor : .secondaryLabelColor)
+        glyphs[key] = drawn
+        return drawn
+    }
+
+    private static func draw(_ text: String, _ font: NSFont, _ color: NSColor) -> NSImage {
         let attributed = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: color])
         let size = attributed.size()
         return NSImage(size: NSSize(width: ceil(size.width), height: ceil(size.height)), flipped: false) { rect in
@@ -108,7 +125,7 @@ struct FormatBar: View {
     private func menu<Items: View, Glyph: View>(
         _ label: String, active: Bool, @ViewBuilder _ items: () -> Items, @ViewBuilder label glyph: () -> Glyph
     ) -> some View {
-        let menu = Menu(content: items) { glyph().frame(height: 26) }
+        let menu = Menu(content: items) { glyph().frame(height: chrome.barButtonHeight) }
         return HoverHighlight {
             menu
                 .tint(active ? .primary : .secondary)
@@ -117,13 +134,13 @@ struct FormatBar: View {
     }
 
     private func button(
-        _ symbol: String, _ label: String, size: CGFloat = Chrome.iconSize, active: Bool, action: @escaping () -> Void
+        _ symbol: String, _ label: String, size: CGFloat? = nil, active: Bool, action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HoverHighlight {
                 Image(systemName: symbol)
-                    .font(.system(size: size, weight: .medium))
-                    .frame(width: 28, height: 26)
+                    .font(.system(size: size ?? chrome.iconSize, weight: .medium))
+                    .frame(width: chrome.buttonWidth, height: chrome.barButtonHeight)
             }
         }
         .tint(active ? .primary : .secondary)

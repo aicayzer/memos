@@ -24,7 +24,7 @@ struct MainView: View {
                         }
                     }
             }
-            .frame(minWidth: Chrome.minWidth)
+            .frame(minWidth: model.chromeMetrics.minWidth)
         }
         // Over the whole window, so the palette is centered in it whether or not the pane is open. Before the
         // safe area is ignored below, so the reader's height is the window's, title bar included, which the
@@ -64,6 +64,7 @@ struct MainView: View {
             if overlay == nil { model.findText = "" }
         }
         .tint(model.accentColor)
+        .environment(\.chrome, model.chromeMetrics)
     }
 
     private var bottomBar: some View {
@@ -72,24 +73,26 @@ struct MainView: View {
                 if !model.formatBarHidden {
                     FormatBar(editor: model.editor)
                         .frame(maxWidth: .infinity)
-                        .padding(.horizontal, Chrome.closeSize + 8)
+                        .padding(.horizontal, model.chromeMetrics.circleSize + 8)
                         .transition(.opacity.combined(with: .scale(scale: 0.96)))
                 }
                 Button {
                     withAnimation(.easeOut(duration: 0.15)) { model.formatBarHidden.toggle() }
                 } label: {
                     Image(systemName: model.formatBarHidden ? "textformat" : "xmark")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: model.chromeMetrics.iconSize - 4, weight: .semibold))
                         .foregroundStyle(.secondary)
-                        .frame(width: Chrome.closeSize, height: Chrome.closeSize)
+                        .frame(width: model.chromeMetrics.circleSize, height: model.chromeMetrics.circleSize)
                         .glassEffect(.regular, in: .circle)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(model.formatBarHidden ? "Show Formatting Bar" : "Hide Formatting Bar")
                 .help(model.formatBarHidden ? "Show Formatting Bar" : "Hide Formatting Bar")
             }
-            // A fixed height, or the corner button sits a point lower whenever the taller bar is gone.
-            .frame(maxWidth: .infinity, minHeight: Chrome.barHeight, alignment: .trailing)
+            // A set height, not a minimum: the bar's own controls can ask for a point or two more than the
+            // capsule draws, and the button, centered in whatever the tallest child is, would move with it.
+            .frame(height: model.chromeMetrics.barHeight)
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 12)

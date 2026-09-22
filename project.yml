@@ -49,6 +49,8 @@ targets:
           # The icon as rendered and the screenshot, for the README; the app's own icon comes from AppIcon.icon.
           - Resources/AppIcon.png
           - Resources/Screenshot.png
+          # The menu bar mark's artwork; the asset catalog carries the sizes drawn from it.
+          - Resources/MenuBarIcon.png
     dependencies:
       - package: KeyboardShortcuts
       - package: Sparkle
