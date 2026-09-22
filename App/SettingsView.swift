@@ -38,17 +38,18 @@ struct SettingsView: View {
                     Menu {
                         ForEach(MenuBarIcon.allCases) { icon in
                             Button { model.menuBarIcon = icon } label: {
-                                Self.image(icon).accessibilityLabel(icon.title)
+                                icon.image.accessibilityLabel(icon.title)
                             }
                         }
                     } label: {
-                        Self.image(model.menuBarIcon)
+                        model.menuBarIcon.image
                     }
                     .menuStyle(.button)
+                    .menuIndicator(.visible)
                     .buttonStyle(.borderless)
                     .tint(.primary)
                     .fixedSize()
-                    .accessibilityLabel("Menu bar icon")
+                    .accessibilityValue(model.menuBarIcon.title)
                 }
                 .disabled(!model.menuBarItem)
                 Toggle("Show in Dock", isOn: $model.showInDock)
@@ -168,6 +169,7 @@ struct SettingsView: View {
                 HStack {
                     Spacer()
                     Button("Restore Defaults") {
+                        adding = nil
                         model.shortcuts.reset()
                         KeyboardShortcuts.reset(.toggleWindow)
                         globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
@@ -270,7 +272,10 @@ struct SettingsView: View {
         .contextMenu {
             if row.key != nil {
                 Button("Add Shortcut") { adding = ShortcutRow(shortcut: row.shortcut, index: row.index + 1, key: nil, isAdded: true) }
-                Button("Remove Shortcut") { model.shortcuts.clear(row) }
+                Button("Remove Shortcut") {
+                    adding = nil
+                    model.shortcuts.clear(row)
+                }
             }
             Button("Reset to Default") {
                 adding = nil
@@ -283,14 +288,6 @@ struct SettingsView: View {
     private static func others(sharing key: KeyCombo, with shortcut: Shortcut, in conflicts: [KeyCombo: [Shortcut]]) -> String? {
         let others = (conflicts[key] ?? []).filter { $0 != shortcut }.map(\.title)
         return others.isEmpty ? nil : "Also " + others.joined(separator: ", ")
-    }
-
-    @ViewBuilder private static func image(_ icon: MenuBarIcon) -> some View {
-        if let symbol = icon.systemImage {
-            Image(systemName: symbol)
-        } else {
-            Image(MenuBarIcon.asset)
-        }
     }
 
     private enum AccentChoice: Hashable {

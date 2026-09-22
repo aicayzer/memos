@@ -48,14 +48,7 @@ private struct MenuBarLabel: View {
     let model: AppModel
 
     var body: some View {
-        Group {
-            if let symbol = model.menuBarIcon.systemImage {
-                Image(systemName: symbol)
-            } else {
-                Image(MenuBarIcon.asset)
-            }
-        }
-        .accessibilityLabel(Bundle.main.displayName)
+        model.menuBarIcon.image.accessibilityLabel(Bundle.main.displayName)
     }
 }
 
@@ -72,6 +65,15 @@ enum MenuBarIcon: String, CaseIterable, Identifiable {
         case .scribble: "Scribble"
         case .note: "Note"
         case .compose: "Compose"
+        }
+    }
+
+    /// The mark itself, held to the symbols' own size, which the app's asset would otherwise overrun.
+    @ViewBuilder var image: some View {
+        if let systemImage {
+            Image(systemName: systemImage)
+        } else {
+            Image(Self.asset).resizable().scaledToFit().frame(height: 13)
         }
     }
 
