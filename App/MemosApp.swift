@@ -15,15 +15,20 @@ struct MemosApp: App {
         }
         .commands { AppCommands(model: model, updater: delegate.updater) }
 
-        MenuBarExtra(Bundle.main.displayName, systemImage: "scribble", isInserted: Binding(
-            get: { model.menuBarItem }, set: { model.menuBarItem = $0 }
-        )) {
+        MenuBarExtra(isInserted: Binding(get: { model.menuBarItem }, set: { model.menuBarItem = $0 })) {
             Button("Open \(Bundle.main.displayName)") { model.showWindow() }
             Button("New Memo") { Task { await model.newMemo() } }
             Divider()
             SettingsLink { Text("Settings…") }
             Divider()
             Button("Quit \(Bundle.main.displayName)") { NSApp.terminate(nil) }
+        } label: {
+            // The image alone: a label with text beside it draws that text in the menu bar as well.
+            if let symbol = model.menuBarIcon.systemImage {
+                Image(systemName: symbol).accessibilityLabel(Bundle.main.displayName)
+            } else {
+                Image(MenuBarIcon.asset).accessibilityLabel(Bundle.main.displayName)
+            }
         }
     }
 }

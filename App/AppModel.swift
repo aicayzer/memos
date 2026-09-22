@@ -69,6 +69,17 @@ final class AppModel {
         }
     }
 
+    var menuBarIcon: MenuBarIcon {
+        didSet { defaults.set(menuBarIcon.rawValue, forKey: Self.menuBarIconKey) }
+    }
+
+    /// The app's own controls at a toolbar's size rather than the window's own, smaller one.
+    var standardControls: Bool {
+        didSet { defaults.set(standardControls, forKey: Self.standardControlsKey) }
+    }
+
+    var chromeMetrics: ChromeMetrics { standardControls ? .standard : .compact }
+
     /// The memo's text size in points; headings and the rest scale with it.
     var textSize: Double {
         didSet {
@@ -93,8 +104,7 @@ final class AppModel {
     private(set) var storeGeneration = 0
 
     static let defaultWindowOpacity = 0.6
-    static let defaultTextSize = EditorController.defaultTextSize
-    static let textSizes = [12.0, 13, 14, 15, 16, 17, 18, 19, 20]
+    static let defaultTextSize = TextSize.medium.points
 
     private static let lastMemoKey = "lastMemoID"
     private static let floatingKey = "floating"
@@ -108,6 +118,8 @@ final class AppModel {
     private static let windowTintKey = "windowTint"
     private static let accentKey = "accent"
     private static let textSizeKey = "textSize"
+    private static let standardControlsKey = "standardControls"
+    private static let menuBarIconKey = "menuBarIcon"
 
     init(store: any MemoStore, defaults: UserDefaults = .standard) {
         self.store = store
@@ -123,9 +135,10 @@ final class AppModel {
         windowOpacity = defaults.object(forKey: Self.windowOpacityKey) as? Double ?? Self.defaultWindowOpacity
         windowTint = defaults.string(forKey: Self.windowTintKey).flatMap(NSColor.init(hexString:))
         accent = Accent(stored: defaults.string(forKey: Self.accentKey))
-        // A stored size from a later version, or an edited preference, still has to be one the menu can show.
+        standardControls = defaults.bool(forKey: Self.standardControlsKey)
+        menuBarIcon = defaults.string(forKey: Self.menuBarIconKey).flatMap(MenuBarIcon.init(rawValue:)) ?? .squiggle
         let storedSize = defaults.object(forKey: Self.textSizeKey) as? Double ?? Self.defaultTextSize
-        textSize = Self.textSizes.min { abs($0 - storedSize) < abs($1 - storedSize) } ?? Self.defaultTextSize
+        textSize = TextSize(nearest: storedSize).points
         editor.accentOverride = accent.color
         editor.textSize = textSize
         editor.keymap = shortcuts.editorKeymap
@@ -290,13 +303,14 @@ final class AppModel {
     }
 
     var isDefaultAppearance: Bool {
-        accent == .standard && textSize == Self.defaultTextSize
+        accent == .standard && textSize == Self.defaultTextSize && !standardControls
             && windowOpacity == Self.defaultWindowOpacity && windowTint == nil
     }
 
     func resetAppearance() {
         accent = .standard
         textSize = Self.defaultTextSize
+        standardControls = false
         windowOpacity = Self.defaultWindowOpacity
         windowTint = nil
     }

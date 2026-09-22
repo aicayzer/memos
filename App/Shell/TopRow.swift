@@ -3,6 +3,7 @@ import SwiftUI
 /// The title bar's content: a centered title and, while the window is key, the three actions.
 struct TopRow: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.chrome) private var chrome
     let active: Bool
 
     var body: some View {
@@ -29,7 +30,7 @@ struct TopRow: View {
                 action("plus", "New Memo") { Task { await model.newMemo() } }
             }
             .padding(.horizontal, 4)
-            .frame(height: Chrome.pillHeight)
+            .frame(height: chrome.pillHeight)
             .glassEffect(.regular, in: .capsule)
             .padding(.trailing, 12)
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -48,8 +49,8 @@ struct TopRow: View {
         Button(action: action) {
             HoverHighlight {
                 Image(systemName: symbol)
-                    .font(.system(size: Chrome.iconSize, weight: .medium))
-                    .frame(width: 28, height: 24)
+                    .font(.system(size: chrome.iconSize, weight: .medium))
+                    .frame(width: chrome.buttonWidth, height: chrome.buttonHeight)
             }
         }
         .buttonStyle(.borderless)

@@ -292,8 +292,14 @@ final class ShortcutSettings {
 
     var isDefault: Bool { overrides.isEmpty }
 
+    func isDefault(_ shortcut: Shortcut) -> Bool { overrides[shortcut.rawValue] == nil }
+
     func reset() {
         overrides = [:]
+    }
+
+    func reset(_ shortcut: Shortcut) {
+        overrides[shortcut.rawValue] = nil
     }
 
     /// The first key, for the menu and the palette.

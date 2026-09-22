@@ -29,6 +29,22 @@ struct SettingsView: View {
         @Bindable var model = model
         return Form {
             Section {
+                // The icons alone: their names would say less than the shapes, in the menu and in the bar.
+                Picker("Menu bar icon", selection: $model.menuBarIcon) {
+                    ForEach(MenuBarIcon.allCases) { icon in
+                        Group {
+                            if let symbol = icon.systemImage {
+                                Image(systemName: symbol)
+                            } else {
+                                Image(MenuBarIcon.asset)
+                            }
+                        }
+                        .accessibilityLabel(icon.title)
+                        .tag(icon)
+                    }
+                }
+                .tint(.primary)
+                .disabled(!model.menuBarItem)
                 // Without a shortcut, the last way back to the window cannot be switched off.
                 Toggle("Show in menu bar", isOn: $model.menuBarItem)
                     .disabled(model.menuBarItem && !model.showInDock && !hasShortcut)
@@ -52,7 +68,39 @@ struct SettingsView: View {
                 Toggle("Always on top", isOn: $model.floating)
                 Toggle("Side pane at launch", isOn: $model.sidePaneAtLaunch)
             }
-            Section("Appearance") {
+            Section {
+                Picker("Controls", selection: $model.standardControls) {
+                    Text("Compact").tag(false)
+                    Text("Standard").tag(true)
+                }
+                .tint(.primary)
+                Picker("Text size", selection: $model.textSize) {
+                    ForEach(TextSize.allCases) { size in
+                        Text(size.title).tag(size.points)
+                    }
+                }
+                .tint(.primary)
+                LabeledContent("Opacity") {
+                    Slider(value: $model.windowOpacity, in: 0...1) { Text("Opacity") }
+                        .labelsHidden()
+                }
+                Picker("Tint", selection: Binding(
+                    get: { model.windowTint != nil },
+                    set: { tinted in
+                        // A tint starts as the window's own color, so the well opens on what is on screen.
+                        model.windowTint = tinted ? WindowBackdrop.baseColor(for: colorScheme) : nil
+                    }
+                )) {
+                    Text("None").tag(false)
+                    Text("Custom").tag(true)
+                }
+                .tint(.primary)
+                if let tint = model.windowTint {
+                    ColorPicker("Tint color", selection: Binding(
+                        get: { Color(nsColor: tint) },
+                        set: { if let picked = Self.stored($0) { model.windowTint = picked } }
+                    ), supportsOpacity: false)
+                }
                 Picker("Accent", selection: Binding(
                     get: { AccentChoice(model.accent) },
                     set: { choice in
@@ -67,40 +115,16 @@ struct SettingsView: View {
                     Text("System").tag(AccentChoice.system)
                     Text("Custom").tag(AccentChoice.custom)
                 }
-                // A picker draws its value in the tint; the accent belongs to what it sets, not to its name.
                 .tint(.primary)
                 if case .custom(let color) = model.accent {
-                    ColorPicker("Custom color", selection: Binding(
+                    ColorPicker("Accent color", selection: Binding(
                         get: { Color(nsColor: color) },
                         set: { if let picked = Self.stored($0) { model.accent = .custom(picked) } }
                     ), supportsOpacity: false)
                 }
-                LabeledContent("Background") {
-                    // The slider draws its own value labels in the tint; beside it they stay secondary text.
-                    HStack(spacing: 8) {
-                        Text("Glass")
-                        Slider(value: $model.windowOpacity, in: 0...1) { Text("Background") }
-                            .labelsHidden()
-                        Text("Solid")
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                }
-                Picker("Text size", selection: $model.textSize) {
-                    ForEach(AppModel.textSizes, id: \.self) { size in
-                        Text("\(Int(size)) pt").tag(size)
-                    }
-                }
-                .tint(.primary)
-                ColorPicker("Tint", selection: Binding(
-                    get: { Color(nsColor: model.windowTint ?? WindowBackdrop.baseColor(for: colorScheme)) },
-                    set: { picked in
-                        // The well reports its own color when it opens; only a change is a tint.
-                        guard let picked = Self.stored(picked), picked != model.windowTint,
-                              picked != WindowBackdrop.baseColor(for: colorScheme) || model.windowTint != nil else { return }
-                        model.windowTint = picked
-                    }
-                ), supportsOpacity: false)
+            } header: {
+                Text("Appearance")
+            } footer: {
                 HStack {
                     Spacer()
                     Button("Reset Appearance") { model.resetAppearance() }
@@ -131,21 +155,24 @@ struct SettingsView: View {
             } header: {
                 Text("Memos")
             } footer: {
-                Text("Click a shortcut to change it, or click away to remove it. Hover a row to add another key.")
+                Text("Click a shortcut to change it. Hover a row to add another key.")
             }
-            Section("Editor") {
+            Section {
                 ForEach(model.shortcuts.rows(for: Shortcut.editor, adding: adding)) { row($0, conflicts: conflicts) }
-            }
-            HStack {
-                Spacer()
-                Button("Restore Defaults") {
-                    model.shortcuts.reset()
-                    KeyboardShortcuts.reset(.toggleWindow)
-                    globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
+            } header: {
+                Text("Editor")
+            } footer: {
+                HStack {
+                    Spacer()
+                    Button("Restore Defaults") {
+                        model.shortcuts.reset()
+                        KeyboardShortcuts.reset(.toggleWindow)
+                        globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.primary)
+                    .disabled(model.shortcuts.isDefault && globalShortcut == KeyboardShortcuts.Name.toggleWindow.initialShortcut)
                 }
-                .buttonStyle(.bordered)
-                .tint(.primary)
-                .disabled(model.shortcuts.isDefault && globalShortcut == KeyboardShortcuts.Name.toggleWindow.initialShortcut)
             }
         }
         .formStyle(.grouped)
@@ -242,6 +269,8 @@ struct SettingsView: View {
                 Button("Add Shortcut") { adding = ShortcutRow(shortcut: row.shortcut, index: row.index + 1, key: nil, isAdded: true) }
                 Button("Remove Shortcut") { model.shortcuts.clear(row) }
             }
+            Button("Reset to Default") { model.shortcuts.reset(row.shortcut) }
+                .disabled(model.shortcuts.isDefault(row.shortcut))
         }
     }
 

@@ -3,6 +3,7 @@ import SwiftUI
 /// The memo list beside the editor: a search field, then the memos in sections by recency.
 struct SidePane: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.chrome) private var chrome
     let active: Bool
     @State private var query = ""
     @State private var groups: [MemoGroup] = []
@@ -18,8 +19,8 @@ struct SidePane: View {
                 .overlay(alignment: .trailing) {
                     Button { model.toggleSidePane() } label: {
                         Image(systemName: "sidebar.left")
-                            .font(.system(size: 12, weight: .semibold))
-                            .frame(width: Chrome.closeSize, height: Chrome.closeSize)
+                            .font(.system(size: chrome.iconSize - 3, weight: .semibold))
+                            .frame(width: chrome.circleSize, height: chrome.circleSize)
                             .glassEffect(.regular, in: .circle)
                     }
                     .buttonStyle(.plain)
