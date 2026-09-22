@@ -32,21 +32,24 @@ struct SettingsView: View {
                 // Without a shortcut, the last way back to the window cannot be switched off.
                 Toggle("Show in menu bar", isOn: $model.menuBarItem)
                     .disabled(model.menuBarItem && !model.showInDock && !hasShortcut)
-                // The icons alone: their names would say less than the shapes, in the menu and in the bar.
-                Picker("Menu bar icon", selection: $model.menuBarIcon) {
-                    ForEach(MenuBarIcon.allCases) { icon in
-                        Group {
-                            if let symbol = icon.systemImage {
-                                Image(systemName: symbol)
-                            } else {
-                                Image(MenuBarIcon.asset)
+                // A menu of icons rather than a picker: what is chosen is already shown as the menu's own
+                // label, so a picker's check mark beside it would say it twice.
+                LabeledContent("Menu bar icon") {
+                    Menu {
+                        ForEach(MenuBarIcon.allCases) { icon in
+                            Button { model.menuBarIcon = icon } label: {
+                                Self.image(icon).accessibilityLabel(icon.title)
                             }
                         }
-                        .accessibilityLabel(icon.title)
-                        .tag(icon)
+                    } label: {
+                        Self.image(model.menuBarIcon)
                     }
+                    .menuStyle(.button)
+                    .buttonStyle(.borderless)
+                    .tint(.primary)
+                    .fixedSize()
+                    .accessibilityLabel("Menu bar icon")
                 }
-                .tint(.primary)
                 .disabled(!model.menuBarItem)
                 Toggle("Show in Dock", isOn: $model.showInDock)
                     .disabled(model.showInDock && !model.menuBarItem && !hasShortcut)
@@ -280,6 +283,14 @@ struct SettingsView: View {
     private static func others(sharing key: KeyCombo, with shortcut: Shortcut, in conflicts: [KeyCombo: [Shortcut]]) -> String? {
         let others = (conflicts[key] ?? []).filter { $0 != shortcut }.map(\.title)
         return others.isEmpty ? nil : "Also " + others.joined(separator: ", ")
+    }
+
+    @ViewBuilder private static func image(_ icon: MenuBarIcon) -> some View {
+        if let symbol = icon.systemImage {
+            Image(systemName: symbol)
+        } else {
+            Image(MenuBarIcon.asset)
+        }
     }
 
     private enum AccentChoice: Hashable {
