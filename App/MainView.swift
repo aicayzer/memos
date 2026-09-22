@@ -26,8 +26,9 @@ struct MainView: View {
             }
             .frame(minWidth: Chrome.minWidth)
         }
-        // Over the whole window, so the palette is centered in it whether or not the pane is open; its own
-        // frame is what the palette is placed in, whatever the safe area makes of the window's.
+        // Over the whole window, so the palette is centered in it whether or not the pane is open. Before the
+        // safe area is ignored below, so the reader's height is the window's, title bar included, which the
+        // top-row floor counts on.
         .overlay {
             GeometryReader { geometry in
                 palette

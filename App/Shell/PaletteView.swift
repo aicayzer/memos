@@ -24,10 +24,13 @@ struct PaletteView: View {
 
     /// Set rather than padded, so the palette's height at its tallest is known to whatever places it.
     static let fieldHeight: CGFloat = 42
-    /// The rows' padding, eight rows of actions with the divider between their sections, and a sliver of the
-    /// ninth, so a longer list reads as one that scrolls. The memo list, with its taller rows, is cut at the
-    /// same height, so both palettes are one size at their tallest.
-    static let listHeight: CGFloat = 317
+    private static let rowHeight: CGFloat = 35
+    private static let listPadding: CGFloat = 8
+    private static let sectionSpacing: CGFloat = 6
+    /// Eight rows of actions with the divider between their sections, and a sliver of the ninth, so a longer
+    /// list reads as one that scrolls. The memo list, with its taller rows, is cut at the same height, so both
+    /// palettes are one size at their tallest.
+    static let listHeight = listPadding + rowHeight * 8.45 + 1 + sectionSpacing * 2
     static let maxHeight = fieldHeight + 1 + listHeight
 
     var body: some View {
@@ -53,7 +56,7 @@ struct PaletteView: View {
                         VStack(spacing: 0) {
                             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                                 if index > 0, items[index - 1].section != item.section {
-                                    Divider().padding(.vertical, 6)
+                                    Divider().padding(.vertical, Self.sectionSpacing)
                                 }
                                 row(item, selected: index == selected && item.enabled)
                                     .id(item.id)
@@ -64,7 +67,7 @@ struct PaletteView: View {
                                     }
                             }
                         }
-                        .padding(8)
+                        .padding(Self.listPadding)
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { rowsHeight = $0 }
                     }
                     // A scroll view fills what it is offered, so a short list is held to its rows.
@@ -114,7 +117,7 @@ struct PaletteView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .frame(minHeight: 35)
+        .frame(minHeight: Self.rowHeight)
         .background(selected ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 8))
         .contentShape(.rect)
         .opacity(item.enabled ? 1 : 0.4)
