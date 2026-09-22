@@ -12,10 +12,27 @@ struct SidePane: View {
         VStack(spacing: 0) {
             // The window buttons sit in this strip, so it drags and double-clicks as the top row does.
             Color.clear
-                .frame(height: Chrome.rowHeight)
                 .contentShape(.rect)
                 .gesture(WindowDragGesture())
                 .onTapGesture(count: 2) { model.toggleSidePane() }
+                .overlay(alignment: .trailing) {
+                    Button { model.toggleSidePane() } label: {
+                        Image(systemName: "sidebar.left")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: Chrome.closeSize, height: Chrome.closeSize)
+                            .glassEffect(.regular, in: .circle)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, 12)
+                    // Goes with the actions while the window is not key, as the top row's do.
+                    .opacity(active ? 1 : 0)
+                    .allowsHitTesting(active)
+                    .animation(.easeOut(duration: 0.15), value: active)
+                    .accessibilityLabel("Hide Side Pane")
+                    .help("Hide Side Pane")
+                }
+                .frame(height: Chrome.rowHeight)
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
