@@ -123,7 +123,7 @@ struct DeleteMemoIntent: AppIntent {
         let found = try await MemoIntents.memo(memo, in: store)
         // The framework has no name for deleting, so the question carries it.
         try await requestConfirmation(
-            dialog: IntentDialog("Delete \u{201C}\(found.title)\u{201D}? The memo is gone for good.")
+            dialog: IntentDialog("Delete \u{201C}\(found.title)\u{201D}? This memo will be deleted permanently.")
         )
         try await store.delete(found.id)
         await ImageSweep.run(store: store, images: FolderImageStore(besideStoreAt: store.fileURL))

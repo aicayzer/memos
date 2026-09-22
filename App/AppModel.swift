@@ -244,7 +244,7 @@ final class AppModel {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "Delete \u{201C}\(Memo.abbreviated(memo.title, to: 40))\u{201D}?"
-        alert.informativeText = "The memo is gone for good."
+        alert.informativeText = "This memo will be deleted permanently."
         alert.addButton(withTitle: "Delete").hasDestructiveAction = true
         alert.addButton(withTitle: "Cancel")
         guard await alert.beginSheetModal(for: window) == .alertFirstButtonReturn else { return }
@@ -273,8 +273,16 @@ final class AppModel {
         await ImageSweep.run(store: store, images: images, alsoKeeping: [current?.markdown].compactMap(\.self))
     }
 
+    /// Settings is a SwiftUI scene with no handle the app can hold; its menu item is what opens it, and
+    /// the selector behind that is only reachable when the menu bar is there.
     func showSettings() {
         NSApp.activate()
+        for menu in NSApp.mainMenu?.items.compactMap(\.submenu) ?? [] {
+            if let index = menu.items.firstIndex(where: { $0.title.hasPrefix("Settings") }) {
+                menu.performActionForItem(at: index)
+                return
+            }
+        }
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
 
