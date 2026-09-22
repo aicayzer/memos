@@ -23,9 +23,18 @@ struct MainView: View {
                             FindBar(model: model).padding(12)
                         }
                     }
-                    .overlay(alignment: .top) { palette }
             }
             .frame(minWidth: Chrome.minWidth)
+        }
+        // Over the whole window, so the palette is centered in it whether or not the pane is open. Before the
+        // safe area is ignored below, so the reader's height is the window's, title bar included, which the
+        // top-row floor counts on.
+        .overlay {
+            GeometryReader { geometry in
+                palette
+                    .padding(paletteInsets(in: geometry.size.height))
+                    .frame(maxWidth: .infinity, alignment: .top)
+            }
         }
         // The hidden title bar still reserves its height; the top row takes that space.
         .ignoresSafeArea(edges: .top)
@@ -91,8 +100,13 @@ struct MainView: View {
         .animation(.easeOut(duration: 0.15), value: active)
     }
 
-    // Set in from the sides and down from the title, floating over the text rather than capping it.
-    private let paletteInsets = EdgeInsets(top: 48, leading: 22, bottom: 16, trailing: 22)
+    // Set in from the sides and, at its tallest, centered a little above the middle of the window. The top is
+    // where a full palette puts it and stays there as results come and go, so the field never moves under
+    // the typing; a short window keeps the palette clear of the top row instead.
+    private func paletteInsets(in height: CGFloat) -> EdgeInsets {
+        let top = max(Chrome.rowHeight + 8, height * 0.4 - PaletteView.maxHeight / 2)
+        return EdgeInsets(top: top, leading: 22, bottom: 16, trailing: 22)
+    }
 
     @ViewBuilder private var palette: some View {
         switch model.overlay {
@@ -103,10 +117,8 @@ struct MainView: View {
                 query: $paletteQuery,
                 dismiss: model.dismissOverlay
             )
-            .padding(paletteInsets)
         case .browse:
             PaletteView(placeholder: "Search memos…", items: browseItems, query: $browseQuery, dismiss: model.dismissOverlay)
-                .padding(paletteInsets)
                 .task(id: "\(model.storeGeneration) \(browseQuery)") { browseItems = await model.browseItems(browseQuery) }
         default:
             EmptyView()

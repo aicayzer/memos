@@ -20,8 +20,18 @@ struct PaletteView: View {
 
     @State private var selected = 0
     @State private var rowsHeight: CGFloat = 0
-    @State private var rowFrames: [String: CGRect] = [:]
     @FocusState private var focused: Bool
+
+    /// Set rather than padded, so the palette's height at its tallest is known to whatever places it.
+    static let fieldHeight: CGFloat = 42
+    private static let rowHeight: CGFloat = 35
+    private static let listPadding: CGFloat = 8
+    private static let sectionSpacing: CGFloat = 6
+    /// Eight rows of actions with the divider between their sections, and a sliver of the ninth, so a longer
+    /// list reads as one that scrolls. The memo list, with its taller rows, is cut at the same height, so both
+    /// palettes are one size at their tallest.
+    static let listHeight = listPadding + rowHeight * 8.45 + 1 + sectionSpacing * 2
+    static let maxHeight = fieldHeight + 1 + listHeight
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,7 +39,7 @@ struct PaletteView: View {
                 .textFieldStyle(.plain)
                 .font(.system(size: 15))
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .frame(height: Self.fieldHeight)
                 .focused($focused)
                 .onSubmit(run)
                 .onKeyPress(.upArrow) { move(-1); return .handled }
@@ -46,7 +56,7 @@ struct PaletteView: View {
                         VStack(spacing: 0) {
                             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                                 if index > 0, items[index - 1].section != item.section {
-                                    Divider().padding(.vertical, 6)
+                                    Divider().padding(.vertical, Self.sectionSpacing)
                                 }
                                 row(item, selected: index == selected && item.enabled)
                                     .id(item.id)
@@ -55,16 +65,13 @@ struct PaletteView: View {
                                         selected = index
                                         run()
                                     }
-                                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("rows")) } action: {
-                                        rowFrames[item.id] = $0
-                                    }
                             }
                         }
-                        .padding(8)
-                        .coordinateSpace(.named("rows"))
+                        .padding(Self.listPadding)
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { rowsHeight = $0 }
                     }
-                    .frame(maxHeight: visibleHeight)
+                    // A scroll view fills what it is offered, so a short list is held to its rows.
+                    .frame(maxHeight: min(rowsHeight, Self.listHeight))
                     .onChange(of: selected) { _, index in
                         if items.indices.contains(index) { proxy.scrollTo(items[index].id) }
                     }
@@ -80,14 +87,6 @@ struct PaletteView: View {
         }
         .onChange(of: focused) { _, isFocused in if !isFocused { dismiss() } }
         .onChange(of: items.map(\.id)) { _, _ in selected = items.firstIndex(where: \.enabled) ?? 0 }
-    }
-
-    // Eight rows and a sliver of the ninth, so a longer list reads as one that scrolls.
-    private static let visibleRows = 8
-
-    private var visibleHeight: CGFloat {
-        guard items.count > Self.visibleRows, let next = rowFrames[items[Self.visibleRows].id] else { return rowsHeight }
-        return min(rowsHeight, next.minY + next.height * 0.45)
     }
 
     private func row(_ item: PaletteItem, selected: Bool) -> some View {
@@ -118,7 +117,7 @@ struct PaletteView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .frame(minHeight: 35)
+        .frame(minHeight: Self.rowHeight)
         .background(selected ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 8))
         .contentShape(.rect)
         .opacity(item.enabled ? 1 : 0.4)
