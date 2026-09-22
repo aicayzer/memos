@@ -4,8 +4,8 @@ import Testing
 
 @Suite struct ColorsTests {
     @Test func hexRoundTrips() {
-        let color = NSColor(hexString: "#FFD60A")
-        #expect(color?.hexString == "#FFD60A")
+        let color = NSColor(hexString: "#FCB827")
+        #expect(color?.hexString == "#FCB827")
         #expect(NSColor(hexString: "1a2B3c")?.hexString == "#1A2B3C")
     }
 

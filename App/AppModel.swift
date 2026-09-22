@@ -518,9 +518,8 @@ enum Accent: Equatable {
     case system
     case custom(NSColor)
 
-    /// The app's own accent, from the asset catalog: as the app's global accent color, it is also what the
-    /// system draws its own controls in, the Settings toolbar's selected tab among them, for a user whose
-    /// accent in System Settings is Multicolor; a user who picked one there sees that instead.
+    /// Also the app's global accent (project.yml), so AppKit draws its own controls in it, the Settings
+    /// toolbar's selected tab among them, when the system accent is Multicolor.
     static let standardColor = NSColor(named: "AccentColor")!
 
     init(stored: String?) {
