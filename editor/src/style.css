@@ -245,6 +245,63 @@ body {
   margin: 1.333rem 0;
 }
 
+/* An image sits on its own line, never wider than the memo whatever width it was given. */
+.ProseMirror .image {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+  vertical-align: bottom;
+}
+
+.ProseMirror .image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  display: block;
+}
+
+/* An image from the web is never fetched; what it was called stands in for it. */
+.ProseMirror .image-absent {
+  line-height: inherit;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.ProseMirror .image-handle {
+  position: absolute;
+  right: -3px;
+  top: 0;
+  width: 10px;
+  height: 100%;
+  cursor: col-resize;
+  opacity: 0;
+}
+
+.ProseMirror .image:hover .image-handle,
+.ProseMirror .image-handle:active {
+  opacity: 1;
+}
+
+.ProseMirror .image-handle::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  width: 4px;
+  height: 2.4rem;
+  max-height: 60%;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, Canvas 70%, transparent);
+}
+
+.ProseMirror .image.ProseMirror-selectednode img {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .ProseMirror ul,
 .ProseMirror ol {
   margin: 0 0 0.667rem;

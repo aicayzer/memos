@@ -20,11 +20,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             if Self.isTestHost {
                 store = JSONMemoStore(fileURL: FileManager.default.temporaryDirectory.appending(path: "store-\(UUID().uuidString).json"))
-                model = AppModel(store: store, defaults: UserDefaults(suiteName: "tests")!)
+                model = AppModel(
+                    store: store, images: FolderImageStore(besideStoreAt: store.fileURL),
+                    defaults: UserDefaults(suiteName: "tests")!
+                )
             } else {
                 // Another file, inside the container, for a run that must not show the real memos.
                 store = try JSONMemoStore.fromEnvironment ?? JSONMemoStore.inApplicationSupport()
-                model = AppModel(store: store)
+                model = AppModel(store: store, images: FolderImageStore(besideStoreAt: store.fileURL))
             }
         } catch {
             fatalError("memo store unavailable: \(error)")
@@ -55,6 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.attach(panel)
         model.showWindow()
         KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
+        KeyboardShortcuts.onKeyDown(for: .newMemo) { [model] in Task { await model.newMemo() } }
         updater.start()
     }
 

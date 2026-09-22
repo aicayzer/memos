@@ -1,12 +1,11 @@
 import SwiftUI
-import WebKit
 
 struct EditorView: NSViewRepresentable {
-    let controller: EditorController
+    let editor: any Editing
 
-    func makeNSView(context: Context) -> EditorWebView {
-        controller.webView
+    func makeNSView(context: Context) -> NSView {
+        editor.contentView
     }
 
-    func updateNSView(_ view: EditorWebView, context: Context) {}
+    func updateNSView(_ view: NSView, context: Context) {}
 }

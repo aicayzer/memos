@@ -6,6 +6,7 @@ export type EditorMessage =
   | ({ type: 'state' } & CaretState)
   | { type: 'openLink'; href: string }
   | { type: 'copy'; text: string }
+  | { type: 'pasteImage' }
 
 declare global {
   interface Window {

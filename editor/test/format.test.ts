@@ -2,12 +2,14 @@ import { expect, test } from 'vitest'
 import { editorViewCtx } from '@milkdown/kit/core'
 import type { Ctx } from '@milkdown/kit/ctx'
 import { AllSelection, TextSelection } from '@milkdown/kit/prose/state'
+import { Slice } from '@milkdown/kit/prose/model'
 import { serialize } from '../src/dialect'
 import { MemoEditor, type CaretState } from '../src/editor'
 
 async function withMemoEditor<T>(
   markdown: string,
   run: (editor: MemoEditor, states: CaretState[]) => T,
+  pasteImage: () => void = () => {},
 ) {
   const root = document.createElement('div')
   document.body.append(root)
@@ -19,6 +21,9 @@ async function withMemoEditor<T>(
     },
     openLink() {},
     copy() {},
+    pasteImage() {
+      pasteImage()
+    },
   })
   editor.load(markdown, 1)
   try {
@@ -287,5 +292,62 @@ test('formatting keys are the ones the app sets', async () => {
     expect(press('u', { metaKey: true })).toBeFalsy()
     editor.setKeymap({ bold: ['Mod-Shift-b'] })
     expect(press('b', { metaKey: true })).toBeFalsy()
+  })
+})
+
+function paste(editor: MemoEditor, data: Record<string, string>, files: File[] = []): boolean {
+  const view = ctxOf(editor).get(editorViewCtx)
+  const event = {
+    clipboardData: { getData: (type: string) => data[type] ?? '', types: Object.keys(data), files },
+  } as unknown as ClipboardEvent
+  return view.someProp('handlePaste', (handler) => handler(view, event, Slice.empty)) ?? false
+}
+
+test('pasting a url over a selection links what is selected', async () => {
+  await withMemoEditor('Read the notes\n', (editor) => {
+    const view = ctxOf(editor).get(editorViewCtx)
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 10, 15)))
+    expect(paste(editor, { 'text/plain': 'https://example.com' })).toBe(true)
+    expect(serialize(ctxOf(editor))).toBe('Read the [notes](https://example.com)\n')
+  })
+})
+
+test('pasting a url with nothing selected links nothing', async () => {
+  await withMemoEditor('A line\n', (editor) => {
+    placeCaret(editor, 3)
+    paste(editor, { 'text/plain': 'https://example.com' })
+    expect(serialize(ctxOf(editor))).not.toContain('](https://example.com)')
+  })
+})
+
+test('pasting an image asks the app for its bytes', async () => {
+  let asked = 0
+  await withMemoEditor(
+    'A line\n',
+    (editor) => {
+      const file = new File([new Uint8Array([1])], 'shot.png', { type: 'image/png' })
+      expect(paste(editor, { 'text/plain': '' }, [file])).toBe(true)
+    },
+    () => {
+      asked += 1
+    },
+  )
+  expect(asked).toBe(1)
+})
+
+test('an image pasted in is written as a reference', async () => {
+  await withMemoEditor('\n', (editor) => {
+    editor.insertImages([{ path: `images/${'c'.repeat(64)}.png`, alt: 'Shot' }], null, null)
+    expect(serialize(ctxOf(editor))).toBe(`![Shot](images/${'c'.repeat(64)}.png)\n`)
+  })
+})
+
+test('a memo changed under the caret keeps it where it was', async () => {
+  await withMemoEditor('One line here\n', (editor) => {
+    placeCaret(editor, 5)
+    editor.reload('One line here, and more\n', 2)
+    const { selection } = ctxOf(editor).get(editorViewCtx).state
+    expect(selection.from).toBe(5)
+    expect(editor.markdown()).toBe(null)
   })
 })

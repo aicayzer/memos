@@ -28,13 +28,15 @@ enum TextSize: Double, CaseIterable, Identifiable {
 
 @MainActor
 @Observable
-final class EditorController: NSObject {
+final class EditorController: NSObject, Editing {
     private(set) var caret = CaretState()
     private(set) var isReady = false
 
     var onChanged: (String) -> Void = { _ in }
     var onOpenLink: (URL) -> Void = { _ in }
     var onCopy: (String) -> Void = { _ in }
+    var onDropFiles: ([URL], CGPoint) -> Void = { _, _ in }
+    var onPasteImage: () -> Void = {}
     var accentOverride: NSColor? {
         didSet { applyAccent() }
     }
@@ -47,24 +49,23 @@ final class EditorController: NSObject {
     }
 
     @ObservationIgnored let webView: EditorWebView
+    var contentView: NSView { webView }
+
     @ObservationIgnored private var pendingMarkdown: String?
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var editorURL: URL?
     @ObservationIgnored private var appearanceObservation: NSKeyValueObservation?
+    @ObservationIgnored private var imageHandler: ImageSchemeHandler?
 
-    override init() {
+    init(images: any ImageStore) {
         let configuration = WKWebViewConfiguration()
         configuration.preferences.isElementFullscreenEnabled = false
+        let handler = ImageSchemeHandler(images: images)
+        configuration.setURLSchemeHandler(handler, forURLScheme: ImageSchemeHandler.scheme)
+        imageHandler = handler
         webView = EditorWebView(frame: .zero, configuration: configuration)
         super.init()
-        webView.onDropFiles = { [weak self] urls, point in
-            // A folder's path as Finder copies it, without the slash a URL carries.
-            let paths = urls.map { url in
-                let path = url.path(percentEncoded: false)
-                return path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
-            }
-            self?.insertPaths(paths, at: point)
-        }
+        webView.onDropFiles = { [weak self] urls, point in self?.onDropFiles(urls, point) }
         #if DEBUG
         webView.isInspectable = true
         #endif
@@ -113,7 +114,17 @@ final class EditorController: NSObject {
         focus()
     }
 
-    func format(_ command: FormatCommand, argument: String? = nil) {
+    /// The same memo, changed under the window: the text is replaced where the caret and the scroll are.
+    func reload(_ markdown: String) {
+        guard isReady else {
+            pendingMarkdown = markdown
+            return
+        }
+        generation += 1
+        call("reload", json(markdown), String(generation))
+    }
+
+    func format(_ command: FormatCommand, argument: String?) {
         if let argument {
             call("format", json(command.rawValue), json(argument))
         } else {
@@ -126,10 +137,23 @@ final class EditorController: NSObject {
         call("focus")
     }
 
+    func find(_ text: String) {
+        let configuration = WKFindConfiguration()
+        configuration.wraps = true
+        webView.find(text, configuration: configuration) { _ in }
+    }
+
     /// Inserts the paths as lines at a point in the view, and takes the keyboard, as typing there would.
     func insertPaths(_ paths: [String], at point: CGPoint) {
         webView.window?.makeFirstResponder(webView)
         call("insertPaths", json(paths), String(Double(point.x)), String(Double(point.y)))
+    }
+
+    /// Inserts the images at a point in the view, or where the caret is when a paste brought them.
+    func insertImages(_ references: [ImageReference], at point: CGPoint?) {
+        webView.window?.makeFirstResponder(webView)
+        let payload = references.map { ["path": $0.path, "alt": $0.alt] }
+        call("insertImages", json(payload), point.map { String(Double($0.x)) } ?? "null", point.map { String(Double($0.y)) } ?? "null")
     }
 
     /// The document as markdown, or nil while it is still what was loaded.
@@ -178,7 +202,7 @@ final class EditorController: NSObject {
         call("setAccent", json(hex))
     }
 
-    fileprivate func receive(_ message: EditorMessage) {
+    func receive(_ message: EditorMessage) {
         switch message {
         case .ready:
             log.info("editor ready")
@@ -200,6 +224,8 @@ final class EditorController: NSObject {
             }
         case .copy(let text):
             onCopy(text)
+        case .pasteImage:
+            onPasteImage()
         case .error(let message):
             log.error("editor script error: \(message, privacy: .public)")
         }

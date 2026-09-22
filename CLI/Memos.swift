@@ -42,6 +42,11 @@ enum Shared {
         return JSONMemoStore(fileURL: container.appending(path: "store.json"))
     }
 
+    /// The memos' images, in the folder beside the store file.
+    static func images(for store: JSONMemoStore) -> FolderImageStore {
+        FolderImageStore(besideStoreAt: store.fileURL)
+    }
+
     static func find(_ reference: Reference, in store: JSONMemoStore) async throws -> Memo {
         do {
             return try MemoLookup.find(reference.text, in: try await store.list(matching: nil))
@@ -198,6 +203,8 @@ struct Delete: AsyncParsableCommand {
         let store = try Shared.store()
         let found = try await Shared.find(memo, in: store)
         try await store.delete(found.id)
+        // The app sweeps too; whichever deletes a memo takes its images with it.
+        await ImageSweep.run(store: store, images: Shared.images(for: store))
         print("deleted \(found.title)")
     }
 }
