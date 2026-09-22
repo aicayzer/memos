@@ -274,7 +274,12 @@ final class AppModel {
         pasteboard.setString(text, forType: .string)
     }
 
-    func resetBackground() {
+    var isDefaultAppearance: Bool {
+        accent == .standard && windowOpacity == Self.defaultWindowOpacity && windowTint == nil
+    }
+
+    func resetAppearance() {
+        accent = .standard
         windowOpacity = Self.defaultWindowOpacity
         windowTint = nil
     }
@@ -513,12 +518,9 @@ enum Accent: Equatable {
     case system
     case custom(NSColor)
 
-    /// The brighter yellow is faint over white, so light appearance gets the darker one.
-    static let standardColor = NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? standardDark : standardLight
-    }
-    private static let standardLight = NSColor(hexString: "#FFCC00")!
-    private static let standardDark = NSColor(hexString: "#FFD60A")!
+    /// Also the app's global accent (project.yml), so AppKit draws its own controls in it, the Settings
+    /// toolbar's selected tab among them, when the system accent is Multicolor.
+    static let standardColor = NSColor(named: "AccentColor")!
 
     init(stored: String?) {
         switch stored {

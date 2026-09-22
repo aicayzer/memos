@@ -29,26 +29,6 @@ struct SettingsView: View {
         @Bindable var model = model
         return Form {
             Section {
-                Picker("Accent", selection: Binding(
-                    get: { AccentChoice(model.accent) },
-                    set: { choice in
-                        switch choice {
-                        case .standard: model.accent = .standard
-                        case .system: model.accent = .system
-                        case .custom: if let color = Self.systemAccentSnapshot() { model.accent = .custom(color) }
-                        }
-                    }
-                )) {
-                    Text("Default").tag(AccentChoice.standard)
-                    Text("System").tag(AccentChoice.system)
-                    Text("Custom").tag(AccentChoice.custom)
-                }
-                if case .custom(let color) = model.accent {
-                    ColorPicker("Custom color", selection: Binding(
-                        get: { Color(nsColor: color) },
-                        set: { if let picked = Self.stored($0) { model.accent = .custom(picked) } }
-                    ), supportsOpacity: false)
-                }
                 // Without a shortcut, the last way back to the window cannot be switched off.
                 Toggle("Show in menu bar", isOn: $model.menuBarItem)
                     .disabled(model.menuBarItem && !model.showInDock && !hasShortcut)
@@ -71,6 +51,28 @@ struct SettingsView: View {
             Section("Window") {
                 Toggle("Always on top", isOn: $model.floating)
                 Toggle("Side pane at launch", isOn: $model.sidePaneAtLaunch)
+            }
+            Section("Appearance") {
+                Picker("Accent", selection: Binding(
+                    get: { AccentChoice(model.accent) },
+                    set: { choice in
+                        switch choice {
+                        case .standard: model.accent = .standard
+                        case .system: model.accent = .system
+                        case .custom: if let color = Self.systemAccentSnapshot() { model.accent = .custom(color) }
+                        }
+                    }
+                )) {
+                    Text("Default").tag(AccentChoice.standard)
+                    Text("System").tag(AccentChoice.system)
+                    Text("Custom").tag(AccentChoice.custom)
+                }
+                if case .custom(let color) = model.accent {
+                    ColorPicker("Custom color", selection: Binding(
+                        get: { Color(nsColor: color) },
+                        set: { if let picked = Self.stored($0) { model.accent = .custom(picked) } }
+                    ), supportsOpacity: false)
+                }
                 LabeledContent("Background") {
                     // The slider draws its own value labels in the tint; beside it they stay secondary text.
                     HStack(spacing: 8) {
@@ -93,8 +95,8 @@ struct SettingsView: View {
                 ), supportsOpacity: false)
                 HStack {
                     Spacer()
-                    Button("Reset Background") { model.resetBackground() }
-                        .disabled(model.windowTint == nil && model.windowOpacity == AppModel.defaultWindowOpacity)
+                    Button("Reset Appearance") { model.resetAppearance() }
+                        .disabled(model.isDefaultAppearance)
                 }
             }
         }
