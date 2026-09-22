@@ -80,6 +80,7 @@ struct MainView: View {
                 } label: {
                     Image(systemName: model.formatBarHidden ? "textformat" : "xmark")
                         .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
                         .frame(width: Chrome.closeSize, height: Chrome.closeSize)
                         .glassEffect(.regular, in: .circle)
                 }
