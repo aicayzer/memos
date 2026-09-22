@@ -18,11 +18,19 @@ final class AppModel {
 
     private(set) var current: Memo?
     private(set) var history = History()
-    var overlay: Overlay?
+    var overlay: Overlay? {
+        didSet {
+            if oldValue == .find, overlay != .find {
+                findText = ""
+                editor.find("")
+            }
+        }
+    }
     var findText = ""
     var storageStatus: StorageStatus?
     var convertingStorage = false
     var storageError: String?
+    var spotlightError: String?
     var storageNotice: String?
     @ObservationIgnored private var savedMarkdown: String?
 
@@ -518,7 +526,6 @@ final class AppModel {
     }
 
     func find() {
-        guard !findText.isEmpty else { return }
         editor.find(findText)
     }
 

@@ -15,6 +15,36 @@ import Testing
         return (model, store, editor)
     }
 
+    @Test func dismissingFindClearsTheSearch() async {
+        let (model, _, editor) = await model("A memo")
+        model.overlay = .find
+        model.findText = "memo"
+        model.find()
+        model.dismissOverlay()
+        #expect(editor.searches == ["memo", ""])
+        #expect(model.findText.isEmpty)
+    }
+
+    @Test func replacingFindWithAnotherOverlayClearsTheSearch() async {
+        let (model, _, editor) = await model("A memo")
+        model.overlay = .find
+        model.findText = "memo"
+        model.find()
+        model.overlay = .browse
+        #expect(editor.searches.last == "")
+        #expect(model.findText.isEmpty)
+    }
+
+    @Test func erasingTheQueryClearsTheSearch() async {
+        let (model, _, editor) = await model("A memo")
+        model.overlay = .find
+        model.findText = "memo"
+        model.find()
+        model.findText = ""
+        model.find()
+        #expect(editor.searches == ["memo", ""])
+    }
+
     @Test func switchingMemosWritesTheOneBeingLeft() async throws {
         let (model, store, editor) = await model("First\n", "Second\n")
         let first = try #require(model.current)

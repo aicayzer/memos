@@ -1,4 +1,5 @@
 import AppKit
+import CoreSpotlight
 import KeyboardShortcuts
 import OSLog
 import SwiftUI
@@ -10,6 +11,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model: AppModel
     private var panel: MemoPanel?
     private var watcher: LibraryWatcher?
+    private var spotlight: SpotlightIndexer?
+    private var startup: Task<Void, Never>?
+    private var pendingMemoID: UUID?
     let updater = Updater()
 
     /// The test host must not touch the real store or defaults, and must not hand over to a running app.
@@ -33,7 +37,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             fatalError("memo store unavailable: \(error)")
         }
         super.init()
-        watcher = LibraryWatcher(store: store) { [model] in model.storeChanged() } onError: { [model] message in model.storageError = message }
+        if !Self.isTestHost {
+            spotlight = SpotlightIndexer(store: store, index: SystemMemoSearchIndex()) { [model] in model.spotlightError = $0 }
+        }
+        watcher = LibraryWatcher(store: store) { [weak self, model] in
+            model.storeChanged()
+            self?.spotlight?.refresh()
+        } onError: { [model] message in model.storageError = message }
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -56,7 +66,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.perform = { [model] in model.perform($0) }
         self.panel = panel
         model.attach(panel)
-        model.showWindow()
+        if !LoginItemSettings.isLoginLaunch(NSAppleEventManager.shared().currentAppleEvent) { model.showWindow() }
+        startup = Task {
+            await model.start()
+            if let id = pendingMemoID { pendingMemoID = nil; await model.open(id) }
+            spotlight?.refresh()
+        }
         KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
         KeyboardShortcuts.onKeyDown(for: .newMemo) { [model] in Task { await model.newMemo() } }
         updater.start()
@@ -66,12 +81,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
             if url.host() == "memo", let id = UUID(uuidString: url.lastPathComponent) {
-                Task { await model.open(id) }
+                openMemo(id)
             } else {
                 model.showWindow()
             }
         }
     }
+
+    private func openMemo(_ id: UUID) {
+        guard let startup else { pendingMemoID = id; return }
+        Task {
+            await startup.value
+            await model.open(id)
+        }
+    }
+
+    func application(_ application: NSApplication, continue userActivity: NSUserActivity,
+                     restorationHandler: @escaping ([any NSUserActivityRestoring]) -> Void) -> Bool {
+        guard userActivity.activityType == CSSearchableItemActionType,
+              let identifier = userActivity.userInfo?[CSSearchableItemActivityIdentifier] as? String,
+              let id = UUID(uuidString: identifier) else { return false }
+        openMemo(id)
+        return true
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) { spotlight?.refresh() }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         model.showWindow()

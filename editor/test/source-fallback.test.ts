@@ -8,6 +8,7 @@ function fixture(canonical: string) {
     canonicalMarkdown: () => canonical,
     markdown: () => null,
     focus: vi.fn(),
+    find: vi.fn(),
     format: vi.fn(),
     insertPaths: vi.fn(),
     insertImages: vi.fn(),
@@ -66,4 +67,30 @@ test('opening CRLF source does not produce an edit and editing retains its line 
   source.dispatchEvent(new Event('input'))
   expect(editor.markdown()).toBe('first\r\nsecond\r\nthird\r\n')
   expect(changed).toHaveBeenLastCalledWith('first\r\nsecond\r\nthird\r\n', 1)
+})
+
+test('clearing find collapses the source selection without changing the memo', () => {
+  const { editor, source, changed } = fixture('normalized\n')
+  editor.load('External text', 1)
+  editor.find('External')
+  expect(source.selectionStart).toBe(0)
+  expect(source.selectionEnd).toBe(8)
+  editor.find('')
+  expect(source.selectionStart).toBe(source.selectionEnd)
+  expect(editor.markdown()).toBeNull()
+  expect(changed).not.toHaveBeenCalled()
+})
+
+test('source find treats punctuation literally and wraps through matches', () => {
+  const { editor, source } = fixture('normalized\n')
+  editor.load('A [link] then [LINK]', 1)
+  editor.find('[link]')
+  expect(source.selectionStart).toBe(2)
+  editor.find('[link]')
+  expect(source.selectionStart).toBe(14)
+  editor.find('[link]')
+  expect(source.selectionStart).toBe(2)
+  editor.find('absent')
+  expect(source.selectionStart).toBe(source.selectionEnd)
+  expect(editor.markdown()).toBeNull()
 })

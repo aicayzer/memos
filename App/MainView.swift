@@ -50,7 +50,6 @@ struct MainView: View {
         .frame(minHeight: 240)
         // The backdrop fills the title bar too; a background alone stops at the safe area in a hosting view.
         .background { WindowBackdrop(opacity: model.windowOpacity, tint: model.windowTint).ignoresSafeArea() }
-        .task { await model.start() }
         // Hidden, but the title is what accessibility and Mission Control call the window.
         .onChange(of: model.title, initial: true) { model.window?.title = model.title }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { note in
@@ -66,11 +65,10 @@ struct MainView: View {
             // A palette left open in a window that lost focus would still take the next keystrokes.
             if model.overlay == .palette || model.overlay == .browse { model.overlay = nil }
         }
-        .onChange(of: model.overlay) { _, overlay in
+        .onChange(of: model.overlay) { _, _ in
             paletteQuery = ""
             browseQuery = ""
             browseItems = []
-            if overlay == nil { model.findText = "" }
         }
         .disabled(model.convertingStorage)
         .overlay { if model.convertingStorage { ProgressView("Converting storage…").padding().background(.regularMaterial) } }

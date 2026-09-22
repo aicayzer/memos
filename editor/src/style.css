@@ -484,3 +484,11 @@ body {
     monospace;
   tab-size: 2;
 }
+
+.ProseMirror-search-match {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.ProseMirror-active-search-match {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}

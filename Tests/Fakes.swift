@@ -43,7 +43,8 @@ final class FakeEditor: Editing {
 
     func format(_ command: FormatCommand, argument: String?) {}
     func focus() {}
-    func find(_ text: String) {}
+    private(set) var searches: [String] = []
+    func find(_ text: String) { searches.append(text) }
     func insertPaths(_ paths: [String], at point: CGPoint) {}
 
     func insertImages(_ references: [ImageReference], at point: CGPoint?) {
