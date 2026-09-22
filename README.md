@@ -68,7 +68,7 @@ xcodegen generate
 xcodebuild -project Memos.xcodeproj -scheme Memos -configuration Debug build
 ```
 
-The app icon is an Icon Composer document, `App/Resources/AppIcon.icon`, which Xcode compiles; `App/Resources/AppIcon.png` is the same icon rendered, and `Screenshot.png` beside it the screenshot above, both for this page only.
+The app icon is an Icon Composer document, `App/Resources/AppIcon.icon`, which Xcode compiles; `App/Resources/AppIcon.png` is the same icon rendered and `Screenshot.png` beside it is the screenshot above; both are for this page only.
 
 The editor is built by a run-script phase during the app build. To work on it alone:
 

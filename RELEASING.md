@@ -9,7 +9,7 @@ A release is a Developer ID-signed, notarized app on a DMG, listed in an EdDSA-s
 - **Sparkle signing key** in the login keychain under the account `me.cyzr.memos`. `generate_keys --account me.cyzr.memos` (in `build/SourcePackages/artifacts/sparkle/Sparkle/bin` after any build) makes one and prints the public half, which is `SUPublicEDKey` in `project.yml`. Keep a copy of the private key somewhere safe: without it, installed apps cannot verify a later update.
 - **The updates bucket**, a Cloudflare R2 bucket named `memos-updates` behind `memos.cyzr.me`, which is `SUFeedURL`'s host. `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the environment give `wrangler` the account.
 - `gh` signed in to an account that can create releases on the repository and push to the tap.
-- **The Homebrew tap**, [aicayzer/homebrew-tap](https://github.com/aicayzer/homebrew-tap), whose `Casks/memos.rb` the script points at each release. `brew` tapping it is done by the script.
+- **The Homebrew tap**, [aicayzer/homebrew-tap](https://github.com/aicayzer/homebrew-tap), whose `Casks/memos.rb` the script points at each release's DMG; the script taps it if `brew` has not.
 
 ## Cutting a release
 

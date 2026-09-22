@@ -149,7 +149,8 @@ if $dry_run; then
   exit 0
 fi
 
-# The appcast goes up last, since it is what installed apps act on; everything before it can be run again.
+# The appcast goes up after everything it describes, since it is what installed apps act on, and every step
+# before it can be run again; the cask comes after it, needing only the GitHub release.
 print -- "release: uploading the disk image"
 wrangler r2 object put "$bucket/$(basename "$dmg")" --file "$dmg" --remote --content-type application/x-apple-diskimage >/dev/null
 curl -fsSI "${download_prefix}$(basename "$dmg")" >/dev/null || fail "the disk image is not being served"
@@ -157,7 +158,12 @@ curl -fsSI "${download_prefix}$(basename "$dmg")" >/dev/null || fail "the disk i
 print -- "release: tagging and releasing $tag"
 git rev-parse -q --verify "refs/tags/$tag" >/dev/null || git tag -a "$tag" -m "$app_name $version"
 git push -q origin "$tag"
-gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" "$dmg" --title "$app_name $version" --notes-file "$notes"
+# A run after a failure carries a fresh disk image, so an existing release takes it in place of the earlier one.
+if gh release view "$tag" >/dev/null 2>&1; then
+  gh release upload "$tag" "$dmg" --clobber >/dev/null
+else
+  gh release create "$tag" "$dmg" --title "$app_name $version" --notes-file "$notes"
+fi
 
 print -- "release: publishing the appcast"
 wrangler r2 object put "$bucket/appcast.xml" --file "$out/appcast.xml" --remote --content-type application/xml >/dev/null
@@ -172,14 +178,13 @@ cask_file="$tap_dir/Casks/$cask.rb"
 # The tap as pushed is the source of truth; an edit left by a failed run would stop the pull.
 git -C "$tap_dir" checkout -q -- "Casks/$cask.rb"
 git -C "$tap_dir" pull -q --ff-only
-dmg_sha=$(shasum -a 256 "$dmg" | cut -d' ' -f1)
+# The checksum of what GitHub serves, which is what the cask fetches, rather than of the local file.
+dmg_sha=$(curl -fsSL "https://github.com/aicayzer/memos/releases/download/$tag/$(basename "$dmg")" | shasum -a 256 | cut -d' ' -f1)
+[[ "$dmg_sha" == "$(shasum -a 256 "$dmg" | cut -d' ' -f1)" ]] || fail "the disk image on the release is not the one built here"
 sed -i '' -e "s|^  version \".*\"|  version \"$version\"|" -e "s|^  sha256 \".*\"|  sha256 \"$dmg_sha\"|" "$cask_file"
 grep -q "^  version \"$version\"" "$cask_file" && grep -q "^  sha256 \"$dmg_sha\"" "$cask_file" || fail "the cask did not take the version and checksum"
-brew audit --cask --strict --online "$tap/$cask" >/dev/null || fail "the cask does not pass audit"
-if git -C "$tap_dir" diff --quiet -- "Casks/$cask.rb"; then
-  print -- "release: the cask already points at $tag"
-else
-  git -C "$tap_dir" commit -q -m "$cask $tag" -- "Casks/$cask.rb"
-  git -C "$tap_dir" -c credential.helper='!gh auth git-credential' push -q origin HEAD
-fi
+brew audit --cask --strict --online "$tap/$cask" || fail "the cask does not pass audit"
+git -C "$tap_dir" diff --quiet -- "Casks/$cask.rb" || git -C "$tap_dir" commit -q -m "$cask $tag" -- "Casks/$cask.rb"
+# Only gh's credentials, ahead of any the system keychain holds for GitHub; pushing nothing new is fine.
+git -C "$tap_dir" -c credential.helper= -c credential.helper='!gh auth git-credential' push -q origin HEAD
 print -- "release: $tag is out"
