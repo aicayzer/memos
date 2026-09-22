@@ -46,8 +46,9 @@ targets:
       - path: App
         excludes:
           - "**/.DS_Store"
-          # The icon as rendered, for the README; the app's own comes from AppIcon.icon.
+          # The icon as rendered and the screenshot, for the README; the app's own icon comes from AppIcon.icon.
           - Resources/AppIcon.png
+          - Resources/Screenshot.png
     dependencies:
       - package: KeyboardShortcuts
       - package: Sparkle

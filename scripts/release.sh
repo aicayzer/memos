@@ -1,6 +1,7 @@
 #!/bin/zsh
 # Cuts a release: a Developer ID archive exported, notarized and stapled; a DMG, notarized and stapled too;
-# an EdDSA-signed appcast; both uploaded to the updates bucket; a tag and a GitHub release with the DMG.
+# an EdDSA-signed appcast; both uploaded to the updates bucket; a tag and a GitHub release with the DMG; and
+# the Homebrew cask pointed at it.
 #
 # The version is MARKETING_VERSION in project.yml, so a release starts with a commit that bumps it; the
 # build number is the commit count, which only ever grows. Sparkle's tools come with its package, under
@@ -11,7 +12,7 @@
 #                               ~/.appstoreconnect/private_keys/AuthKey_<ASC_KEY_ID>.p8 unless ASC_KEY_PATH says
 #   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID   for wrangler, on the account that holds the bucket
 # and, in the login keychain, the Developer ID Application certificate and the Sparkle key under the
-# account named below. RELEASING.md has the one-time setup.
+# account named below; and gh signed in as someone who can push to the tap. RELEASING.md has the one-time setup.
 #
 #   scripts/release.sh [--notes FILE] [--dry-run]
 #
@@ -39,6 +40,8 @@ tag="v$version"
 bucket="memos-updates"
 download_prefix="https://memos.cyzr.me/"
 sparkle_account="me.cyzr.memos"
+tap="aicayzer/tap"
+cask="memos"
 sparkle_bin="build/SourcePackages/artifacts/sparkle/Sparkle/bin"
 asc_key="${ASC_KEY_PATH:-$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID:-}.p8}"
 
@@ -56,6 +59,7 @@ fi
 [[ -n "${ASC_KEY_ID:-}" && -n "${ASC_ISSUER_ID:-}" ]] || fail "ASC_KEY_ID and ASC_ISSUER_ID are needed"
 [[ -r "$asc_key" ]] || fail "App Store Connect key not found at $asc_key"
 $dry_run || [[ -n "${CLOUDFLARE_API_TOKEN:-}" && -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]] || fail "CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are needed"
+$dry_run || command -v brew >/dev/null || fail "brew is needed for the cask"
 identity=$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application: [^"]*('"$team"')\)".*/\1/p' | head -1)
 [[ -n "$identity" ]] || fail "no Developer ID Application certificate for $team"
 
@@ -158,4 +162,24 @@ gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" "$dmg" --titl
 print -- "release: publishing the appcast"
 wrangler r2 object put "$bucket/appcast.xml" --file "$out/appcast.xml" --remote --content-type application/xml >/dev/null
 curl -fsS "${download_prefix}appcast.xml" | grep -q "<sparkle:version>$build</sparkle:version>" || fail "the served appcast does not list build $build"
+
+# The cask points at the release's DMG on GitHub; it is audited as edited before anything is pushed.
+print -- "release: homebrew cask"
+brew tap | grep -qx "$tap" || brew tap "$tap" >/dev/null
+tap_dir=$(brew --repo "$tap")
+cask_file="$tap_dir/Casks/$cask.rb"
+[[ -f "$cask_file" ]] || fail "no cask at $cask_file"
+# The tap as pushed is the source of truth; an edit left by a failed run would stop the pull.
+git -C "$tap_dir" checkout -q -- "Casks/$cask.rb"
+git -C "$tap_dir" pull -q --ff-only
+dmg_sha=$(shasum -a 256 "$dmg" | cut -d' ' -f1)
+sed -i '' -e "s|^  version \".*\"|  version \"$version\"|" -e "s|^  sha256 \".*\"|  sha256 \"$dmg_sha\"|" "$cask_file"
+grep -q "^  version \"$version\"" "$cask_file" && grep -q "^  sha256 \"$dmg_sha\"" "$cask_file" || fail "the cask did not take the version and checksum"
+brew audit --cask --strict --online "$tap/$cask" >/dev/null || fail "the cask does not pass audit"
+if git -C "$tap_dir" diff --quiet -- "Casks/$cask.rb"; then
+  print -- "release: the cask already points at $tag"
+else
+  git -C "$tap_dir" commit -q -m "$cask $tag" -- "Casks/$cask.rb"
+  git -C "$tap_dir" -c credential.helper='!gh auth git-credential' push -q origin HEAD
+fi
 print -- "release: $tag is out"

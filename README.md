@@ -10,24 +10,30 @@ A small native Mac app for memos: one window that floats above whatever you are 
 
 A native window with a web editor inside it. The native side owns the window, the command palette, browsing, shortcuts and saving; the editor is a bundled web page that works offline.
 
+<img src="App/Resources/Screenshot.png" alt="Two Memos windows over a desktop: one with its side pane open on a trip plan, one on a reading list" width="960">
+
 ## Install
 
-Download the DMG from the [latest release](https://github.com/aicayzer/memos/releases/latest), open it and drag Memos to Applications. It needs macOS 26. The app updates itself: it offers to check on its own, and Check for Updates… in the Memos menu or in Settings' About tab checks now.
+```sh
+brew install --cask aicayzer/tap/memos
+```
+
+Or download the DMG from the [latest release](https://github.com/aicayzer/memos/releases/latest), open it and drag Memos to Applications. It needs macOS 26. The app updates itself: it offers to check on its own, and Check for Updates… in the Memos menu or in Settings' About tab checks now.
 
 ## Using it
 
 - A file dropped on the memo inserts its path where it lands.
-- ⌘K command palette, ⌘P browse memos, ⌘N new, ⌘D duplicate, ⇧⌘F favorite, ⌘[ and ⌘] back and forward, ⌘F find, ⇧⌘C copy as markdown, ⇧⌘S saves the memo as a markdown file, and Share… in the File menu hands that file to another app.
-- ⌃⌥N shows or hides the window from any app. A menu bar item and the Dock icon are the other ways in; either can be switched off in Settings, and both once a shortcut is set.
+- `⌘K` command palette, `⌘P` browse memos, `⌘N` new, `⌘D` duplicate, `⇧⌘F` favorite, `⌘[` and `⌘]` back and forward, `⌘F` find, `⇧⌘C` copy as markdown, `⇧⌘S` saves the memo as a markdown file, and Share… in the File menu hands that file to another app.
+- `⌃⌥N` shows or hides the window from any app. A menu bar item and the Dock icon are the other ways in; either can be switched off in Settings, and both once a shortcut is set.
 - A formatting bar floats at the bottom of the memo: headings, bold, italic, strikethrough, link, code, quote and lists, showing what the caret sits in. Its close button hides it, and the palette brings it back.
-- ⌥⌘← (or ⌘.), or a double-click on the title bar, opens a side pane listing the memos with a search field; the window grows to the left to make room and shrinks back when it closes. Settings can open it at launch.
+- `⌥⌘←` (or `⌘.`), or a double-click on the title bar, opens a side pane listing the memos with a search field; the window grows to the left to make room and shrinks back when it closes. Its own close button, or the same again, closes it, and Settings can open it at launch.
 - The window takes the keyboard without bringing the app to the front, so the app you were in keeps the menu bar while you type; a Dock click brings up the Memos menus, whose Memo and Window items are also in the palette.
-- Always on Top keeps it above other apps and on every space; the background, side pane and accent are set in Settings (⌘,), whose Shortcuts tab records the global show/hide shortcut and lets every other shortcut, the editor's included, be changed or given more keys.
-- Type markdown as you go: `# `, `- `, `1. `, `- [ ] `, `> ` and backticks turn into formatting. ⌘-click opens a link.
+- Always on Top keeps it above other apps and on every space; the background, side pane and accent are set in Settings (`⌘,`), whose Shortcuts tab records the global show/hide shortcut and lets every other shortcut, the editor's included, be changed or given more keys.
+- Type markdown as you go: `# `, `- `, `1. `, `- [ ] `, `> ` and backticks turn into formatting. `⌘`-click opens a link.
 
 ## From the shell
 
-The app carries a command line tool at `Contents/SharedSupport/bin/memos`; put a symlink to it on your PATH:
+The app carries a command line tool at `Contents/SharedSupport/bin/memos`. The cask puts it on your PATH; from the DMG, a symlink does:
 
 ```sh
 ln -s /Applications/Memos.app/Contents/SharedSupport/bin/memos ~/.local/bin/memos
@@ -62,7 +68,7 @@ xcodegen generate
 xcodebuild -project Memos.xcodeproj -scheme Memos -configuration Debug build
 ```
 
-The app icon is an Icon Composer document, `App/Resources/AppIcon.icon`, which Xcode compiles; `App/Resources/AppIcon.png` is the same icon rendered, for this page.
+The app icon is an Icon Composer document, `App/Resources/AppIcon.icon`, which Xcode compiles; `App/Resources/AppIcon.png` is the same icon rendered, and `Screenshot.png` beside it the screenshot above, both for this page only.
 
 The editor is built by a run-script phase during the app build. To work on it alone:
 
