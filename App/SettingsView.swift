@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Environment(Updater.self) private var updater
     @Environment(\.colorScheme) private var colorScheme
     @State private var globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
+    @State private var newMemoShortcut = KeyboardShortcuts.getShortcut(for: .newMemo)
     /// The empty box a key is being typed into, below one of a shortcut's others.
     @State private var adding: ShortcutRow?
     @State private var hovered: ShortcutRow.ID?
@@ -147,12 +148,8 @@ struct SettingsView: View {
         let conflicts = model.shortcuts.conflicts
         return Form {
             Section("Global Shortcuts") {
-                LabeledContent("Show or hide the window") {
-                    KeyRecorder(label: globalShortcut?.description, conflict: nil, onRecord: recordGlobal) {
-                        KeyboardShortcuts.setShortcut(nil, for: .toggleWindow)
-                        globalShortcut = nil
-                    }
-                }
+                globalRow("Show or hide the window", .toggleWindow, $globalShortcut)
+                globalRow("New memo", .newMemo, $newMemoShortcut)
             }
             Section {
                 ForEach(model.shortcuts.rows(for: Shortcut.app, adding: adding)) { row($0, conflicts: conflicts) }
@@ -171,12 +168,13 @@ struct SettingsView: View {
                     Button("Restore Defaults") {
                         adding = nil
                         model.shortcuts.reset()
-                        KeyboardShortcuts.reset(.toggleWindow)
+                        KeyboardShortcuts.reset(.toggleWindow, .newMemo)
                         globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
+                        newMemoShortcut = KeyboardShortcuts.getShortcut(for: .newMemo)
                     }
                     .buttonStyle(.bordered)
                     .tint(.primary)
-                    .disabled(model.shortcuts.isDefault && globalShortcut == KeyboardShortcuts.Name.toggleWindow.initialShortcut)
+                    .disabled(model.shortcuts.isDefault && Self.globalNames.allSatisfy { KeyboardShortcuts.getShortcut(for: $0) == $0.initialShortcut })
                 }
             }
         }
@@ -222,13 +220,36 @@ struct SettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// A global hotkey takes its key before any window sees it, so it cannot be one the system or the app's
-    /// own menu already uses; and pressed with no text field in mind, Option alone will do as a modifier.
-    private func recordGlobal(_ event: NSEvent) -> Bool {
-        guard let shortcut = KeyboardShortcuts.Shortcut(event: event), let combo = KeyCombo(event: event), combo.isHotkey,
-              !shortcut.isTakenBySystem, NSApp.mainMenu.flatMap(combo.menuItem(in:)) == nil else { return false }
-        KeyboardShortcuts.setShortcut(shortcut, for: .toggleWindow)
-        globalShortcut = shortcut
+    private static let globalNames: [KeyboardShortcuts.Name] = [.toggleWindow, .newMemo]
+
+    private func globalRow(
+        _ title: String, _ name: KeyboardShortcuts.Name, _ shortcut: Binding<KeyboardShortcuts.Shortcut?>
+    ) -> some View {
+        LabeledContent(title) {
+            KeyRecorder(
+                label: shortcut.wrappedValue?.description,
+                conflict: nil,
+                onRecord: { recordGlobal($0, for: name, into: shortcut) },
+                onClear: {
+                    KeyboardShortcuts.setShortcut(nil, for: name)
+                    shortcut.wrappedValue = nil
+                }
+            )
+        }
+    }
+
+    /// A global hotkey takes its key before any window sees it, so it cannot be one the system, the app's
+    /// own menu or the other hotkey already uses; and pressed with no text field in mind, Option alone will
+    /// do as a modifier.
+    private func recordGlobal(
+        _ event: NSEvent, for name: KeyboardShortcuts.Name, into shortcut: Binding<KeyboardShortcuts.Shortcut?>
+    ) -> Bool {
+        guard let recorded = KeyboardShortcuts.Shortcut(event: event), let combo = KeyCombo(event: event), combo.isHotkey,
+              !recorded.isTakenBySystem, NSApp.mainMenu.flatMap(combo.menuItem(in:)) == nil,
+              !Self.globalNames.contains(where: { $0 != name && KeyboardShortcuts.getShortcut(for: $0) == recorded })
+        else { return false }
+        KeyboardShortcuts.setShortcut(recorded, for: name)
+        shortcut.wrappedValue = recorded
         return true
     }
 

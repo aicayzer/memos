@@ -336,7 +336,8 @@ final class AppModel {
                   let reference = try? await images.save(png) {
             path = reference.path
         }
-        return path.map { ImageReference(path: $0, alt: name) }
+        // A bar in the name would read as a width when the memo is opened again.
+        return path.map { ImageReference(path: $0, alt: name.replacing("|", with: " ")) }
     }
 
     /// Every shortcut's action, for the keys the menu does not carry.
