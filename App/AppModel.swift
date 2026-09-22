@@ -628,7 +628,8 @@ final class AppModel {
             // what the store then holds is what the window shows. A write from outside in that moment is
             // the one that loses.
             if unsaved != nil || saveTask != nil { await flush() }
-            guard !Task.isCancelled, current?.id == id else { return }
+            // A write that did not land keeps the text on screen; nothing is read over it.
+            guard !Task.isCancelled, current?.id == id, unsaved == nil else { return }
             do {
                 let fresh = try await store.get(id)
                 guard !Task.isCancelled, current?.id == id else { return }
