@@ -11,6 +11,7 @@ This file governs every session that works in this repository.
 - **No personal detail.** No absolute paths, machine names, account names or credentials in any file here.
 - **No legacy.** No compatibility shims, no deprecation aliases, no migration paths. Removed means gone.
 - **No time estimates.**
+- **Releases are patch releases.** The patch number goes up, features included. A minor bump is proposed and agreed first, never assumed, and only for something that demands it: a change to the store format, or to how the app is installed.
 - **The name lives in `project.yml`.** Product name, display name and bundle identifier are set there and nowhere else.
 
 ## Layout
