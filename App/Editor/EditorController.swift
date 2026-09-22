@@ -17,6 +17,9 @@ final class EditorController: NSObject {
     var accentOverride: NSColor? {
         didSet { applyAccent() }
     }
+    var textSize = AppModel.defaultTextSize {
+        didSet { applyTextSize() }
+    }
     /// The editor's key bindings, by shortcut name; the app owns them, since Settings edits them.
     var keymap: [String: [String]] = [:] {
         didSet { applyKeymap() }
@@ -134,6 +137,11 @@ final class EditorController: NSObject {
         call("setKeymap", json(keymap))
     }
 
+    private func applyTextSize() {
+        guard isReady else { return }
+        call("setTextSize", json(textSize))
+    }
+
     @objc private func systemColorsDidChange() {
         applyAccent()
     }
@@ -155,6 +163,7 @@ final class EditorController: NSObject {
             log.info("editor ready")
             isReady = true
             applyAccent()
+            applyTextSize()
             applyKeymap()
             if let pendingMarkdown {
                 self.pendingMarkdown = nil

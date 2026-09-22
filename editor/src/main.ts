@@ -11,6 +11,7 @@ declare global {
       focus(): void
       insertPaths(paths: string[], x: number, y: number): void
       setAccent(color: string): void
+      setTextSize(px: number): void
       setKeymap(keymap: Keymap): void
     }
   }
@@ -49,6 +50,7 @@ window.editor = {
   focus: () => editor.focus(),
   insertPaths: (paths, x, y) => editor.insertPaths(paths, x, y),
   setAccent: (color) => document.documentElement.style.setProperty('--accent', color),
+  setTextSize: (px) => document.documentElement.style.setProperty('font-size', `${px}px`),
   setKeymap: (keymap) => editor.setKeymap(keymap),
 }
 

@@ -348,7 +348,8 @@ export class MemoEditor {
     this.baseline = serialize(this.editor.ctx)
     this.lastMarkdown = this.baseline
     const view = this.editor.ctx.get(editorViewCtx)
-    view.dispatch(view.state.tr.setSelection(Selection.atStart(view.state.doc)))
+    // At the end, where writing carries on; the caret in a first-line heading would show its marks instead.
+    view.dispatch(view.state.tr.setSelection(Selection.atEnd(view.state.doc)).scrollIntoView())
     this.events.stateChanged(caretState(view.state))
   }
 
