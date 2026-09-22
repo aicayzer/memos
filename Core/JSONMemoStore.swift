@@ -134,6 +134,14 @@ actor JSONMemoStore: MemoStore {
         }
     }
 
+    static func decodeMemos(_ data: Data) throws -> [Memo] {
+        try decoder.decode(File.self, from: data).memos
+    }
+
+    static func encodeMemos(_ memos: [Memo]) throws -> Data {
+        try encoder.encode(File(memos: memos))
+    }
+
     private struct File: Codable {
         var memos: [Memo]
     }
@@ -142,11 +150,26 @@ actor JSONMemoStore: MemoStore {
     // The style still reads a date without them, which is what a hand edit or another writer would put.
     private static let dateFormat = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
 
+    // Formatting a parsed Date directly can truncate a millisecond on each round trip. Derive the
+    // fraction from rounded integer milliseconds so repeated storage conversions keep dates stable.
+    static func dateString(_ date: Date) -> String {
+        let milliseconds = (date.timeIntervalSince1970 * 1000).rounded()
+        let seconds = floor(milliseconds / 1000)
+        let fraction = Int(milliseconds - seconds * 1000)
+        let whole = Date(timeIntervalSince1970: seconds).formatted(Date.ISO8601FormatStyle())
+        return String(whole.dropLast()) + String(format: ".%03dZ", fraction)
+    }
+
+    static func canonicalDate(_ date: Date) -> Date {
+        // dateString emits the same fixed format this parser accepts.
+        try! dateFormat.parse(dateString(date))
+    }
+
     private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .custom { date, encoder in
             var container = encoder.singleValueContainer()
-            try container.encode(date.formatted(dateFormat))
+            try container.encode(dateString(date))
         }
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return encoder

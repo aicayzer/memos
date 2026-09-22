@@ -384,6 +384,10 @@ export class MemoEditor {
     this.events.stateChanged(caretState(view.state))
   }
 
+  canonicalMarkdown(): string {
+    return serialize(this.editor.ctx)
+  }
+
   /** The document as markdown, or null while it is still what was loaded. */
   markdown(): string | null {
     const markdown = serialize(this.editor.ctx)

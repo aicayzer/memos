@@ -16,6 +16,15 @@ struct MainView: View {
             }
             VStack(spacing: 0) {
                 TopRow(active: active)
+                if let notice = model.storageNotice {
+                    HStack {
+                        Text(notice).font(.caption).foregroundStyle(.secondary)
+                        Button("Dismiss") { model.storageNotice = nil }
+                    }.padding(8)
+                }
+                if let error = model.storageError {
+                    Text(error).font(.caption).foregroundStyle(.red).padding(8)
+                }
                 EditorView(editor: model.editor)
                     .overlay(alignment: .bottom) { bottomBar }
                     .overlay(alignment: .topTrailing) {
@@ -63,6 +72,8 @@ struct MainView: View {
             browseItems = []
             if overlay == nil { model.findText = "" }
         }
+        .disabled(model.convertingStorage)
+        .overlay { if model.convertingStorage { ProgressView("Converting storage…").padding().background(.regularMaterial) } }
         .tint(model.accentColor)
         .environment(\.chrome, model.chromeMetrics)
     }

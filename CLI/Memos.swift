@@ -28,10 +28,10 @@ struct ToolError: Error, CustomStringConvertible {
     let description: String
 }
 
-/// The store the app uses, inside its sandbox container, or the file MEMOS_STORE names.
+/// The CLI is not sandboxed. It follows the shared path but cannot resolve a bookmark issued to the app.
 enum Shared {
-    static func store() throws -> JSONMemoStore {
-        if let store = JSONMemoStore.fromEnvironment { return store }
+    static func store() throws -> LibraryStore {
+        if let path = ProcessInfo.processInfo.environment["MEMOS_STORE"], !path.isEmpty { return LibraryStore(fileURL: URL(fileURLWithPath: path), useSecurityScope: false) }
         guard let identifier = Bundle.main.object(forInfoDictionaryKey: "MemosAppIdentifier") as? String else {
             throw ToolError(description: "the tool was built without the app's identifier")
         }
@@ -39,15 +39,13 @@ enum Shared {
         guard FileManager.default.fileExists(atPath: container.path) else {
             throw ToolError(description: "Memos has not run yet; open it once first")
         }
-        return JSONMemoStore(fileURL: container.appending(path: "store.json"))
+        return LibraryStore(fileURL: container.appending(path: "store.json"), useSecurityScope: false)
     }
 
     /// The memos' images, in the folder beside the store file.
-    static func images(for store: JSONMemoStore) -> FolderImageStore {
-        FolderImageStore(besideStoreAt: store.fileURL)
-    }
+    static func images(for store: LibraryStore) -> LibraryStore { store }
 
-    static func find(_ reference: Reference, in store: JSONMemoStore) async throws -> Memo {
+    static func find(_ reference: Reference, in store: LibraryStore) async throws -> Memo {
         do {
             return try MemoLookup.find(reference.text, in: try await store.list(matching: nil))
         } catch MemoLookup.Failure.none(let text) {
@@ -130,7 +128,7 @@ struct Append: AsyncParsableCommand {
     func run() async throws {
         let store = try Shared.store()
         let found = try await Shared.find(memo, in: store)
-        _ = try await store.update(found.id, markdown: Memo.appending(try Shared.text(text), to: found.markdown))
+        _ = try await store.update(found.id, markdown: Memo.appending(try Shared.text(text), to: found.markdown), expecting: found.markdown)
     }
 }
 
@@ -142,7 +140,7 @@ struct Replace: AsyncParsableCommand {
     func run() async throws {
         let store = try Shared.store()
         let found = try await Shared.find(memo, in: store)
-        _ = try await store.update(found.id, markdown: try Shared.text([]))
+        _ = try await store.update(found.id, markdown: try Shared.text([]), expecting: found.markdown)
     }
 }
 
@@ -168,7 +166,7 @@ struct Edit: AsyncParsableCommand {
         process.waitUntilExit()
         guard process.terminationStatus == 0 else { throw ToolError(description: "\(editor) exited with \(process.terminationStatus); nothing saved") }
         let edited = try String(contentsOf: file, encoding: .utf8)
-        if edited != found.markdown { _ = try await store.update(found.id, markdown: edited) }
+        if edited != found.markdown { _ = try await store.update(found.id, markdown: edited, expecting: found.markdown) }
     }
 }
 
@@ -230,6 +228,6 @@ struct Path: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Print where the store file is.")
 
     func run() async throws {
-        print(try Shared.store().fileURL.path)
+        print(try await Shared.store().status().location.path)
     }
 }

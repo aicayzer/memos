@@ -34,7 +34,7 @@ struct AppendToMemoIntent: AppIntent {
     func perform() async throws -> some IntentResult & ReturnsValue<MemoEntity> {
         let store = try MemoIntents.store()
         let found = try await MemoIntents.memo(memo, in: store)
-        let saved = try await store.update(found.id, markdown: Memo.appending(text, to: found.markdown))
+        let saved = try await store.update(found.id, markdown: Memo.appending(text, to: found.markdown), expecting: found.markdown)
         return .result(value: MemoEntity(saved))
     }
 }
@@ -126,7 +126,7 @@ struct DeleteMemoIntent: AppIntent {
             dialog: IntentDialog("Delete \u{201C}\(found.title)\u{201D}? This memo will be deleted permanently.")
         )
         try await store.delete(found.id)
-        await ImageSweep.run(store: store, images: FolderImageStore(besideStoreAt: store.fileURL))
+        await ImageSweep.run(store: store, images: store)
         return .result()
     }
 }
