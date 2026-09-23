@@ -11,6 +11,7 @@ declare global {
       markdown(): string | null
       format(command: FormatCommand, arg?: string | number): void
       focus(): void
+      find(text: string): void
       insertPaths(paths: string[], x: number, y: number): void
       insertImages(images: InsertedImage[], x: number | null, y: number | null): void
       setAccent(color: string): void
@@ -61,6 +62,7 @@ window.editor = {
   markdown: () => editor.markdown(),
   format: (command, arg) => editor.format(command, arg),
   focus: () => editor.focus(),
+  find: (text) => editor.find(text),
   insertPaths: (paths, x, y) => editor.insertPaths(paths, x, y),
   insertImages: (images, x, y) => editor.insertImages(images, x, y),
   setAccent: (color) => document.documentElement.style.setProperty('--accent', color),

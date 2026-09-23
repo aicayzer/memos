@@ -1,3 +1,4 @@
+import { getMatchHighlights } from 'prosemirror-search'
 import { expect, test } from 'vitest'
 import { editorViewCtx } from '@milkdown/kit/core'
 import type { Ctx } from '@milkdown/kit/ctx'
@@ -400,3 +401,41 @@ test('a picture sized wider than the memo is held to it', async () => {
     expect(serialize(ctxOf(editor))).toBe(`![Dusk|400](${own})\n`)
   })
 })
+
+test('clearing find collapses the selection without editing text or undo history', async () =>
+  withMemoEditor('A searchable line.\n', (editor) => {
+    const view = ctxOf(editor).get(editorViewCtx)
+    editor.find('searchable')
+    expect(getMatchHighlights(view.state).find().length).toBe(1)
+    editor.find('')
+    expect(getMatchHighlights(view.state).find()).toHaveLength(0)
+    expect(view.state.selection.empty).toBe(true)
+    expect(view.state.selection.from).toBe(13)
+    expect(editor.markdown()).toBeNull()
+  }))
+
+test('find matches styled text, advances, wraps and clears a missing query', async () =>
+  withMemoEditor('A **searchable** line. Another searchable line.\n', (editor) => {
+    const view = ctxOf(editor).get(editorViewCtx)
+    editor.find('SEARCHABLE')
+    const first = view.state.selection.from
+    expect(view.state.doc.textBetween(view.state.selection.from, view.state.selection.to)).toBe(
+      'searchable',
+    )
+    expect(getMatchHighlights(view.state).find()).toHaveLength(2)
+    editor.find('SEARCHABLE')
+    expect(view.state.selection.from).toBeGreaterThan(first)
+    editor.find('SEARCHABLE')
+    expect(view.state.selection.from).toBe(first)
+    editor.find('missing')
+    expect(getMatchHighlights(view.state).find()).toHaveLength(0)
+    expect(view.state.selection.empty).toBe(true)
+    expect(editor.markdown()).toBeNull()
+  }))
+
+test('loading another memo clears previous search highlights', async () =>
+  withMemoEditor('A line.\n', (editor) => {
+    editor.find('line')
+    editor.load('Another line.\n', 2)
+    expect(getMatchHighlights(ctxOf(editor).get(editorViewCtx).state).find()).toHaveLength(0)
+  }))

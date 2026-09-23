@@ -32,6 +32,10 @@ Or download the DMG from the [latest release](https://github.com/aicayzer/memos/
 - Type markdown as you go: `# `, `- `, `1. `, `- [ ] `, `> ` and backticks turn into formatting. `⌘`-click opens a link, and a URL pasted over selected text links it.
 - `⌘⌫` deletes the memo, asking first; the memo after it in the list takes its place.
 
+Memos appear in Spotlight by title and body. Opening a result brings up that memo. The index follows either storage mode; edits from the command line or another editor are indexed while Memos is running, or on its next launch.
+
+**Open at Login** is in Settings → App. It starts Memos in the background, ready for the global shortcut, menu bar or Dock.
+
 ## Where memos are kept
 
 Internal storage uses a JSON file; Markdown storage uses a folder. `memos path` prints the active location. Images sit in an `images` folder beside it, one file per image, named for the SHA-256 of its bytes. A memo refers to one the ordinary way, as `![alt](images/<hash>.png)`, and a width after the alt text sizes it: `![a picture|400](images/<hash>.png)`, which is what the resize handle writes. Images are retained to protect pending edits and recovery copies. Save As copies a memo's images into an `images` folder beside the file it writes, so the export stands alone.

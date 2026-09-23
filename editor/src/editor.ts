@@ -59,6 +59,7 @@ import { codeCopyPlugin, headingMarkPlugin, placeholderPlugin } from './decorati
 import { dialect, serialize, stringifyOptions } from './dialect'
 import { highlightPlugin } from './highlight'
 import { pastePlugin } from './paste'
+import { search, SearchQuery, getSearchState, setSearchState } from 'prosemirror-search'
 import { taskListPlugin, toggleTaskList } from './tasks'
 
 export type Mark = 'bold' | 'italic' | 'strikethrough' | 'code' | 'link'
@@ -338,6 +339,7 @@ export class MemoEditor {
       .use(placeholderPlugin)
       .use(headingMarkPlugin)
       .use(highlightPlugin)
+      .use($prose(() => search()))
       .create()
     root.addEventListener('click', (event) => {
       const anchor = (event.target as HTMLElement).closest('a[href]')
@@ -362,7 +364,12 @@ export class MemoEditor {
     // rather than selecting the rule itself.
     const { doc } = view.state
     const end = Selection.findFrom(doc.resolve(doc.content.size), -1, true) ?? Selection.atEnd(doc)
-    view.dispatch(view.state.tr.setSelection(end).scrollIntoView())
+    view.dispatch(
+      setSearchState(
+        view.state.tr.setSelection(end).scrollIntoView(),
+        new SearchQuery({ search: '' }),
+      ),
+    )
     this.events.stateChanged(caretState(view.state))
   }
 
@@ -392,6 +399,23 @@ export class MemoEditor {
   markdown(): string | null {
     const markdown = serialize(this.editor.ctx)
     return markdown === this.baseline ? null : markdown
+  }
+
+  find(text: string): void {
+    const view = this.editor.ctx.get(editorViewCtx)
+    const previous = getSearchState(view.state)?.query.search
+    const query = new SearchQuery({ search: text, literal: true })
+    let tr = setSearchState(view.state.tr, query)
+    if (text) {
+      const from = previous === text ? view.state.selection.to : view.state.selection.from
+      const match = query.findNext(view.state, from) ?? query.findNext(view.state, 0)
+      if (match)
+        tr = tr.setSelection(TextSelection.create(tr.doc, match.from, match.to)).scrollIntoView()
+      else tr = tr.setSelection(Selection.near(view.state.selection.$to))
+    } else if (previous) {
+      tr = tr.setSelection(Selection.near(view.state.selection.$to))
+    }
+    view.dispatch(tr)
   }
 
   focus(): void {

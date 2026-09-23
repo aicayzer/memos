@@ -21,7 +21,8 @@
     "mdast-util-to-markdown": "^2.1.2",
     "micromark-extension-gfm-autolink-literal": "^2.1.0",
     "micromark-extension-gfm-strikethrough": "^2.1.0",
-    "micromark-extension-gfm-task-list-item": "^2.1.0"
+    "micromark-extension-gfm-task-list-item": "^2.1.0",
+    "prosemirror-search": "^1.1.1"
   },
   "devDependencies": {
     "@types/hast": "^3.0.5",

@@ -7,6 +7,7 @@ type FormattedEditor = Pick<
   | 'canonicalMarkdown'
   | 'markdown'
   | 'focus'
+  | 'find'
   | 'format'
   | 'insertPaths'
   | 'insertImages'
@@ -21,6 +22,7 @@ export class SourceFallback {
   private baseline = ''
   private generation = 0
   private sourceMode = false
+  private searchText = ''
   private edited = false
   private lineEnding = '\n'
 
@@ -46,6 +48,7 @@ export class SourceFallback {
   }
 
   load(markdown: string, generation: number): void {
+    this.searchText = ''
     this.display(markdown, generation, false)
   }
 
@@ -82,6 +85,21 @@ export class SourceFallback {
   markdown(): string | null {
     if (!this.sourceMode) return this.formatted.markdown()
     return !this.edited || this.sourceMarkdown() === this.baseline ? null : this.sourceMarkdown()
+  }
+
+  find(text: string): void {
+    if (!this.sourceMode) return this.formatted.find(text)
+    if (text) {
+      const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const matches = [...this.source.value.matchAll(new RegExp(escaped, 'giu'))]
+      const from = this.searchText === text ? this.source.selectionEnd : this.source.selectionStart
+      const match = matches.find((item) => item.index >= from) ?? matches[0]
+      if (match) this.source.setSelectionRange(match.index, match.index + match[0].length)
+      else this.source.setSelectionRange(this.source.selectionEnd, this.source.selectionEnd)
+    } else if (this.searchText) {
+      this.source.setSelectionRange(this.source.selectionEnd, this.source.selectionEnd)
+    }
+    this.searchText = text
   }
 
   focus(): void {

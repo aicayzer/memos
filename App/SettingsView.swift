@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(Updater.self) private var updater
     @Environment(\.colorScheme) private var colorScheme
+    @State private var login = LoginItemSettings()
     @State private var globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
     @State private var newMemoShortcut = KeyboardShortcuts.getShortcut(for: .newMemo)
     /// The empty box a key is being typed into, below one of a shortcut's others.
@@ -24,13 +25,22 @@ struct SettingsView: View {
         // Otherwise the always-on-top memo window covers it.
         .background(WindowReader { $0.level = .floating })
         // Opened from the panel while another app is in front, Settings would open behind it.
-        .onAppear { NSApp.activate() }
+        .onAppear { NSApp.activate(); login.refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in login.refresh() }
     }
 
     private var app: some View {
         @Bindable var model = model
         return Form {
             Section {
+                Toggle("Open at Login", isOn: Binding(get: { login.enabled }, set: { enabled in
+                    Task { await login.setEnabled(enabled) }
+                }))
+                .disabled(login.updating)
+                if login.status == .requiresApproval {
+                    Button("Allow in Login Items…") { login.openSystemSettings() }
+                }
+                if let error = login.error { Text(error).foregroundStyle(.red) }
                 // Without a shortcut, the last way back to the window cannot be switched off.
                 Toggle("Show in menu bar", isOn: $model.menuBarItem)
                     .disabled(model.menuBarItem && !model.showInDock && !hasShortcut)
@@ -60,6 +70,7 @@ struct SettingsView: View {
                 Text("General")
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
+                    if let error = model.spotlightError { Text(error).foregroundStyle(.red) }
                     if model.policyPending {
                         Text("The Dock changes when you switch to another app.")
                     }

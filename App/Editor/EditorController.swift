@@ -137,11 +137,7 @@ final class EditorController: NSObject, Editing {
         call("focus")
     }
 
-    func find(_ text: String) {
-        let configuration = WKFindConfiguration()
-        configuration.wraps = true
-        webView.find(text, configuration: configuration) { _ in }
-    }
+    func find(_ text: String) { call("find", json(text)) }
 
     /// Inserts the paths as lines at a point in the view, and takes the keyboard, as typing there would.
     func insertPaths(_ paths: [String], at point: CGPoint) {
