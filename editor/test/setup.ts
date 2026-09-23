@@ -8,3 +8,8 @@ Range.prototype.getBoundingClientRect ??= zero
 document.elementFromPoint ??= () => null
 // The editor runs in a macOS web view, so Mod means Meta; jsdom reports no platform.
 Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+// Nor does it paint highlights; plain sets in a map let a test read what would be painted.
+globalThis.Highlight ??= class extends Set<AbstractRange> {} as unknown as typeof Highlight
+globalThis.CSS ??= {} as typeof CSS
+if (!('highlights' in CSS))
+  Object.defineProperty(CSS, 'highlights', { value: new Map<string, Highlight>() })

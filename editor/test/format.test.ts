@@ -2,7 +2,7 @@ import { getMatchHighlights } from 'prosemirror-search'
 import { expect, test } from 'vitest'
 import { editorViewCtx } from '@milkdown/kit/core'
 import type { Ctx } from '@milkdown/kit/ctx'
-import { AllSelection, TextSelection } from '@milkdown/kit/prose/state'
+import { AllSelection, NodeSelection, TextSelection } from '@milkdown/kit/prose/state'
 import { Slice } from '@milkdown/kit/prose/model'
 import { serialize } from '../src/dialect'
 import { MemoEditor, type CaretState } from '../src/editor'
@@ -433,6 +433,34 @@ test("a memo's own image is drawn from the app, at the width in its alt text", a
     expect(image.getAttribute('src')).toBe(`memo-image://memo/${own}`)
     expect(image.alt).toBe('Dusk')
     expect(image.style.width).toBe('320px')
+  })
+})
+
+test('a selection is painted over the text alone, and an image in it is tinted', async () => {
+  await withMemoEditor(`One\n\n![Dusk](${own})\n\nTwo\n`, (editor) => {
+    const view = ctxOf(editor).get(editorViewCtx)
+    const painted = () => [...(CSS.highlights.get('selection') ?? [])].map(String)
+    const tinted = () => view.dom.querySelectorAll('.image.in-selection').length
+    expect(painted()).toEqual([])
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 2, 11)))
+    expect(painted()).toEqual(['ne', 'Tw'])
+    expect(tinted()).toBe(1)
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 9, 11)))
+    expect(painted()).toEqual(['Tw'])
+    expect(tinted()).toBe(0)
+    view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)))
+    expect(painted()).toEqual(['One', 'Two'])
+    expect(tinted()).toBe(1)
+    // A selected image keeps its outline, and the tint is for a selection running through it.
+    view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, 6)))
+    expect(painted()).toEqual([])
+    expect(tinted()).toBe(0)
+  })
+  await withMemoEditor(`Before ![Dusk](${own}) after\n`, (editor) => {
+    const view = ctxOf(editor).get(editorViewCtx)
+    view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)))
+    expect([...(CSS.highlights.get('selection') ?? [])].map(String)).toEqual(['Before ', ' after'])
+    expect(view.dom.querySelectorAll('.image.in-selection').length).toBe(1)
   })
 })
 

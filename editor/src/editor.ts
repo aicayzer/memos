@@ -60,6 +60,7 @@ import { codeCopyPlugin, headingMarkPlugin, placeholderPlugin } from './decorati
 import { dialect, serialize, stringifyOptions } from './dialect'
 import { highlightPlugin } from './highlight'
 import { pastePlugin } from './paste'
+import { selectionPlugin } from './selection'
 import { search, SearchQuery, getSearchState, setSearchState } from 'prosemirror-search'
 import { taskListPlugin, toggleTaskList } from './tasks'
 
@@ -411,6 +412,7 @@ export class MemoEditor {
       .use(placeholderPlugin)
       .use(headingMarkPlugin)
       .use(highlightPlugin)
+      .use(selectionPlugin)
       .use($prose(() => search()))
       .create()
     root.addEventListener('click', (event) => {
