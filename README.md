@@ -24,7 +24,7 @@ Or download the DMG from the [latest release](https://github.com/aicayzer/memos/
 
 - Images are pasted or dropped straight in, and a handle on the right edge sizes one. A file that is not an image still inserts its path where it lands.
 - `⌘K` command palette, `⌘P` browse memos, `⌘N` new, `⌘D` duplicate, `⇧⌘F` favorite, `⌘[` and `⌘]` back and forward, `⌘F` find, `⇧⌘C` copy as markdown, `⇧⌘S` saves the memo as a markdown file, and Share… in the File menu hands that file to another app.
-- `⌃⌥N` shows or hides the window from any app. A menu bar item and the Dock icon are the other ways in; either can be switched off in Settings, and both once a shortcut is set.
+- `⌥B` shows or hides the window from any app. A menu bar item and the Dock icon are the other ways in; either can be switched off in Settings, and both once a shortcut is set.
 - A formatting bar floats at the bottom of the memo: headings, bold, italic, strikethrough, link, code, quote and lists, showing what the caret sits in. Its close button hides it, and the palette brings it back.
 - `⌥⌘←` (or `⌘.`), or a double-click on the title bar, opens a side pane listing the memos with a search field; the window grows to the left to make room and shrinks back when it closes. Its own close button, or the same again, closes it, and Settings can open it at launch.
 - The window takes the keyboard without bringing the app to the front, so the app you were in keeps the menu bar while you type; a Dock click brings up the Memos menus, whose Memo and Window items are also in the palette.

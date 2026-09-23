@@ -63,8 +63,13 @@ body {
   pointer-events: none;
 }
 
+/* The selection plugin draws the selection over the text alone; the engine's own fills the margins too. */
 .ProseMirror ::selection {
-  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: transparent;
+}
+
+::highlight(selection) {
+  background-color: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .ProseMirror > :first-child {
@@ -295,6 +300,15 @@ body {
   border-radius: 2px;
   background: var(--accent);
   box-shadow: 0 0 0 1px color-mix(in srgb, Canvas 70%, transparent);
+}
+
+.ProseMirror .image.in-selection::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  pointer-events: none;
 }
 
 .ProseMirror .image.ProseMirror-selectednode img {
