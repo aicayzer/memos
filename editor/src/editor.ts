@@ -20,7 +20,6 @@ import {
   headingKeymap,
   inlineCodeKeymap,
   inlineCodeSchema,
-  liftListItemCommand,
   linkSchema,
   listItemKeymap,
   orderedListKeymap,
@@ -43,6 +42,7 @@ import {
   type ResolvedPos,
 } from '@milkdown/kit/prose/model'
 import { keydownHandler, keymap } from '@milkdown/kit/prose/keymap'
+import { liftListItem } from '@milkdown/kit/prose/schema-list'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import { findWrapping, liftTarget } from '@milkdown/kit/prose/transform'
 import {
@@ -53,6 +53,7 @@ import {
   TextSelection,
   type Command,
   type EditorState,
+  type Transaction,
 } from '@milkdown/kit/prose/state'
 import { $prose, callCommand, replaceAll, type $UserKeymap } from '@milkdown/kit/utils'
 import { codeCopyPlugin, headingMarkPlugin, placeholderPlugin } from './decorations'
@@ -234,16 +235,36 @@ const listItemBackspace = $prose(() =>
       if (target == null) return false
       const tr = state.tr.lift(range, target)
       const $line = tr.doc.resolve(tr.mapping.map($from.pos))
-      const index = $line.index(-1) + item.childCount
-      const before = $line.node(-1).maybeChild(index - 1)
-      const after = $line.node(-1).maybeChild(index)
-      if (before && after && isList(before) && after.type === before.type)
-        tr.join($line.posAtIndex(index, $line.depth - 1))
+      joinLists(tr, $line.start(-1), $line.index(-1) + item.childCount)
       dispatch?.(tr.scrollIntoView())
       return true
     },
   }),
 )
+
+// Lifting an item out of a list that no item holds, the preset leaves a nested list the item held
+// beside the items that followed. Out of a nested list it joins the two itself.
+const liftItem: Command = (state, dispatch) => {
+  const itemType = state.schema.nodes.list_item!
+  const { $from, $to } = state.selection
+  const range = $from.blockRange($to, (node) => node.firstChild?.type === itemType)
+  const lift = liftListItem(itemType)
+  if (!range || !dispatch || $from.node(range.depth - 1).type === itemType)
+    return lift(state, dispatch)
+  let lifted: Transaction | undefined
+  if (!lift(state, (tr) => (lifted = tr)) || !lifted) return false
+  let count = 0
+  for (let index = range.startIndex; index < range.endIndex; index++)
+    count += range.parent.child(index).childCount
+  const start = range.$from.start(range.depth - 1)
+  const first = range.$from.index(range.depth - 1) + (range.startIndex > 0 ? 1 : 0)
+  joinLists(lifted, start, first + count)
+  joinLists(lifted, start, first)
+  dispatch(lifted)
+  return true
+}
+
+const listItemShiftTab = $prose(() => keymap({ 'Shift-Tab': liftItem }))
 
 // A control chord that nothing handles reaches the page as its ASCII control character
 // (Control-N as U+000E), which the web view would insert as text.
@@ -299,6 +320,16 @@ function isList(node: ProseNode): boolean {
   return node.type.name === 'bullet_list' || node.type.name === 'ordered_list'
 }
 
+// Two lists of one kind side by side are written with a changed marker to keep them apart, and the
+// memo shows a gap between them, so an edit that leaves them so joins them.
+function joinLists(tr: Transaction, start: number, index: number): void {
+  const $start = tr.doc.resolve(start)
+  const before = $start.parent.maybeChild(index - 1)
+  const after = $start.parent.maybeChild(index)
+  if (before && after && isList(before) && after.type === before.type)
+    tr.join($start.posAtIndex(index))
+}
+
 export class MemoEditor {
   private editor!: Editor
   private lastMarkdown = ''
@@ -325,10 +356,11 @@ export class MemoEditor {
         ctx.set(defaultValueCtx, '')
         ctx.set(remarkStringifyOptionsCtx, stringifyOptions)
         // The preset also binds Mod-[ and Mod-] here; the app uses those for back and forward.
+        // Shift-Tab is bound to liftItem instead.
         ctx.update(listItemKeymap.key, (keys) => ({
           ...keys,
           SinkListItem: { shortcuts: 'Tab' },
-          LiftListItem: { shortcuts: 'Shift-Tab' },
+          LiftListItem: { shortcuts: [] },
         }))
         // Formatting keys are the app's to set, through setKeymap; the presets' own go.
         const unbind = <K extends string>(keymap: $UserKeymap<string, K>, keep: K[] = []) =>
@@ -373,6 +405,7 @@ export class MemoEditor {
       .use(taskListPlugin)
       .use(quoteBackspace)
       .use(listItemBackspace)
+      .use(listItemShiftTab)
       .use(dropControlCharacters)
       .use(codeCopyPlugin((text) => events.copy(text)))
       .use(placeholderPlugin)
@@ -594,7 +627,7 @@ export class MemoEditor {
     }
     const list = $from.node(depth)
     if (list.type.name === wanted) {
-      this.editor.action(callCommand(liftListItemCommand.key))
+      liftItem(state, view.dispatch)
       return
     }
     // The items carry the list kind too, and a bullet list whose items say

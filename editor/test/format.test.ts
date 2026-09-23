@@ -219,6 +219,50 @@ test('backspace at the start of a first list item that holds more lifts the whol
   }
 })
 
+test('lifting a list item that holds a nested list leaves one list, not two', async () => {
+  const cases: [string, number, string][] = [
+    ['- A\n  - a1\n- B\n', 3, 'A\n\n- a1\n- B\n'],
+    ['- x\n- A\n  - a1\n- B\n', 8, '- x\n\nA\n\n- a1\n- B\n'],
+    ['- x\n  - A\n    - a1\n  - B\n', 8, '- x\n- A\n  - a1\n  - B\n'],
+    ['1. A\n   1. a1\n2. B\n', 3, 'A\n\n1. a1\n2. B\n'],
+    ['- [ ] A\n  - [ ] a1\n- [ ] B\n', 3, 'A\n\n- [ ] a1\n- [ ] B\n'],
+    ['- A\n  1. a1\n- B\n', 3, 'A\n\n1. a1\n\n- B\n'],
+    ['> - A\n>   - a1\n> - B\n', 4, '> A\n>\n> - a1\n> - B\n'],
+  ]
+  const lifts: [string, (editor: MemoEditor) => void][] = [
+    [
+      'Shift-Tab',
+      (editor) => {
+        const view = ctxOf(editor).get(editorViewCtx)
+        const event = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true })
+        expect(view.someProp('handleKeyDown', (handler) => handler(view, event))).toBe(true)
+      },
+    ],
+    [
+      'the list command',
+      (editor) => {
+        const view = ctxOf(editor).get(editorViewCtx)
+        const list = view.state.selection.$from.node(-2).type.name
+        editor.format(list === 'ordered_list' ? 'orderedList' : 'bulletList')
+      },
+    ],
+  ]
+  for (const [name, lift] of lifts) {
+    for (const [markdown, caret, expected] of cases) {
+      // The list command on a task item turns it off as a task, not as a list.
+      if (name === 'the list command' && markdown.includes('[ ]')) continue
+      await withMemoEditor(markdown, (editor) => {
+        placeCaret(editor, caret)
+        const view = ctxOf(editor).get(editorViewCtx)
+        expect(view.state.selection.$from.parent.textContent).toBe('A')
+        lift(editor)
+        expect([name, serialize(ctxOf(editor))]).toEqual([name, expected])
+        expect(view.state.selection.$from.parent.textContent).toBe('A')
+      })
+    }
+  }
+})
+
 test('a fenced block with a known language is colored, one without stays plain', async () => {
   await withMemoEditor('```js\nconst x = 1\n```\n\n```\nplain\n```\n', (editor) => {
     const view = ctxOf(editor).get(editorViewCtx)
