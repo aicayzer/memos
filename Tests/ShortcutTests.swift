@@ -72,7 +72,7 @@ import Testing
             let key = try #require(shortcut.defaultKeys.first)
             #expect(key.menuItem(in: menu) != nil, "\(shortcut.title) \(key.label)")
         }
-        #expect(KeyCombo("n", [.control, .option]).menuItem(in: menu) == nil)
+        #expect(KeyCombo("b", [.option]).menuItem(in: menu) == nil)
     }
 
     @Test func labelsFollowTheSystemOrder() {
