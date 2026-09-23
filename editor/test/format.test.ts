@@ -193,6 +193,32 @@ test('backspace at the start of a quote leaves it', async () => {
   })
 })
 
+test('backspace at the start of a first list item that holds more lifts the whole item', async () => {
+  const cases: [string, number, string][] = [
+    ['- A\n  - a1\n- B\n', 3, 'A\n\n- a1\n- B\n'],
+    ['Intro\n\n- A\n  - a1\n', 10, 'Intro\n\nA\n\n- a1\n'],
+    ['- x\n  - A\n    - a1\n  - B\n', 8, '- x\n\n  A\n  - a1\n  - B\n'],
+    ['1. A\n   1. a1\n2. B\n', 3, 'A\n\n1. a1\n2. B\n'],
+    ['- [ ] A\n  - [ ] a1\n', 3, 'A\n\n- [ ] a1\n'],
+    ['> - A\n>   - a1\n', 4, '> A\n>\n> - a1\n'],
+    ['- A\n\n  ```\n  code\n  ```\n', 3, 'A\n\n```\ncode\n```\n'],
+    ['- A\n\n  more\n- B\n', 3, 'A\n\nmore\n\n- B\n'],
+    ['- A\n  1. a1\n- B\n', 3, 'A\n\n1. a1\n\n- B\n'],
+  ]
+  for (const [markdown, caret, expected] of cases) {
+    await withMemoEditor(markdown, (editor) => {
+      placeCaret(editor, caret)
+      const view = ctxOf(editor).get(editorViewCtx)
+      expect(view.state.selection.$from.parent.textContent).toBe('A')
+      const event = new KeyboardEvent('keydown', { key: 'Backspace', code: 'Backspace' })
+      expect(view.someProp('handleKeyDown', (handler) => handler(view, event))).toBe(true)
+      expect(serialize(ctxOf(editor))).toBe(expected)
+      const { $from } = view.state.selection
+      expect([$from.parent.textContent, $from.parentOffset]).toEqual(['A', 0])
+    })
+  }
+})
+
 test('a fenced block with a known language is colored, one without stays plain', async () => {
   await withMemoEditor('```js\nconst x = 1\n```\n\n```\nplain\n```\n', (editor) => {
     const view = ctxOf(editor).get(editorViewCtx)

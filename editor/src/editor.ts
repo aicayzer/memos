@@ -207,6 +207,44 @@ const quoteBackspace = $prose(() =>
   }),
 )
 
+// The preset lifts only an item's first line, which cannot leave on its own while the item holds
+// more, such as a nested list: at the top of a memo Backspace did nothing, and below another block
+// it merged the line upward and left an empty bullet. The whole item is lifted instead, and a nested
+// list it held joins the items that followed, since both now sit at one level.
+const listItemBackspace = $prose(() =>
+  keymap({
+    Backspace: (state, dispatch) => {
+      const { $from, empty } = state.selection
+      if (!empty || $from.parentOffset > 0 || $from.depth < 3) return false
+      const item = $from.node(-1)
+      if (
+        item.type.name !== 'list_item' ||
+        item.childCount < 2 ||
+        $from.index(-1) > 0 ||
+        $from.index(-2) > 0
+      )
+        return false
+      const { doc } = state
+      const range = new NodeRange(
+        doc.resolve($from.start(-1)),
+        doc.resolve($from.end(-1)),
+        $from.depth - 1,
+      )
+      const target = liftTarget(range)
+      if (target == null) return false
+      const tr = state.tr.lift(range, target)
+      const $line = tr.doc.resolve(tr.mapping.map($from.pos))
+      const index = $line.index(-1) + item.childCount
+      const before = $line.node(-1).maybeChild(index - 1)
+      const after = $line.node(-1).maybeChild(index)
+      if (before && after && isList(before) && after.type === before.type)
+        tr.join($line.posAtIndex(index, $line.depth - 1))
+      dispatch?.(tr.scrollIntoView())
+      return true
+    },
+  }),
+)
+
 // A control chord that nothing handles reaches the page as its ASCII control character
 // (Control-N as U+000E), which the web view would insert as text.
 const controlCharacters = /^[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]+$/
@@ -334,6 +372,7 @@ export class MemoEditor {
       .use(cursor)
       .use(taskListPlugin)
       .use(quoteBackspace)
+      .use(listItemBackspace)
       .use(dropControlCharacters)
       .use(codeCopyPlugin((text) => events.copy(text)))
       .use(placeholderPlugin)
