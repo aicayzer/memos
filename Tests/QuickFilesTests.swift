@@ -22,10 +22,16 @@ import Testing
         defer { try? FileManager.default.removeItem(at: root) }
         #expect(!files.enabled)
         #expect(files.format == .txt)
+        #expect(files.saveAutomatically)
+        #expect(files.commandNReuse == .fifteenMinutes)
         files.enabled = true
         files.format = .md
+        files.saveAutomatically = false
+        files.commandNReuse = .fiveMinutes
         #expect(defaults.bool(forKey: "quickFiles.enabled"))
         #expect(defaults.string(forKey: "quickFiles.format") == "md")
+        #expect(defaults.bool(forKey: "quickFiles.saveAutomatically") == false)
+        #expect(defaults.integer(forKey: "quickFiles.commandNReuse") == 5)
     }
 
     @Test func dateNameAvoidsExistingFileAndCopiesPath() async throws {
@@ -75,5 +81,37 @@ import Testing
         await files.saveToMemos()
         #expect(await store.list(matching: nil).map(\.markdown) == ["# Keep both\n"])
         #expect(try String(contentsOf: saved, encoding: .utf8) == "# Keep both\n")
+    }
+
+    @Test func commandNReusesRecentDocumentAndStartsNewAfterInterval() throws {
+        let (files, _, root, _, _) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.enabled = true
+        let start = Date(timeIntervalSince1970: 1_790_113_017)
+        files.newFile(now: start)
+        files.text = "first"
+        files.commandNew(now: start.addingTimeInterval(14 * 60))
+        #expect(files.text == "first")
+        files.commandNew(now: start.addingTimeInterval(15 * 60))
+        #expect(files.text.isEmpty)
+        #expect(try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).count == 1)
+    }
+
+    @Test func freshTriggerSavesPreviousFileWhileScratchModeDiscardsIt() throws {
+        let (files, _, root, _, _) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.enabled = true
+        files.newFile()
+        files.text = "keep"
+        files.newFile()
+        #expect(files.text.isEmpty)
+        #expect(try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).count == 1)
+
+        files.saveAutomatically = false
+        files.text = "scratch"
+        files.close()
+        #expect(files.text.isEmpty)
+        #expect(files.url == nil)
+        #expect(try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).count == 1)
     }
 }

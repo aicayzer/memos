@@ -14,7 +14,7 @@ struct AppCommands: Commands {
         }
         CommandGroup(replacing: .newItem) {
             if quickFiles.isActive {
-                Button("New Quick File") { quickFiles.newFile() }
+                Button("New Quick File") { quickFiles.commandNew() }
                     .keyboardShortcut("n", modifiers: .command)
             } else {
                 item(.newMemo)
