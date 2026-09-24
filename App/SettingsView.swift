@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(Updater.self) private var updater
+    @Environment(QuickFiles.self) private var quickFiles
     @Environment(\.colorScheme) private var colorScheme
     @State private var login = LoginItemSettings()
     @State private var globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
@@ -18,6 +19,7 @@ struct SettingsView: View {
         TabView {
             Tab("App", systemImage: "macwindow") { app }
             Tab("Storage", systemImage: "externaldrive") { StorageSettingsView() }
+            Tab("Quick Files", systemImage: "doc.text") { QuickFilesSettingsView(files: quickFiles) }
             Tab("Shortcuts", systemImage: "keyboard") { shortcuts }
             Tab("About", systemImage: "info.circle") { about }
         }
@@ -25,7 +27,7 @@ struct SettingsView: View {
         // Otherwise the always-on-top memo window covers it.
         .background(WindowReader { $0.level = .floating })
         // Opened from the panel while another app is in front, Settings would open behind it.
-        .onAppear { NSApp.activate(); login.refresh() }
+        .onAppear { NSApp.activate(); login.refresh(); quickFiles.isActive = false }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in login.refresh() }
     }
 

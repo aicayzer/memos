@@ -25,6 +25,7 @@ Or download the DMG from the [latest release](https://github.com/aicayzer/memos/
 - Images are pasted or dropped straight in, and a handle on the right edge sizes one. A file that is not an image still inserts its path where it lands.
 - `⌘K` command palette, `⌘P` browse memos, `⌘N` new, `⌘D` duplicate, `⇧⌘F` favorite, `⌘[` and `⌘]` back and forward, `⌘F` find, `⇧⌘C` copy as markdown, `⇧⌘S` saves the memo as a markdown file, and Share… in the File menu hands that file to another app.
 - `⌥B` shows or hides the window from any app. A menu bar item and the Dock icon are the other ways in; either can be switched off in Settings, and both once a shortcut is set.
+- Quick Files is optional and off by default. Enable it in Settings → Quick Files to create a plain `.txt` or `.md` file with `⌥⇧B`, save it directly to Downloads or a chosen folder, and copy its path. The same panel opens existing text files from File → Open Text File… or Finder's Open With menu. Save As, Share and Save to Memos are separate actions; only the last one adds a copy to your memo library.
 - A formatting bar floats at the bottom of the memo: headings, bold, italic, strikethrough, link, code, quote and lists, showing what the caret sits in. Its close button hides it, and the palette brings it back.
 - `⌥⌘←` (or `⌘.`), or a double-click on the title bar, opens a side pane listing the memos with a search field; the window grows to the left to make room and shrinks back when it closes. Its own close button, or the same again, closes it, and Settings can open it at launch.
 - The window takes the keyboard without bringing the app to the front, so the app you were in keeps the menu bar while you type; a Dock click brings up the Memos menus, whose Memo and Window items are also in the palette.
@@ -50,7 +51,7 @@ Files have readable names and a single `memos: {...}` line in YAML frontmatter c
 
 If a memo changes elsewhere while you are editing, Memos preserves the external version and recovers your edit as a separate memo. An unavailable folder shows an error and can be located again in Storage settings; the app never silently falls back to an old copy. iCloud or another folder-sync service is not configured or guaranteed by this feature.
 
-For an isolated development preview, run `./script/build_and_run.sh --verify`. It builds a Debug app with its own identifier and storage; release updates are disabled in Debug builds.
+For an isolated development preview, use `scripts/screenshots.sh`, which opens a sample store without touching your own memos.
 
 ## From the shell
 
@@ -92,6 +93,8 @@ Requires Xcode 27 or later, [XcodeGen](https://github.com/yonaskolb/XcodeGen) an
 xcodegen generate
 xcodebuild -project Memos.xcodeproj -scheme Memos -configuration Debug build
 ```
+
+The checkout builds without a signing team. To use a local development identity, run `aic-infisical-run -- scripts/render-local-signing.sh` with access to this repository's Infisical project, then regenerate the Xcode project. The renderer writes an ignored local configuration; no team identifier is committed.
 
 The app icon is an Icon Composer document, `App/Resources/AppIcon.icon`, which Xcode compiles; `App/Resources/AppIcon.png` is the same icon rendered and `Screenshot.png` beside it is the screenshot above; both are for this page only.
 

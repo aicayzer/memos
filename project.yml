@@ -10,6 +10,9 @@ options:
 configs:
   Debug: debug
   Release: release
+configFiles:
+  Debug: Config/Signing.xcconfig
+  Release: Config/Signing.xcconfig
 packages:
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
@@ -27,8 +30,6 @@ settings:
     MACOSX_DEPLOYMENT_TARGET: "26.0"
     # Keeps a Debug build self-contained when the .app is copied out of the build folder.
     ENABLE_DEBUG_DYLIB: NO
-    CODE_SIGN_STYLE: Automatic
-    DEVELOPMENT_TEAM: JCVH9W76MS
     ENABLE_HARDENED_RUNTIME: YES
     # Script sandboxing would block the editor phase's write into the bundle.
     ENABLE_USER_SCRIPT_SANDBOXING: NO
@@ -81,6 +82,12 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: $(MEMOS_APP_IDENTIFIER)
             CFBundleURLSchemes: [memos]
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Text Document
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.plain-text, net.daringfireball.markdown]
+            CFBundleTypeExtensions: [txt, md]
     entitlements:
       path: App/Memos.entitlements
       properties:
@@ -89,6 +96,7 @@ targets:
         com.apple.security.network.client: true
         # Save As writes wherever the save panel points.
         com.apple.security.files.user-selected.read-write: true
+        com.apple.security.files.downloads.read-write: true
         com.apple.security.files.bookmarks.app-scope: true
         # The names Sparkle's installer tools are reached by from inside the sandbox.
         com.apple.security.temporary-exception.mach-lookup.global-name:

@@ -11,13 +11,17 @@ struct MemosApp: App {
         Settings {
             SettingsView()
                 .environment(model)
+                .environment(delegate.quickFiles)
                 .environment(delegate.updater)
         }
-        .commands { AppCommands(model: model, updater: delegate.updater) }
+        .commands { AppCommands(model: model, quickFiles: delegate.quickFiles, updater: delegate.updater) }
 
         MenuBarExtra(isInserted: Binding(get: { model.menuBarItem }, set: { model.menuBarItem = $0 })) {
             Button("Open \(Bundle.main.displayName)") { model.showWindow() }
             Button("New Memo") { Task { await model.newMemo() } }
+            if delegate.quickFiles.enabled {
+                Button("New Quick File") { delegate.quickFiles.newFile() }
+            }
             Divider()
             SettingsLink { Text("Settings…") }
             Divider()

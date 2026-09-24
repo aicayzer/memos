@@ -4,6 +4,7 @@ import SwiftUI
 /// The memo window is a panel that takes the keyboard without activating the app, as a launcher's
 /// does: the app in front stays in front, its name stays in the menu bar, and typing lands here.
 final class MemoPanel: NSPanel {
+    var onBecomeKey: () -> Void = {}
     init<Content: View>(content: Content) {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 640),
@@ -34,6 +35,11 @@ final class MemoPanel: NSPanel {
             return true
         }
         return super.performKeyEquivalent(with: event)
+    }
+
+    override func becomeKey() {
+        super.becomeKey()
+        onBecomeKey()
     }
 
     private static let frameName = "main"

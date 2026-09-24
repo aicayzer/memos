@@ -4,7 +4,7 @@ A release is a Developer ID-signed, notarized app on a DMG, listed in an EdDSA-s
 
 ## One-time setup
 
-- **Developer ID Application certificate** for the team in `project.yml`, in the login keychain.
+- **Developer ID Application certificate** for the team provided by Infisical, in the login keychain. Run `aic-infisical-run -- scripts/render-local-signing.sh` (or inject this project's Infisical development environment by another supported method) before building or releasing. This writes the ignored `Config/Local.xcconfig`; without it, the app builds unsigned.
 - **App Store Connect API key** with the Developer role, for notarization: the `.p8` at `~/.appstoreconnect/private_keys/AuthKey_<key id>.p8` (or wherever `ASC_KEY_PATH` points), with `ASC_KEY_ID` and `ASC_ISSUER_ID` in the environment.
 - **Sparkle signing key** in the login keychain under the account `me.cyzr.memos`. `generate_keys --account me.cyzr.memos` (in `build/SourcePackages/artifacts/sparkle/Sparkle/bin` after any build) makes one and prints the public half, which is `SUPublicEDKey` in `project.yml`. Keep a copy of the private key somewhere safe: without it, installed apps cannot verify a later update.
 - **The updates bucket**, a Cloudflare R2 bucket named `memos-updates` behind `memos.cyzr.me`, which is `SUFeedURL`'s host. `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the environment give `wrangler` the account.
