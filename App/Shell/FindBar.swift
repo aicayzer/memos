@@ -2,17 +2,14 @@ import SwiftUI
 
 struct FindBar: View {
     @Bindable var model: AppModel
-    @FocusState private var focused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Find in memo", text: $model.findText)
-                .textFieldStyle(.plain)
-                .focused($focused)
-                .onSubmit { model.find() }
+            OverlaySearchField(placeholder: "Find in memo", text: $model.findText, fontSize: 13,
+                               isCurrent: { model.overlay == .find }, submit: model.find,
+                               dismiss: model.dismissOverlay)
                 .onChange(of: model.findText) { _, _ in model.find() }
-                .onKeyPress(.escape) { model.dismissOverlay(); return .handled }
             Button {
                 model.dismissOverlay()
             } label: {
@@ -24,6 +21,5 @@ struct FindBar: View {
         .padding(.vertical, 8)
         .frame(width: 280)
         .glassEffect(.regular, in: .capsule)
-        .onAppear { focused = true }
     }
 }

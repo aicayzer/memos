@@ -20,6 +20,7 @@ final class AppModel {
     private(set) var history = History()
     var overlay: Overlay? {
         didSet {
+            editor.allowsFocus = overlay == nil
             if oldValue == .find, overlay != .find {
                 findText = ""
                 editor.find("")
@@ -210,7 +211,7 @@ final class AppModel {
 
     func open(_ id: Memo.ID, recording: Bool = true) async {
         showWindowIfHidden()
-        guard id != current?.id else { return }
+        guard id != current?.id else { editor.focus(); return }
         guard !convertingStorage, await flush() else { return }
         do {
             guard let memo = try await store.get(id) else { return }
@@ -516,13 +517,19 @@ final class AppModel {
     }
 
     func toggle(_ overlay: Overlay) {
-        showWindowIfHidden()
-        if self.overlay == overlay { dismissOverlay() } else { self.overlay = overlay }
+        if self.overlay == overlay {
+            dismissOverlay()
+        } else {
+            self.overlay = overlay
+            showWindowIfHidden()
+        }
     }
 
-    func dismissOverlay() {
+    func dismissOverlay() { dismissOverlay(restoringEditor: true) }
+
+    func dismissOverlay(restoringEditor: Bool) {
         overlay = nil
-        editor.focus()
+        if restoringEditor { editor.focus() }
     }
 
     func find() {

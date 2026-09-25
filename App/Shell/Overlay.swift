@@ -1,6 +1,6 @@
 import Foundation
 
-enum Overlay: Equatable {
+enum Overlay: Hashable {
     case palette
     case browse
     case find

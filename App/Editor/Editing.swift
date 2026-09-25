@@ -6,6 +6,7 @@ import AppKit
 protocol Editing: AnyObject {
     /// The marks and block under the caret, for the formatting bar.
     var caret: CaretState { get }
+    var allowsFocus: Bool { get set }
 
     var onChanged: (String) -> Void { get set }
     var onOpenLink: (URL) -> Void { get set }

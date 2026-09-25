@@ -6,6 +6,8 @@ import Foundation
 @MainActor
 final class FakeEditor: Editing {
     var caret = CaretState()
+    var allowsFocus = true
+    private(set) var focusCount = 0
     var onChanged: (String) -> Void = { _ in }
     var onOpenLink: (URL) -> Void = { _ in }
     var onCopy: (String) -> Void = { _ in }
@@ -42,7 +44,7 @@ final class FakeEditor: Editing {
     }
 
     func format(_ command: FormatCommand, argument: String?) {}
-    func focus() {}
+    func focus() { if allowsFocus { focusCount += 1 } }
     private(set) var searches: [String] = []
     func find(_ text: String) { searches.append(text) }
     func insertPaths(_ paths: [String], at point: CGPoint) {}
