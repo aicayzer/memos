@@ -30,7 +30,7 @@ final class TextPadPanel: NSPanel {
     init(files: TextPad) {
         self.files = files
         super.init(contentRect: NSRect(x: 0, y: 0, width: 840, height: 540),
-                   styleMask: [.resizable, .nonactivatingPanel],
+                   styleMask: [.titled, .resizable, .fullSizeContentView, .nonactivatingPanel],
                    backing: .buffered, defer: false)
         isReleasedWhenClosed = false
         hidesOnDeactivate = false
@@ -41,6 +41,11 @@ final class TextPadPanel: NSPanel {
         #endif
         isOpaque = false
         backgroundColor = .clear
+        titleVisibility = .hidden
+        titlebarAppearsTransparent = true
+        for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            standardWindowButton(button)?.isHidden = true
+        }
         // AppKit draws outside the window; a SwiftUI shadow gets clipped at the hosting bounds.
         hasShadow = true
         isMovableByWindowBackground = true
@@ -109,15 +114,18 @@ private struct TextPadView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .lineLimit(1)
                     .onTapGesture(count: 2) { files.expand() }
+                    .simultaneousGesture(WindowDragGesture())
                 DevelopmentBadge()
                 if files.isDirty { Circle().frame(width: 6, height: 6).foregroundStyle(.secondary) }
                 Spacer()
-                actionIcon("square.and.arrow.up", label: "Share", verticalOffset: -2) {
-                    files.share(from: shareAnchor.view)
-                }
-                .background(TextPadShareAnchorView(anchor: shareAnchor).allowsHitTesting(false))
-                actionIcon("note.text.badge.plus", label: "Save to Memos", verticalOffset: 1) {
-                    Task { await files.saveToMemos() }
+                HStack(spacing: 2) {
+                    actionIcon("square.and.arrow.up", label: "Share", verticalOffset: -1) {
+                        files.share(from: shareAnchor.view)
+                    }
+                    .background(TextPadShareAnchorView(anchor: shareAnchor).allowsHitTesting(false))
+                    actionIcon("note.text.badge.plus", label: "Save to Memos", verticalOffset: 1) {
+                        Task { await files.saveToMemos() }
+                    }
                 }
                 Button("Save") { files.save() }
                     .buttonStyle(TextPadToolbarButtonStyle(primary: true))
@@ -133,6 +141,7 @@ private struct TextPadView: View {
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapGesture(count: 2) { files.expand() }
+                    .simultaneousGesture(WindowDragGesture())
             }
 
             VStack(spacing: 0) {
@@ -153,7 +162,9 @@ private struct TextPadView: View {
             .clipShape(RoundedRectangle(cornerRadius: 15))
             .padding([.horizontal, .bottom], 7)
         }
-        .glassEffect(.regular, in: .rect(cornerRadius: 22))
+        // AppKit owns the outside shape, shadow and resize border as one native rounded frame.
+        .glassEffect(.regular, in: .rect)
+        .ignoresSafeArea()
         .disabled(files.isBusy)
         .defaultFocus($editing, true)
         .onChange(of: files.isActive) {
