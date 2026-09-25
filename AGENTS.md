@@ -30,6 +30,7 @@ This file governs every session that works in this repository.
 ## Development builds
 
 - Debug builds use **Memos Dev**, a visible DEV label, and `App/Resources/AppIconDEV.icon`. Release builds retain the standard name and icon. Keep identity and icon configuration in `project.yml`.
+- Development builds default to normal window levels, including TextPad and Settings. The main window can still opt into Always on top in Settings.
 - Development builds have their own bundle identity, URL scheme, preferences, and store. Use disposable notes for UI checks. Development global shortcuts are Control-Option-Command-B (toggle), Control-Option-Command-M (new memo), and Control-Option-Command-Shift-B (TextPad).
 - Do not replace or quit the installed app for testing. `scripts/screenshots.sh` prepares sample content; it is not the isolated development launcher.
 - The checkout builds without a signing team. For local signing, run `aic-infisical-run -- scripts/render-local-signing.sh`, then regenerate the project. The renderer writes ignored `Config/Local.xcconfig`; never commit signing identifiers or hand-edit generated configuration.

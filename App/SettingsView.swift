@@ -26,7 +26,13 @@ struct SettingsView: View {
         }
         .tint(model.accentColor)
         // Otherwise the always-on-top memo window covers it.
-        .background(WindowReader { $0.level = .floating })
+        .background(WindowReader {
+            #if DEBUG
+            $0.level = .normal
+            #else
+            $0.level = .floating
+            #endif
+        })
         // Opened from the panel while another app is in front, Settings would open behind it.
         .onAppear { NSApp.activate(); login.refresh(); textPad.isActive = false }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in login.refresh() }

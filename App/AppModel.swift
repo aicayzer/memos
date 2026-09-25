@@ -149,7 +149,11 @@ final class AppModel {
         self.editor = editor
         self.defaults = defaults
         shortcuts = ShortcutSettings(defaults: defaults)
+        #if DEBUG
+        floating = defaults.object(forKey: Self.floatingKey) as? Bool ?? false
+        #else
         floating = defaults.object(forKey: Self.floatingKey) as? Bool ?? true
+        #endif
         formatBarHidden = defaults.bool(forKey: Self.formatBarHiddenKey)
         let paneAtLaunch = defaults.bool(forKey: Self.sidePaneAtLaunchKey)
         sidePaneAtLaunch = paneAtLaunch

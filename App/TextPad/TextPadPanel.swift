@@ -34,7 +34,11 @@ final class TextPadPanel: NSPanel {
                    backing: .buffered, defer: false)
         isReleasedWhenClosed = false
         hidesOnDeactivate = false
+        #if DEBUG
+        level = .normal
+        #else
         level = .floating
+        #endif
         isOpaque = false
         backgroundColor = .clear
         // AppKit draws outside the window; a SwiftUI shadow gets clipped at the hosting bounds.
