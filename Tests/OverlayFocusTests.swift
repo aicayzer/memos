@@ -4,7 +4,7 @@ import Testing
 @testable import Memos
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .opensWindows)
 struct OverlayFocusTests {
     private final class FocusPanel: NSPanel {
         override var canBecomeKey: Bool { true }

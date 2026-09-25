@@ -55,7 +55,11 @@ jobs:
       - name: Install XcodeGen
         run: command -v xcodegen >/dev/null || brew install xcodegen
       - run: xcodegen generate
+      # Suites that open a window run here and nowhere a person is working; xcodebuild hands the test
+      # runner the TEST_RUNNER_ variables without the prefix.
       - name: Build and test
+        env:
+          TEST_RUNNER_MEMOS_WINDOW_TESTS: 1
         run: |
           set -o pipefail
           xcodebuild \
