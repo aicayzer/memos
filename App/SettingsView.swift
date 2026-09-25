@@ -18,12 +18,13 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            Tab("App", systemImage: "macwindow") { app }
-            Tab("Storage", systemImage: "externaldrive") { StorageSettingsView() }
+            Tab("General", systemImage: "gearshape") { general }
+            Tab("Memos", systemImage: "note.text") { memos }
             Tab("TextPad", systemImage: "note") { textPadSettings }
             Tab("Shortcuts", systemImage: "keyboard") { shortcuts }
             Tab("About", systemImage: "info.circle") { about }
         }
+        .frame(width: 520, height: 560)
         .tint(model.accentColor)
         // Otherwise the always-on-top memo window covers it.
         .background(WindowReader {
@@ -38,7 +39,7 @@ struct SettingsView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in login.refresh() }
     }
 
-    private var app: some View {
+    private var general: some View {
         @Bindable var model = model
         return Form {
             Section {
@@ -90,6 +91,36 @@ struct SettingsView: View {
                     }
                 }
             }
+            Section("Appearance") {
+                Picker("Accent", selection: Binding(
+                    get: { AccentChoice(model.accent) },
+                    set: { choice in
+                        switch choice {
+                        case .standard: model.accent = .standard
+                        case .system: model.accent = .system
+                        case .custom: if let color = Self.systemAccentSnapshot() { model.accent = .custom(color) }
+                        }
+                    }
+                )) {
+                    Text("Default").tag(AccentChoice.standard)
+                    Text("System").tag(AccentChoice.system)
+                    Text("Custom").tag(AccentChoice.custom)
+                }
+                .tint(.primary)
+                if case .custom(let color) = model.accent {
+                    ColorPicker("Accent color", selection: Binding(
+                        get: { Color(nsColor: color) },
+                        set: { if let picked = Self.stored($0) { model.accent = .custom(picked) } }
+                    ), supportsOpacity: false)
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var memos: some View {
+        @Bindable var model = model
+        return Form {
             Section("Window") {
                 Toggle("Always on top", isOn: $model.floating)
                 Toggle("Side pane at launch", isOn: $model.sidePaneAtLaunch)
@@ -127,42 +158,26 @@ struct SettingsView: View {
                         set: { if let picked = Self.stored($0) { model.windowTint = picked } }
                     ), supportsOpacity: false)
                 }
-                Picker("Accent", selection: Binding(
-                    get: { AccentChoice(model.accent) },
-                    set: { choice in
-                        switch choice {
-                        case .standard: model.accent = .standard
-                        case .system: model.accent = .system
-                        case .custom: if let color = Self.systemAccentSnapshot() { model.accent = .custom(color) }
-                        }
-                    }
-                )) {
-                    Text("Default").tag(AccentChoice.standard)
-                    Text("System").tag(AccentChoice.system)
-                    Text("Custom").tag(AccentChoice.custom)
-                }
-                .tint(.primary)
-                if case .custom(let color) = model.accent {
-                    ColorPicker("Accent color", selection: Binding(
-                        get: { Color(nsColor: color) },
-                        set: { if let picked = Self.stored($0) { model.accent = .custom(picked) } }
-                    ), supportsOpacity: false)
-                }
             } header: {
                 Text("Appearance")
             } footer: {
                 HStack {
                     Spacer()
-                    Button("Reset Appearance") { model.resetAppearance() }
-                        .buttonStyle(.bordered)
-                        .tint(.primary)
-                        .disabled(model.isDefaultAppearance)
+                    Button("Reset Appearance") {
+                        model.textSize = AppModel.defaultTextSize
+                        model.standardControls = false
+                        model.windowOpacity = AppModel.defaultWindowOpacity
+                        model.windowTint = nil
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.primary)
+                    .disabled(model.textSize == AppModel.defaultTextSize && !model.standardControls
+                              && model.windowOpacity == AppModel.defaultWindowOpacity && model.windowTint == nil)
                 }
             }
+            StorageSettingsView()
         }
         .formStyle(.grouped)
-        .frame(width: 420)
-        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var shortcuts: some View {
@@ -201,8 +216,6 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        // The list outgrows a laptop screen, so this tab scrolls at a set height.
-        .frame(width: 420, height: 560)
     }
 
     private var textPadSettings: some View {
@@ -227,6 +240,10 @@ struct SettingsView: View {
                 Toggle("Save automatically", isOn: $textPad.saveAutomatically)
             }
             .disabled(!textPad.enabled)
+            Section("Names") {
+                TextPadNamingSettings(files: textPad)
+            }
+            .disabled(!textPad.enabled)
             Section("Session") {
                 Picker("Reuse for", selection: $textPad.reusePeriod) {
                     ForEach(TextPadReuse.allCases) { choice in Text(choice.title).tag(choice) }
@@ -237,8 +254,6 @@ struct SettingsView: View {
             if let error = textPad.error { Text(error).foregroundStyle(.red) }
         }
         .formStyle(.grouped)
-        .frame(width: 420)
-        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var about: some View {
@@ -274,8 +289,6 @@ struct SettingsView: View {
             .foregroundStyle(.tint)
         }
         .formStyle(.grouped)
-        .frame(width: 420)
-        .fixedSize(horizontal: false, vertical: true)
     }
 
     private static let globalNames: [KeyboardShortcuts.Name] = [.toggleWindow, .newMemo, .textPad]

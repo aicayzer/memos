@@ -14,6 +14,7 @@ struct MemosApp: App {
                 .environment(delegate.textPad)
                 .environment(delegate.updater)
         }
+        .windowResizability(.contentSize)
         .commands { AppCommands(model: model, textPad: delegate.textPad, updater: delegate.updater) }
 
         MenuBarExtra(isInserted: Binding(get: { model.menuBarItem }, set: { model.menuBarItem = $0 })) {

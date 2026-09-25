@@ -32,6 +32,9 @@ enum TextPadError: LocalizedError {
     case encoding
     case changed
     case missingFolder
+    case invalidName
+    case nameExists
+    case renamePermission
 
     var errorDescription: String? {
         switch self {
@@ -39,6 +42,9 @@ enum TextPadError: LocalizedError {
         case .encoding: "This file is not UTF-8 text. It was not changed."
         case .changed: "The file changed outside Memos. Use Save As to keep both versions."
         case .missingFolder: "The chosen folder is unavailable. Select it again in TextPad settings."
+        case .invalidName: "Enter a filename without slashes, colons, or control characters. The name cannot be empty, . or .., or longer than 255 bytes including its extension."
+        case .nameExists: "A file with that name already exists. Choose another name."
+        case .renamePermission: "Memos cannot rename this file in its folder. Use Save As to choose a new name and keep the original."
         }
     }
 }
@@ -53,7 +59,10 @@ final class TextPad {
         }
     }
     var format: TextPadFormat {
-        didSet { defaults.set(format.rawValue, forKey: Self.formatKey) }
+        didSet {
+            defaults.set(format.rawValue, forKey: Self.formatKey)
+            updateTitle()
+        }
     }
     var saveAutomatically: Bool {
         didSet { defaults.set(saveAutomatically, forKey: Self.autoSaveKey) }
@@ -61,8 +70,14 @@ final class TextPad {
     var reusePeriod: TextPadReuse {
         didSet { defaults.set(reusePeriod.rawValue, forKey: Self.reuseKey) }
     }
+    var nameParts: [TextPadNamePart] {
+        didSet {
+            if let data = try? JSONEncoder().encode(nameParts) { defaults.set(data, forKey: Self.namePartsKey) }
+        }
+    }
     private(set) var folder: URL
     private(set) var url: URL?
+    private(set) var documentID = UUID()
     var text = ""
     private(set) var savedText = ""
     var isActive = false
@@ -75,6 +90,8 @@ final class TextPad {
     private var shortcutInstalled = false
     private var createdAt: Date?
     private var openedFromDisk = false
+    private var pendingName: String?
+    private var nextNumber: Int
     private enum Operation { case transition, filePanel, sharing, savingMemo }
     private var operation: Operation?
     private var sharePicker: NSSharingServicePicker?
@@ -92,6 +109,8 @@ final class TextPad {
     private static let folderBookmarkKey = "textPad.folderBookmark"
     private static let autoSaveKey = "textPad.saveAutomatically"
     private static let reuseKey = "textPad.reusePeriod"
+    private static let namePartsKey = "textPad.nameParts"
+    private static let nextNumberKey = "textPad.nextNumber"
 
     private static var downloadsFolder: URL {
         // FileManager's Downloads URL is redirected into a sandbox container even with Downloads access.
@@ -121,6 +140,9 @@ final class TextPad {
         format = defaults.string(forKey: Self.formatKey).flatMap(TextPadFormat.init(rawValue:)) ?? .txt
         saveAutomatically = defaults.object(forKey: Self.autoSaveKey) as? Bool ?? true
         reusePeriod = TextPadReuse(rawValue: defaults.object(forKey: Self.reuseKey) as? Int ?? 15) ?? .fifteenMinutes
+        nameParts = defaults.data(forKey: Self.namePartsKey)
+            .flatMap { try? JSONDecoder().decode([TextPadNamePart].self, from: $0) } ?? TextPadFilename.defaultParts
+        nextNumber = max(1, defaults.integer(forKey: Self.nextNumberKey))
         folder = defaultFolder ?? Self.downloadsFolder
         var stale = false
         if let data = defaults.data(forKey: Self.folderBookmarkKey),
@@ -134,6 +156,13 @@ final class TextPad {
     var isBusy: Bool { operation != nil }
     var isVisible: Bool { panel?.isVisible == true }
     var isDefaultFolder: Bool { defaults.data(forKey: Self.folderBookmarkKey) == nil }
+    var editableName: String { url?.deletingPathExtension().lastPathComponent ?? pendingName ?? "" }
+    var displayName: String {
+        url?.lastPathComponent ?? pendingName.map { "\($0).\(format.rawValue)" } ?? "Untitled"
+    }
+    var namePreview: String {
+        (try? TextPadFilename.name(parts: nameParts, format: format, number: nextNumber)) ?? "Invalid filename"
+    }
 
     func installShortcut() {
         KeyboardShortcuts.onKeyDown(for: .textPad) { [weak self] in self?.toggle() }
@@ -218,6 +247,7 @@ final class TextPad {
     }
 
     private func resetDocument() {
+        documentID = UUID()
         documentScope?.stopAccessingSecurityScopedResource()
         documentScope = nil
         url = nil
@@ -228,6 +258,7 @@ final class TextPad {
         notice = nil
         createdAt = nil
         openedFromDisk = false
+        pendingName = nil
     }
 
     func openPicker() async {
@@ -284,12 +315,14 @@ final class TextPad {
             }
             documentScope?.stopAccessingSecurityScopedResource()
             documentScope = accessing ? file : nil
+            documentID = UUID()
             url = file
             text = content
             savedText = content
             baseline = bytes
             createdAt = nil
             openedFromDisk = true
+            pendingName = nil
             error = nil
             notice = nil
             show()
@@ -336,10 +369,17 @@ final class TextPad {
                 notice = "Saved"
             } else {
                 guard isDefaultFolder || folderScope != nil else { throw TextPadError.missingFolder }
-                let destination = Self.availableURL(in: folder, format: format)
                 let bytes = Data(text.utf8)
-                try bytes.write(to: destination, options: .withoutOverwriting)
+                let destination: URL
+                if let pendingName {
+                    destination = folder.appending(path: try TextPadFilename.filename(stem: pendingName, extension: format.rawValue))
+                    guard !FileManager.default.fileExists(atPath: destination.path) else { throw TextPadError.nameExists }
+                    try bytes.write(to: destination, options: .withoutOverwriting)
+                } else {
+                    destination = try saveGeneratedFile(bytes)
+                }
                 url = destination
+                pendingName = nil
                 baseline = bytes
                 savedText = text
                 if !isDefaultFolder {
@@ -349,6 +389,7 @@ final class TextPad {
                 notice = "Saved and copied path"
             }
             error = nil
+            updateTitle()
         } catch { self.error = error.localizedDescription; notice = nil }
     }
 
@@ -358,8 +399,23 @@ final class TextPad {
         defer { operation = nil }
         let content = text
         let directory = url?.deletingLastPathComponent() ?? folder
-        let name = url?.lastPathComponent ?? Self.suggestedName(format: format)
-        guard let destination = await selectSaveFile(directory, name) else { return }
+        let suggestion: (name: String, number: Int?)
+        do {
+            if let url { suggestion = (url.lastPathComponent, nil) }
+            else if let pendingName {
+                suggestion = (try TextPadFilename.filename(stem: pendingName, extension: format.rawValue), nil)
+            } else {
+                let generated = try TextPadFilename.available(in: directory, parts: nameParts,
+                                                             format: format, number: nextNumber)
+                guard generated.number < Int.max else { throw TextPadError.invalidName }
+                suggestion = (generated.url.lastPathComponent, generated.number)
+            }
+        } catch {
+            self.error = error.localizedDescription
+            notice = nil
+            return
+        }
+        guard let destination = await selectSaveFile(directory, suggestion.name) else { return }
         let accessing = destination.startAccessingSecurityScopedResource()
         do {
             if destination.standardizedFileURL == url?.standardizedFileURL,
@@ -371,10 +427,15 @@ final class TextPad {
             documentScope?.stopAccessingSecurityScopedResource()
             documentScope = accessing ? destination : nil
             url = destination
+            pendingName = nil
             baseline = bytes
             savedText = content
+            if let number = suggestion.number, destination.lastPathComponent == suggestion.name {
+                advanceGeneratedNumber(after: number)
+            }
             error = nil
             notice = "Saved"
+            updateTitle()
         } catch {
             if accessing { destination.stopAccessingSecurityScopedResource() }
             self.error = error.localizedDescription
@@ -420,7 +481,10 @@ final class TextPad {
         if let url, !isDirty, let current = try? Data(contentsOf: url), current == baseline { return url }
         let directory = temporaryFolder.appending(path: "TextPadShare-\(UUID().uuidString)", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let name = url?.lastPathComponent ?? Self.suggestedName(format: format)
+        let name: String
+        if let url { name = url.lastPathComponent }
+        else if let pendingName { name = "\(pendingName).\(format.rawValue)" }
+        else { name = try TextPadFilename.name(parts: nameParts, format: format, number: nextNumber) }
         let snapshot = directory.appending(path: name)
         try Data(text.utf8).write(to: snapshot, options: .atomic)
         return snapshot
@@ -476,10 +540,90 @@ final class TextPad {
 
     func expand() { panel?.toggleExpanded() }
 
+    @discardableResult
+    func rename(to input: String) -> Bool {
+        guard !isBusy else { return false }
+        operation = .transition
+        defer { operation = nil }
+        do {
+            let fileExtension = url?.pathExtension ?? format.rawValue
+            let stem = try TextPadFilename.validatedStem(input)
+            let name = try TextPadFilename.filename(stem: stem, extension: fileExtension)
+            if let source = url {
+                let destination = source.deletingLastPathComponent().appending(path: name)
+                if destination != source {
+                    guard canRenameInContainingFolder(source) else { throw TextPadError.renamePermission }
+                    guard try Data(contentsOf: source) == baseline else { throw TextPadError.changed }
+                    // Exclusive rename prevents an existing destination from being replaced, including races.
+                    let result = source.withUnsafeFileSystemRepresentation { sourcePath in
+                        destination.withUnsafeFileSystemRepresentation { destinationPath in
+                            renameatx_np(AT_FDCWD, sourcePath!, AT_FDCWD, destinationPath!, UInt32(RENAME_EXCL))
+                        }
+                    }
+                    guard result == 0 else {
+                        switch errno {
+                        case EEXIST: throw TextPadError.nameExists
+                        case EACCES, EPERM: throw TextPadError.renamePermission
+                        default: throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+                        }
+                    }
+                    url = destination
+                    if documentScope?.standardizedFileURL == source.standardizedFileURL {
+                        documentScope?.stopAccessingSecurityScopedResource()
+                        documentScope = nil
+                    }
+                }
+            } else {
+                pendingName = stem
+            }
+            error = nil
+            notice = "Renamed"
+            updateTitle()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            notice = nil
+            return false
+        }
+    }
+
+    private func canRenameInContainingFolder(_ source: URL) -> Bool {
+        guard documentScope?.standardizedFileURL == source.standardizedFileURL else { return true }
+        // A grant for one file does not authorize its new sibling name. Save As can request that grant.
+        let directory = source.deletingLastPathComponent().resolvingSymlinksInPath().pathComponents
+        let authorizedFolders = [Self.downloadsFolder, FileManager.default.temporaryDirectory] + [folderScope].compactMap { $0 }
+        return authorizedFolders.contains { directory.starts(with: $0.resolvingSymlinksInPath().pathComponents) }
+    }
+
+    private func saveGeneratedFile(_ bytes: Data) throws -> URL {
+        let now = Date.now
+        while true {
+            let candidate = try TextPadFilename.available(in: folder, parts: nameParts, format: format,
+                                                         now: now, number: nextNumber)
+            guard candidate.number < Int.max else { throw TextPadError.invalidName }
+            do {
+                try bytes.write(to: candidate.url, options: .withoutOverwriting)
+            } catch let error as CocoaError where error.code == .fileWriteFileExists {
+                continue
+            }
+            advanceGeneratedNumber(after: candidate.number)
+            return candidate.url
+        }
+    }
+
+    private func advanceGeneratedNumber(after number: Int) {
+        nextNumber = max(number + 1, max(nextNumber, defaults.integer(forKey: Self.nextNumberKey)))
+        defaults.set(nextNumber, forKey: Self.nextNumberKey)
+    }
+
+    private func updateTitle() {
+        panel?.title = "TextPad: \(displayName)"
+    }
+
     private func show() {
         guard presentsWindow else { return }
         if panel == nil { panel = TextPadPanel(files: self) }
-        panel?.title = "TextPad: \(url?.lastPathComponent ?? "Untitled")"
+        updateTitle()
         isActive = true
         panel?.makeKeyAndOrderFront(nil)
     }
@@ -491,25 +635,6 @@ final class TextPad {
         alert.addButton(withTitle: "Keep Editing")
         alert.addButton(withTitle: "Discard Changes")
         return alert.runModal() == .alertSecondButtonReturn
-    }
-
-    static func suggestedName(format: TextPadFormat, now: Date = .now) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
-        return "\(formatter.string(from: now)).\(format.rawValue)"
-    }
-
-    static func availableURL(in folder: URL, format: TextPadFormat, now: Date = .now) -> URL {
-        let name = suggestedName(format: format, now: now)
-        let stem = String(name.dropLast(format.rawValue.count + 1))
-        var candidate = folder.appending(path: name)
-        var index = 2
-        while FileManager.default.fileExists(atPath: candidate.path) {
-            candidate = folder.appending(path: "\(stem)-\(index).\(format.rawValue)")
-            index += 1
-        }
-        return candidate
     }
 }
 

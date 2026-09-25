@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// The memo lives in a nonactivating AppKit panel, where SwiftUI's initial focus request can leave
-/// WebKit as first responder. Transfer focus only after this field belongs to the key window.
+/// In a nonactivating AppKit panel, SwiftUI's initial focus request can leave the editor as
+/// first responder. Transfer focus only after this field belongs to the key window.
 struct OverlaySearchField: NSViewRepresentable {
     let placeholder: String
     @Binding var text: String

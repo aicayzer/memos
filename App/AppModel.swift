@@ -476,19 +476,6 @@ final class AppModel {
         pasteboard.setString(text, forType: .string)
     }
 
-    var isDefaultAppearance: Bool {
-        accent == .standard && textSize == Self.defaultTextSize && !standardControls
-            && windowOpacity == Self.defaultWindowOpacity && windowTint == nil
-    }
-
-    func resetAppearance() {
-        accent = .standard
-        textSize = Self.defaultTextSize
-        standardControls = false
-        windowOpacity = Self.defaultWindowOpacity
-        windowTint = nil
-    }
-
     func toggleSidePane() {
         showWindowIfHidden()
         // The frame first: a window narrower than its content is widened to the right, and setFrame is

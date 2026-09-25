@@ -23,6 +23,7 @@ private struct TextPadShareAnchorView: NSViewRepresentable {
 final class TextPadPanel: NSPanel {
     private let files: TextPad
     private var previousFrame: NSRect?
+    private let pendingTitleInput = OverlayInputResponder()
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
@@ -50,7 +51,11 @@ final class TextPadPanel: NSPanel {
         hasShadow = true
         isMovableByWindowBackground = true
         minSize = NSSize(width: 520, height: 320)
-        contentView = NSHostingView(rootView: TextPadView(files: files))
+        contentView = NSHostingView(rootView: TextPadView(files: files, prepareTitleFocus: { [weak self] in
+            guard let self else { return }
+            pendingTitleInput.discardEvents()
+            makeFirstResponder(pendingTitleInput)
+        }))
         center()
     }
 
@@ -90,6 +95,7 @@ final class TextPadPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
+        pendingTitleInput.discardEvents()
         files.isActive = false
         files.lostFocus()
     }
@@ -98,6 +104,10 @@ final class TextPadPanel: NSPanel {
 
 private struct TextPadView: View {
     @Bindable var files: TextPad
+    let prepareTitleFocus: () -> Void
+    @State private var renaming = false
+    @State private var titleDraft = ""
+    @State private var renamedDocument: UUID?
     @FocusState private var editing: Bool
     @State private var shareAnchor = TextPadShareAnchor()
 
@@ -110,11 +120,34 @@ private struct TextPadView: View {
                         .frame(width: 22, height: 26)
                 }
                 .accessibilityLabel("Close TextPad")
-                Text(files.url?.lastPathComponent ?? "Untitled")
-                    .font(.system(size: 14, weight: .semibold))
-                    .lineLimit(1)
-                    .onTapGesture(count: 2) { files.expand() }
-                    .simultaneousGesture(WindowDragGesture())
+                if renaming {
+                    HStack(spacing: 2) {
+                        OverlaySearchField(placeholder: "Name", text: $titleDraft, fontSize: 14,
+                                           isCurrent: { renaming && files.isActive && renamedDocument == files.documentID },
+                                           submit: {
+                                               guard renamedDocument == files.documentID else { return }
+                                               if files.rename(to: titleDraft) { finishRename() }
+                                           }, dismiss: finishRename, blur: { renaming = false })
+                        Text(".\(files.url?.pathExtension ?? files.format.rawValue)")
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 6)
+                    .frame(width: 220, height: 24)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 5))
+                } else {
+                    Text(files.displayName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .lineLimit(1)
+                        .help("Double-click to rename")
+                        .onTapGesture(count: 2) {
+                            editing = false
+                            titleDraft = files.editableName
+                            renamedDocument = files.documentID
+                            prepareTitleFocus()
+                            renaming = true
+                        }
+                        .simultaneousGesture(WindowDragGesture())
+                }
                 DevelopmentBadge()
                 if files.isDirty { Circle().frame(width: 6, height: 6).foregroundStyle(.secondary) }
                 Spacer()
@@ -167,9 +200,19 @@ private struct TextPadView: View {
         .ignoresSafeArea()
         .disabled(files.isBusy)
         .defaultFocus($editing, true)
+        .onChange(of: files.documentID) { finishRename() }
         .onChange(of: files.isActive) {
-            if files.isActive { editing = true }
+            if files.isActive {
+                if !renaming { editing = true }
+            } else {
+                renaming = false
+            }
         }
+    }
+
+    private func finishRename() {
+        renaming = false
+        editing = files.isActive
     }
 
     private func actionIcon(_ symbol: String, label: String, verticalOffset: CGFloat,

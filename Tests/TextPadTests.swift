@@ -5,6 +5,7 @@ import Testing
 @MainActor
 @Suite struct TextPadTests {
     private func fixture(
+        defaults suppliedDefaults: UserDefaults? = nil,
         selectOpenFile: (@MainActor () async -> URL?)? = nil,
         selectSaveFile: (@MainActor (URL, String) async -> URL?)? = nil,
         discardChanges: @escaping @MainActor () -> Bool = { false }
@@ -12,7 +13,7 @@ import Testing
         let root = FileManager.default.temporaryDirectory.appending(path: "textpad-tests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let suite = "textpad-tests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = suppliedDefaults ?? UserDefaults(suiteName: suite)!
         let store = ChangeableStore([])
         let model = AppModel(store: store, images: FakeImageStore(), defaults: defaults, editor: FakeEditor())
         var copiedPath: String?
@@ -44,10 +45,12 @@ import Testing
         let (files, store, root, _, copiedPath) = try fixture()
         defer { try? FileManager.default.removeItem(at: root) }
         let now = Date(timeIntervalSince1970: 1_790_113_017)
-        let first = TextPad.availableURL(in: root, format: .md, now: now)
+        let first = try TextPadFilename.available(in: root, parts: TextPadFilename.defaultParts,
+                                                 format: .md, now: now, number: 1).url
         try Data("existing".utf8).write(to: first)
-        let second = TextPad.availableURL(in: root, format: .md, now: now)
-        #expect(second.lastPathComponent.contains("-2.md"))
+        let second = try TextPadFilename.available(in: root, parts: TextPadFilename.defaultParts,
+                                                  format: .md, now: now, number: 1).url
+        #expect(second.lastPathComponent.hasSuffix("-002.md"))
         files.enabled = true
         files.format = .md
         files.text = "# Direct file\n"
@@ -271,6 +274,7 @@ import Testing
         files.newFile()
         files.commandNew()
         files.toggle()
+        #expect(!files.rename(to: "blocked rename"))
         files.open(other)
         await files.openPicker()
         await files.saveAs()
@@ -413,6 +417,290 @@ import Testing
         #expect(files.text.isEmpty)
         #expect(try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).count == 1)
         panel.orderOut(nil)
+    }
+
+    @Test func generatedNumberAdvancesOnlyForSuccessfulNewFilesAndPersists() throws {
+        let (files, _, root, defaults, _) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.enabled = true
+        let now = Date.now
+        files.newFile(now: now)
+        #expect(files.namePreview.hasSuffix("-001.txt"))
+        #expect(files.namePreview.hasSuffix("-001.txt"))
+        files.text = "first"
+        files.save()
+        #expect(files.displayName.hasSuffix("-001.txt"))
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 2)
+        files.text = "first edited"
+        files.save()
+        files.commandNew(now: now.addingTimeInterval(1))
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 2)
+        files.newFile()
+        files.text = "second"
+        files.save()
+        #expect(files.displayName.hasSuffix("-002.txt"))
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 3)
+        files.nameParts = [.literal("Note "), .token(.number)]
+        let (reopened, _, otherRoot, _, _) = try fixture(defaults: defaults)
+        defer { try? FileManager.default.removeItem(at: otherRoot) }
+        #expect(reopened.nameParts == files.nameParts)
+        #expect(reopened.namePreview == "Note 003.txt")
+    }
+
+    @Test func generatedNamesSkipCollisionsWithoutReplacingFiles() throws {
+        let (files, _, root, defaults, _) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.enabled = true
+        files.nameParts = [.literal("Note-"), .token(.number)]
+        let first = root.appending(path: "Note-001.txt")
+        try Data("keep".utf8).write(to: first)
+        files.text = "new"
+        files.save()
+        #expect(files.displayName == "Note-002.txt")
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 3)
+        #expect(try String(contentsOf: first, encoding: .utf8) == "keep")
+        files.nameParts = [.literal("Plain")]
+        files.newFile()
+        files.text = "third"
+        files.save()
+        files.newFile()
+        files.text = "fourth"
+        files.save()
+        #expect(files.displayName == "Plain-2.txt")
+        #expect(try String(contentsOf: root.appending(path: "Plain.txt"), encoding: .utf8) == "third")
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 5)
+    }
+
+    @Test func saveAsConsumesNumberOnlyForSuccessfulUnchangedGeneratedSuggestion() async throws {
+        let (files, _, root, defaults, _) = try fixture(selectSaveFile: { directory, name in
+            directory.appending(path: name)
+        })
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.enabled = true
+        files.nameParts = [.literal("Note-"), .token(.number)]
+        let existing = root.appending(path: "Note-001.txt")
+        try Data("keep existing".utf8).write(to: existing)
+        files.text = "new"
+        await files.saveAs()
+        #expect(files.displayName == "Note-002.txt")
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 3)
+        #expect(try String(contentsOf: existing, encoding: .utf8) == "keep existing")
+        files.text = "edited"
+        await files.saveAs()
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 3)
+        #expect(!files.isDirty)
+        files.newFile()
+        files.text = "next"
+        await files.saveAs()
+        #expect(files.displayName == "Note-003.txt")
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 4)
+    }
+
+    @Test func canceledGeneratedSaveAsDoesNotConsumeNumber() async throws {
+        let (files, _, root, defaults, _) = try fixture(selectSaveFile: { _, _ in nil })
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.text = "unsaved"
+        await files.saveAs()
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 0)
+        #expect(files.url == nil)
+        #expect(files.isDirty)
+        #expect(!files.isBusy)
+    }
+
+    @Test func failedGeneratedSaveAsDoesNotConsumeNumber() async throws {
+        let (files, _, root, defaults, _) = try fixture(selectSaveFile: { directory, name in
+            directory.appending(path: "missing").appending(path: name)
+        })
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.text = "unsaved"
+        await files.saveAs()
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 0)
+        #expect(files.url == nil)
+        #expect(files.isDirty)
+        #expect(files.error != nil)
+        #expect(!files.isBusy)
+    }
+
+    @Test func customSaveAsNameDoesNotConsumeNumber() async throws {
+        let (files, _, root, defaults, _) = try fixture(selectSaveFile: { directory, _ in
+            directory.appending(path: "Custom.txt")
+        })
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.text = "custom"
+        await files.saveAs()
+        #expect(files.displayName == "Custom.txt")
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 0)
+        #expect(!files.isDirty)
+        #expect(try String(contentsOf: root.appending(path: "Custom.txt"), encoding: .utf8) == "custom")
+    }
+
+    @Test func invalidGeneratedSaveAsPatternDoesNotPresentPicker() async throws {
+        let (files, _, root, defaults, _) = try fixture(selectSaveFile: { _, _ in
+            Issue.record("An invalid generated name must be rejected before presenting Save As")
+            return nil
+        })
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.nameParts = [.literal("../invalid")]
+        files.text = "keep this"
+        await files.saveAs()
+        #expect(files.error == TextPadError.invalidName.localizedDescription)
+        #expect(files.url == nil)
+        #expect(files.isDirty)
+        #expect(!files.isBusy)
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 0)
+    }
+
+    @Test func failedSaveAndInvalidPatternDoNotConsumeNumbers() throws {
+        let (files, _, root, defaults, _) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.enabled = true
+        files.text = "keep this"
+        files.nameParts = [.literal("../unsafe")]
+        #expect(files.namePreview == "Invalid filename")
+        files.save()
+        #expect(files.url == nil)
+        #expect(files.error == TextPadError.invalidName.localizedDescription)
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 0)
+        files.nameParts = TextPadFilename.defaultParts
+        try FileManager.default.removeItem(at: root)
+        files.save()
+        #expect(files.url == nil)
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 0)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        files.save()
+        #expect(files.displayName.hasSuffix("-001.txt"))
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 2)
+    }
+
+    @Test func scratchRenameKeepsExtensionAndDoesNotConsumeGeneratedNumber() throws {
+        let (files, _, root, defaults, _) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.enabled = true
+        files.format = .md
+        files.newFile()
+        #expect(files.displayName == "Untitled")
+        #expect(files.editableName.isEmpty)
+        #expect(files.rename(to: "Trip notes"))
+        #expect(files.displayName == "Trip notes.md")
+        #expect(files.editableName == "Trip notes")
+        #expect(files.url == nil)
+        files.text = "draft"
+        files.save()
+        #expect(files.url?.lastPathComponent == "Trip notes.md")
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 0)
+        #expect(files.rename(to: "Travel"))
+        #expect(files.displayName == "Travel.md")
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 0)
+        files.newFile()
+        #expect(files.displayName == "Untitled")
+    }
+
+    @Test func renamingDirtyFileMovesSavedBytesAndPreservesEdits() throws {
+        let (files, _, root, _, _) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.enabled = true
+        let original = root.appending(path: "Original.txt")
+        let renamed = root.appending(path: "Renamed.txt")
+        try Data("saved version".utf8).write(to: original)
+        files.open(original)
+        files.text = "unsaved edits"
+        #expect(files.rename(to: "Renamed"))
+        #expect(files.url == renamed)
+        #expect(files.editableName == "Renamed")
+        #expect(files.text == "unsaved edits")
+        #expect(files.savedText == "saved version")
+        #expect(files.isDirty)
+        #expect(!FileManager.default.fileExists(atPath: original.path))
+        #expect(try String(contentsOf: renamed, encoding: .utf8) == "saved version")
+        files.save()
+        #expect(files.error == nil)
+        #expect(try String(contentsOf: renamed, encoding: .utf8) == "unsaved edits")
+    }
+
+    @Test func unchangedRenamePreservesAStemThatContainsTheExtension() throws {
+        let (files, _, root, _, _) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.enabled = true
+        let original = root.appending(path: "notes.txt.txt")
+        try Data("keep".utf8).write(to: original)
+        files.open(original)
+        #expect(files.editableName == "notes.txt")
+        #expect(files.rename(to: files.editableName))
+        #expect(files.url == original)
+        #expect(files.displayName == "notes.txt.txt")
+        #expect(try String(contentsOf: original, encoding: .utf8) == "keep")
+        #expect(!FileManager.default.fileExists(atPath: root.appending(path: "notes.txt").path))
+    }
+
+    @Test func documentIdentityChangesOnlyWhenDocumentIsReplaced() throws {
+        let (files, _, root, _, _) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.enabled = true
+        let initial = files.documentID
+        files.newFile()
+        let scratch = files.documentID
+        #expect(scratch != initial)
+        #expect(files.rename(to: "Scratch"))
+        #expect(files.documentID == scratch)
+        files.text = "saved"
+        files.save()
+        #expect(files.documentID == scratch)
+        let saved = try #require(files.url)
+        files.open(saved)
+        #expect(files.documentID == scratch)
+        let other = root.appending(path: "other.txt")
+        try Data("other".utf8).write(to: other)
+        files.open(other)
+        let opened = files.documentID
+        #expect(opened != scratch)
+        #expect(files.rename(to: "Renamed"))
+        #expect(files.documentID == opened)
+        files.open(root.appending(path: "missing.txt"))
+        #expect(files.documentID == opened)
+    }
+
+    @Test func renameRefusesCollisionsInvalidNamesAndExternalChanges() throws {
+        let (files, _, root, _, _) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.enabled = true
+        let original = root.appending(path: "original.txt")
+        let existing = root.appending(path: "existing.txt")
+        try Data("original".utf8).write(to: original)
+        try Data("keep".utf8).write(to: existing)
+        files.open(original)
+        files.text = "local edit"
+        #expect(!files.rename(to: "existing"))
+        #expect(files.error == TextPadError.nameExists.localizedDescription)
+        #expect(files.url == original)
+        #expect(try String(contentsOf: existing, encoding: .utf8) == "keep")
+        for invalid in ["", "   ", ".", "..", "../escape", "a/b", "a\\b", "a:b", "a\n", String(repeating: "x", count: 253)] {
+            #expect(!files.rename(to: invalid))
+            #expect(files.error == TextPadError.invalidName.localizedDescription)
+            #expect(files.url == original)
+        }
+        try Data("external edit".utf8).write(to: original)
+        #expect(!files.rename(to: "new"))
+        #expect(files.error == TextPadError.changed.localizedDescription)
+        #expect(files.text == "local edit")
+        #expect(files.savedText == "original")
+        #expect(try String(contentsOf: original, encoding: .utf8) == "external edit")
+        #expect(!FileManager.default.fileExists(atPath: root.appending(path: "new.txt").path))
+    }
+
+    @Test func scratchCustomNameNeverOverwritesAnExistingFile() throws {
+        let (files, _, root, defaults, _) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        files.enabled = true
+        let existing = root.appending(path: "existing.txt")
+        try Data("keep".utf8).write(to: existing)
+        #expect(files.rename(to: "existing"))
+        files.text = "scratch"
+        files.save()
+        #expect(files.url == nil)
+        #expect(files.isDirty)
+        #expect(files.error == TextPadError.nameExists.localizedDescription)
+        #expect(try String(contentsOf: existing, encoding: .utf8) == "keep")
+        #expect(defaults.integer(forKey: "textPad.nextNumber") == 0)
     }
 }
 
