@@ -2,17 +2,16 @@ import AppKit
 import Darwin
 import KeyboardShortcuts
 import Observation
-import SwiftUI
 import UniformTypeIdentifiers
 
-enum QuickFileFormat: String, CaseIterable, Identifiable {
+enum TextPadFormat: String, CaseIterable, Identifiable {
     case txt, md
 
     var id: String { rawValue }
     var title: String { rawValue.uppercased() }
 }
 
-enum QuickFileReuse: Int, CaseIterable, Identifiable {
+enum TextPadReuse: Int, CaseIterable, Identifiable {
     case alwaysNew = 0, fiveMinutes = 5, tenMinutes = 10, fifteenMinutes = 15, thirtyMinutes = 30, oneHour = 60
 
     var id: Int { rawValue }
@@ -28,7 +27,7 @@ enum QuickFileReuse: Int, CaseIterable, Identifiable {
     }
 }
 
-enum QuickFileError: LocalizedError {
+enum TextPadError: LocalizedError {
     case unsupported
     case encoding
     case changed
@@ -39,56 +38,58 @@ enum QuickFileError: LocalizedError {
         case .unsupported: "Choose a .txt or .md file."
         case .encoding: "This file is not UTF-8 text. It was not changed."
         case .changed: "The file changed outside Memos. Use Save As to keep both versions."
-        case .missingFolder: "The chosen folder is unavailable. Select it again in Quick Files settings."
+        case .missingFolder: "The chosen folder is unavailable. Select it again in TextPad settings."
         }
     }
 }
 
 @MainActor
 @Observable
-final class QuickFiles {
+final class TextPad {
     var enabled: Bool {
         didSet {
             defaults.set(enabled, forKey: Self.enabledKey)
             updateShortcut()
         }
     }
-    var format: QuickFileFormat {
+    var format: TextPadFormat {
         didSet { defaults.set(format.rawValue, forKey: Self.formatKey) }
     }
     var saveAutomatically: Bool {
         didSet { defaults.set(saveAutomatically, forKey: Self.autoSaveKey) }
     }
-    var commandNReuse: QuickFileReuse {
-        didSet { defaults.set(commandNReuse.rawValue, forKey: Self.reuseKey) }
+    var reusePeriod: TextPadReuse {
+        didSet { defaults.set(reusePeriod.rawValue, forKey: Self.reuseKey) }
     }
     private(set) var folder: URL
     private(set) var url: URL?
     var text = ""
     private(set) var savedText = ""
     var isActive = false
-    var isExpanded = false
     var error: String?
     var notice: String?
     private var baseline: Data?
     private var documentScope: URL?
     private var folderScope: URL?
-    private var panel: QuickFilePanel?
+    private var panel: TextPadPanel?
     private var shortcutInstalled = false
     private var createdAt: Date?
     private var openedFromDisk = false
     private var isPresentingFilePanel = false
+    private var isPresentingSharePicker = false
     private var isDismissing = false
+    private var sharePicker: NSSharingServicePicker?
+    private var shareDelegate: TextPadSharePickerDelegate?
     private let defaults: UserDefaults
     private let memoModel: AppModel
     private let presentsWindow: Bool
     private let copyPath: @MainActor (String) -> Void
 
-    private static let enabledKey = "quickFiles.enabled"
-    private static let formatKey = "quickFiles.format"
-    private static let folderBookmarkKey = "quickFiles.folderBookmark"
-    private static let autoSaveKey = "quickFiles.saveAutomatically"
-    private static let reuseKey = "quickFiles.commandNReuse"
+    private static let enabledKey = "textPad.enabled"
+    private static let formatKey = "textPad.format"
+    private static let folderBookmarkKey = "textPad.folderBookmark"
+    private static let autoSaveKey = "textPad.saveAutomatically"
+    private static let reuseKey = "textPad.reusePeriod"
 
     private static var downloadsFolder: URL {
         // FileManager's Downloads URL is redirected into a sandbox container even with Downloads access.
@@ -109,9 +110,9 @@ final class QuickFiles {
         self.presentsWindow = presentsWindow
         self.copyPath = copyPath
         enabled = defaults.bool(forKey: Self.enabledKey)
-        format = defaults.string(forKey: Self.formatKey).flatMap(QuickFileFormat.init(rawValue:)) ?? .txt
+        format = defaults.string(forKey: Self.formatKey).flatMap(TextPadFormat.init(rawValue:)) ?? .txt
         saveAutomatically = defaults.object(forKey: Self.autoSaveKey) as? Bool ?? true
-        commandNReuse = QuickFileReuse(rawValue: defaults.object(forKey: Self.reuseKey) as? Int ?? 15) ?? .fifteenMinutes
+        reusePeriod = TextPadReuse(rawValue: defaults.object(forKey: Self.reuseKey) as? Int ?? 15) ?? .fifteenMinutes
         folder = defaultFolder ?? Self.downloadsFolder
         var stale = false
         if let data = defaults.data(forKey: Self.folderBookmarkKey),
@@ -126,7 +127,7 @@ final class QuickFiles {
     var isDefaultFolder: Bool { defaults.data(forKey: Self.folderBookmarkKey) == nil }
 
     func installShortcut() {
-        KeyboardShortcuts.onKeyDown(for: .quickFile) { [weak self] in self?.newFile() }
+        KeyboardShortcuts.onKeyDown(for: .textPad) { [weak self] in self?.toggle() }
         shortcutInstalled = true
         updateShortcut()
     }
@@ -134,9 +135,9 @@ final class QuickFiles {
     private func updateShortcut() {
         guard shortcutInstalled else { return }
         if enabled {
-            KeyboardShortcuts.enable(.quickFile)
+            KeyboardShortcuts.enable(.textPad)
         } else {
-            KeyboardShortcuts.disable(.quickFile)
+            KeyboardShortcuts.disable(.textPad)
         }
     }
 
@@ -173,14 +174,29 @@ final class QuickFiles {
         show()
     }
 
-    func commandNew(now: Date = .now) {
+    func toggle(now: Date = .now) {
         guard enabled else { return }
-        if let createdAt, !openedFromDisk, commandNReuse != .alwaysNew,
-           now.timeIntervalSince(createdAt) < TimeInterval(commandNReuse.rawValue * 60) {
+        if isVisible {
+            close()
+        } else if openedFromDisk || isReusable(at: now) {
             show()
         } else {
             newFile(now: now)
         }
+    }
+
+    func commandNew(now: Date = .now) {
+        guard enabled else { return }
+        if isReusable(at: now) {
+            show()
+        } else {
+            newFile(now: now)
+        }
+    }
+
+    private func isReusable(at now: Date) -> Bool {
+        guard let createdAt, !openedFromDisk, reusePeriod != .alwaysNew else { return false }
+        return now.timeIntervalSince(createdAt) < TimeInterval(reusePeriod.rawValue * 60)
     }
 
     private func resetDocument() {
@@ -211,15 +227,15 @@ final class QuickFiles {
         if !enabled {
             guard presentsWindow else { return }
             let alert = NSAlert()
-            alert.messageText = "Quick Files is turned off"
-            alert.informativeText = "Enable Quick Files to edit this document in Memos."
-            alert.addButton(withTitle: "Enable Quick Files")
+            alert.messageText = "TextPad is turned off"
+            alert.informativeText = "Enable TextPad to edit this document in Memos."
+            alert.addButton(withTitle: "Enable TextPad")
             alert.addButton(withTitle: "Cancel")
             guard alert.runModal() == .alertFirstButtonReturn else { return }
             enabled = true
         }
         guard ["txt", "md"].contains(file.pathExtension.lowercased()) else {
-            error = QuickFileError.unsupported.localizedDescription
+            error = TextPadError.unsupported.localizedDescription
             show()
             return
         }
@@ -230,7 +246,7 @@ final class QuickFiles {
         let accessing = file.startAccessingSecurityScopedResource()
         do {
             let bytes = try Data(contentsOf: file)
-            guard let content = String(data: bytes, encoding: .utf8) else { throw QuickFileError.encoding }
+            guard let content = String(data: bytes, encoding: .utf8) else { throw TextPadError.encoding }
             guard finishCurrent() else {
                 if accessing { file.stopAccessingSecurityScopedResource() }
                 return
@@ -256,14 +272,14 @@ final class QuickFiles {
     func save() {
         do {
             if let url {
-                guard try Data(contentsOf: url) == baseline else { throw QuickFileError.changed }
+                guard try Data(contentsOf: url) == baseline else { throw TextPadError.changed }
                 let bytes = Data(text.utf8)
                 try bytes.write(to: url, options: .atomic)
                 baseline = bytes
                 savedText = text
                 notice = "Saved"
             } else {
-                guard isDefaultFolder || folderScope != nil else { throw QuickFileError.missingFolder }
+                guard isDefaultFolder || folderScope != nil else { throw TextPadError.missingFolder }
                 let destination = Self.availableURL(in: folder, format: format)
                 let bytes = Data(text.utf8)
                 try bytes.write(to: destination, options: .withoutOverwriting)
@@ -292,7 +308,7 @@ final class QuickFiles {
         do {
             if destination.standardizedFileURL == url?.standardizedFileURL,
                try Data(contentsOf: destination) != baseline {
-                throw QuickFileError.changed
+                throw TextPadError.changed
             }
             let bytes = Data(text.utf8)
             try bytes.write(to: destination, options: .atomic)
@@ -309,13 +325,36 @@ final class QuickFiles {
         }
     }
 
-    func share() {
-        guard let url, !isDirty else {
-            error = "Save the file before sharing it."
-            return
-        }
-        guard let view = panel?.contentView else { return }
-        NSSharingServicePicker(items: [url]).show(relativeTo: .zero, of: view, preferredEdge: .minY)
+    func share(from anchor: NSView? = nil) {
+        guard let view = anchor ?? panel?.contentView else { return }
+        do {
+            let picker = NSSharingServicePicker(items: [try shareableURL()])
+            let delegate = TextPadSharePickerDelegate { [weak self] in
+                self?.isPresentingSharePicker = false
+                self?.sharePicker = nil
+                self?.shareDelegate = nil
+                if self?.panel?.isKeyWindow == false { self?.lostFocus() }
+            }
+            picker.delegate = delegate
+            sharePicker = picker
+            shareDelegate = delegate
+            isPresentingSharePicker = true
+            let rect = anchor == nil
+                ? NSRect(x: view.bounds.maxX - 90, y: view.bounds.maxY - 38, width: 32, height: 24)
+                : view.bounds
+            picker.show(relativeTo: rect, of: view, preferredEdge: .minY)
+            error = nil
+        } catch { self.error = error.localizedDescription }
+    }
+
+    func shareableURL(in temporaryFolder: URL = FileManager.default.temporaryDirectory) throws -> URL {
+        if let url, !isDirty, let current = try? Data(contentsOf: url), current == baseline { return url }
+        let directory = temporaryFolder.appending(path: "TextPadShare-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let name = url?.lastPathComponent ?? Self.suggestedName(format: format)
+        let snapshot = directory.appending(path: name)
+        try Data(text.utf8).write(to: snapshot, options: .atomic)
+        return snapshot
     }
 
     func saveToMemos() async {
@@ -337,7 +376,7 @@ final class QuickFiles {
     }
 
     func lostFocus() {
-        guard !isDismissing, !isPresentingFilePanel, panel?.isVisible == true else { return }
+        guard !isDismissing, !isPresentingFilePanel, !isPresentingSharePicker, panel?.isVisible == true else { return }
         close()
         if panel?.isVisible == true { panel?.makeKeyAndOrderFront(nil) }
     }
@@ -362,9 +401,8 @@ final class QuickFiles {
 
     private func show() {
         guard presentsWindow else { return }
-        if panel == nil { panel = QuickFilePanel(files: self) }
-        panel?.title = "Quick File: \(url?.lastPathComponent ?? "Untitled")"
-        panel?.center()
+        if panel == nil { panel = TextPadPanel(files: self) }
+        panel?.title = "TextPad: \(url?.lastPathComponent ?? "Untitled")"
         isActive = true
         panel?.makeKeyAndOrderFront(nil)
     }
@@ -373,20 +411,20 @@ final class QuickFiles {
         guard isDirty else { return true }
         let alert = NSAlert()
         alert.messageText = "Discard unsaved changes?"
-        alert.informativeText = "Your changes to this quick file have not been saved."
+        alert.informativeText = "Your changes to this text file have not been saved."
         alert.addButton(withTitle: "Keep Editing")
         alert.addButton(withTitle: "Discard Changes")
         return alert.runModal() == .alertSecondButtonReturn
     }
 
-    static func suggestedName(format: QuickFileFormat, now: Date = .now) -> String {
+    static func suggestedName(format: TextPadFormat, now: Date = .now) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd-HHmmss"
         return "\(formatter.string(from: now)).\(format.rawValue)"
     }
 
-    static func availableURL(in folder: URL, format: QuickFileFormat, now: Date = .now) -> URL {
+    static func availableURL(in folder: URL, format: TextPadFormat, now: Date = .now) -> URL {
         let name = suggestedName(format: format, now: now)
         let stem = String(name.dropLast(format.rawValue.count + 1))
         var candidate = folder.appending(path: name)
@@ -399,182 +437,14 @@ final class QuickFiles {
     }
 }
 
-private final class QuickFilePanel: NSPanel {
-    private let files: QuickFiles
-    private var previousFrame: NSRect?
+private final class TextPadSharePickerDelegate: NSObject, NSSharingServicePickerDelegate {
+    let onDismiss: () -> Void
 
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
-
-    init(files: QuickFiles) {
-        self.files = files
-        super.init(contentRect: NSRect(x: 0, y: 0, width: 840, height: 540),
-                   styleMask: [.resizable, .nonactivatingPanel],
-                   backing: .buffered, defer: false)
-        isReleasedWhenClosed = false
-        hidesOnDeactivate = false
-        level = .floating
-        isOpaque = false
-        backgroundColor = .clear
-        isMovableByWindowBackground = true
-        minSize = NSSize(width: 520, height: 320)
-        contentView = NSHostingView(rootView: QuickFileView(files: files))
-        center()
+    init(onDismiss: @escaping () -> Void) {
+        self.onDismiss = onDismiss
     }
 
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if event.charactersIgnoringModifiers == "s", modifiers == .command {
-            files.save()
-            return true
-        }
-        if event.charactersIgnoringModifiers == "s", modifiers == [.command, .shift] {
-            Task { await files.saveAs() }
-            return true
-        }
-        return super.performKeyEquivalent(with: event)
-    }
-
-    override func close() { files.close() }
-
-    func toggleExpanded() {
-        if let previousFrame {
-            setFrame(previousFrame, display: true, animate: true)
-            self.previousFrame = nil
-            files.isExpanded = false
-        } else if let screen = screen ?? NSScreen.main {
-            previousFrame = frame
-            setFrame(screen.visibleFrame.insetBy(dx: 24, dy: 24), display: true, animate: true)
-            files.isExpanded = true
-        }
-    }
-
-    override func becomeKey() {
-        super.becomeKey()
-        files.isActive = true
-    }
-
-    override func resignKey() {
-        super.resignKey()
-        files.lostFocus()
-    }
-
-}
-
-private struct QuickFileView: View {
-    @Bindable var files: QuickFiles
-    @FocusState private var editing: Bool
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                HStack(spacing: 4) {
-                    icon("xmark.circle.fill", label: "Close Quick File") { files.close() }
-                    icon("arrow.up.right.circle.fill",
-                         label: files.isExpanded ? "Shrink Quick File" : "Expand Quick File") { files.expand() }
-                }
-                Text(files.url?.lastPathComponent ?? "Untitled")
-                    .font(.system(size: 14, weight: .semibold))
-                    .lineLimit(1)
-                    .onTapGesture(count: 2) { files.expand() }
-                if files.isDirty { Circle().frame(width: 6, height: 6).foregroundStyle(.secondary) }
-                Spacer()
-                icon("square.and.pencil", label: "Save As", yOffset: -1) { Task { await files.saveAs() } }
-                icon("square.and.arrow.up", label: "Share", symbolSize: 14, yOffset: -1) { files.share() }
-                icon("note.text.badge.plus", label: "Save to Memos") { Task { await files.saveToMemos() } }
-                Button("Save") { files.save() }
-                    .buttonStyle(.bordered)
-                    .controlSize(.regular)
-                    .buttonBorderShape(.capsule)
-            }
-            .buttonStyle(.plain)
-            .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(.secondary)
-            .labelStyle(.iconOnly)
-            .padding(.leading, 8)
-            .padding(.trailing, 12)
-            .frame(height: 38)
-            .background {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture(count: 2) { files.expand() }
-            }
-
-            VStack(spacing: 0) {
-                TextEditor(text: $files.text)
-                    .font(.system(size: 15))
-                    .scrollContentBackground(.hidden)
-                    .focused($editing)
-                    .padding(10)
-                if let error = files.error {
-                    Text(error).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 18).padding(.bottom, 8)
-                } else if let notice = files.notice {
-                    Text(notice).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 18).padding(.bottom, 8)
-                }
-            }
-            .background(Color(nsColor: .textBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 15))
-            .padding([.horizontal, .bottom], 7)
-        }
-        .glassEffect(.regular, in: .rect(cornerRadius: 22))
-        .onAppear { editing = true }
-    }
-
-    private func icon(_ symbol: String, label: String, symbolSize: CGFloat = 15,
-                      yOffset: CGFloat = 0, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            // SF Symbols have different optical bounds even in identical button frames.
-            Image(systemName: symbol)
-                .font(.system(size: symbolSize, weight: .medium))
-                .offset(y: yOffset)
-                .frame(width: 24, height: 26)
-                .contentShape(Rectangle())
-        }
-        .accessibilityLabel(label)
-    }
-}
-
-struct QuickFilesSettingsView: View {
-    @Bindable var files: QuickFiles
-
-    var body: some View {
-        Form {
-            Section {
-                Toggle("Enable Quick Files", isOn: $files.enabled)
-            } footer: {
-                Text("Edit text files directly, separately from your Memos library.")
-            }
-            Section("Defaults") {
-                LabeledContent("Save to") {
-                    Text(files.isDefaultFolder ? "Downloads" : files.folder.path)
-                        .lineLimit(1).truncationMode(.middle)
-                    Button("Choose…") { Task { await files.chooseFolder() } }
-                    if !files.isDefaultFolder { Button("Downloads") { files.useDownloads() } }
-                }
-                Picker("Format", selection: $files.format) {
-                    ForEach(QuickFileFormat.allCases) { format in Text(format.title).tag(format) }
-                }
-                Toggle("Save automatically", isOn: $files.saveAutomatically)
-                Picker("Reuse with Command-N", selection: $files.commandNReuse) {
-                    ForEach(QuickFileReuse.allCases) { choice in Text(choice.title).tag(choice) }
-                }
-                LabeledContent("New file shortcut") {
-                    KeyboardShortcuts.Recorder(for: .quickFile)
-                }
-            }
-            .disabled(!files.enabled)
-            Section {
-                Text("The global shortcut always starts a new file. Command-N reopens the current quick file during the chosen interval. With automatic saving off, an unsaved scratch file disappears when you click away; opened files ask before discarding edits.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .disabled(!files.enabled)
-            if let error = files.error { Text(error).foregroundStyle(.red) }
-        }
-        .formStyle(.grouped)
-        .frame(width: 480)
-        .fixedSize(horizontal: false, vertical: true)
+    func sharingServicePicker(_ picker: NSSharingServicePicker, didChoose service: NSSharingService?) {
+        onDismiss()
     }
 }

@@ -4,5 +4,5 @@ extension KeyboardShortcuts.Name {
     static let toggleWindow = Self("toggleWindow", initial: .init(.b, modifiers: [.option]))
     /// M for memo: near the other one without being a slip of the finger from it.
     static let newMemo = Self("newMemo", initial: .init(.m, modifiers: [.control, .option]))
-    static let quickFile = Self("quickFile", initial: .init(.b, modifiers: [.option, .shift]))
+    static let textPad = Self("textPad", initial: .init(.b, modifiers: [.option, .shift]))
 }

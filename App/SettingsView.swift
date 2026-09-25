@@ -4,11 +4,12 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(Updater.self) private var updater
-    @Environment(QuickFiles.self) private var quickFiles
+    @Environment(TextPad.self) private var textPad
     @Environment(\.colorScheme) private var colorScheme
     @State private var login = LoginItemSettings()
     @State private var globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
     @State private var newMemoShortcut = KeyboardShortcuts.getShortcut(for: .newMemo)
+    @State private var textPadShortcut = KeyboardShortcuts.getShortcut(for: .textPad)
     /// The empty box a key is being typed into, below one of a shortcut's others.
     @State private var adding: ShortcutRow?
     @State private var hovered: ShortcutRow.ID?
@@ -19,7 +20,7 @@ struct SettingsView: View {
         TabView {
             Tab("App", systemImage: "macwindow") { app }
             Tab("Storage", systemImage: "externaldrive") { StorageSettingsView() }
-            Tab("Quick Files", systemImage: "doc.text") { QuickFilesSettingsView(files: quickFiles) }
+            Tab("TextPad", systemImage: "doc.text") { textPadSettings }
             Tab("Shortcuts", systemImage: "keyboard") { shortcuts }
             Tab("About", systemImage: "info.circle") { about }
         }
@@ -27,7 +28,7 @@ struct SettingsView: View {
         // Otherwise the always-on-top memo window covers it.
         .background(WindowReader { $0.level = .floating })
         // Opened from the panel while another app is in front, Settings would open behind it.
-        .onAppear { NSApp.activate(); login.refresh(); quickFiles.isActive = false }
+        .onAppear { NSApp.activate(); login.refresh(); textPad.isActive = false }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in login.refresh() }
     }
 
@@ -182,9 +183,10 @@ struct SettingsView: View {
                     Button("Restore Defaults") {
                         adding = nil
                         model.shortcuts.reset()
-                        KeyboardShortcuts.reset(.toggleWindow, .newMemo)
+                        KeyboardShortcuts.reset(.toggleWindow, .newMemo, .textPad)
                         globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
                         newMemoShortcut = KeyboardShortcuts.getShortcut(for: .newMemo)
+                        textPadShortcut = KeyboardShortcuts.getShortcut(for: .textPad)
                     }
                     .buttonStyle(.bordered)
                     .tint(.primary)
@@ -195,6 +197,42 @@ struct SettingsView: View {
         .formStyle(.grouped)
         // The list outgrows a laptop screen, so this tab scrolls at a set height.
         .frame(width: 420, height: 560)
+    }
+
+    private var textPadSettings: some View {
+        @Bindable var textPad = textPad
+        return Form {
+            Section {
+                Toggle("Enable TextPad", isOn: $textPad.enabled)
+            }
+            Section("Files") {
+                LabeledContent("Save to") {
+                    Text(textPad.isDefaultFolder ? "Downloads" : textPad.folder.path)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Button("Choose…") { Task { await textPad.chooseFolder() } }
+                    if !textPad.isDefaultFolder {
+                        Button("Downloads") { textPad.useDownloads() }
+                    }
+                }
+                Picker("Format", selection: $textPad.format) {
+                    ForEach(TextPadFormat.allCases) { format in Text(format.title).tag(format) }
+                }
+                Toggle("Save automatically", isOn: $textPad.saveAutomatically)
+            }
+            .disabled(!textPad.enabled)
+            Section("Session") {
+                Picker("Reuse for", selection: $textPad.reusePeriod) {
+                    ForEach(TextPadReuse.allCases) { choice in Text(choice.title).tag(choice) }
+                }
+                globalRow("Show or hide TextPad", .textPad, $textPadShortcut)
+            }
+            .disabled(!textPad.enabled)
+            if let error = textPad.error { Text(error).foregroundStyle(.red) }
+        }
+        .formStyle(.grouped)
+        .frame(width: 420)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var about: some View {
@@ -234,7 +272,7 @@ struct SettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    private static let globalNames: [KeyboardShortcuts.Name] = [.toggleWindow, .newMemo]
+    private static let globalNames: [KeyboardShortcuts.Name] = [.toggleWindow, .newMemo, .textPad]
 
     private func globalRow(
         _ title: String, _ name: KeyboardShortcuts.Name, _ shortcut: Binding<KeyboardShortcuts.Shortcut?>

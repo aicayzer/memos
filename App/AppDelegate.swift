@@ -9,7 +9,7 @@ private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "ap
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model: AppModel
-    let quickFiles: QuickFiles
+    let textPad: TextPad
     private var panel: MemoPanel?
     private var watcher: LibraryWatcher?
     private var spotlight: SpotlightIndexer?
@@ -37,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             fatalError("memo store unavailable: \(error)")
         }
-        quickFiles = QuickFiles(memoModel: model)
+        textPad = TextPad(memoModel: model)
         super.init()
         if !Self.isTestHost {
             spotlight = SpotlightIndexer(store: store, index: SystemMemoSearchIndex()) { [model] in model.spotlightError = $0 }
@@ -66,10 +66,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let panel = MemoPanel(content: MainView().environment(model))
         panel.keys = { [model] in model.shortcuts.windowKeys }
         panel.perform = { [model] in model.perform($0) }
-        panel.onBecomeKey = { [quickFiles] in quickFiles.isActive = false }
+        panel.onBecomeKey = { [textPad] in textPad.isActive = false }
         self.panel = panel
         model.attach(panel)
-        if !LoginItemSettings.isLoginLaunch(NSAppleEventManager.shared().currentAppleEvent), !quickFiles.isVisible {
+        if !Self.isTestHost,
+           !LoginItemSettings.isLoginLaunch(NSAppleEventManager.shared().currentAppleEvent),
+           !textPad.isVisible {
             model.showWindow()
         }
         startup = Task {
@@ -79,7 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
         KeyboardShortcuts.onKeyDown(for: .newMemo) { [model] in Task { await model.newMemo() } }
-        quickFiles.installShortcut()
+        textPad.installShortcut()
         updater.start()
     }
 
@@ -87,7 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
             if url.isFileURL {
-                quickFiles.open(url)
+                textPad.open(url)
             } else if url.host() == "memo", let id = UUID(uuidString: url.lastPathComponent) {
                 openMemo(id)
             } else {
@@ -129,7 +131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard quickFiles.canTerminate() else { return .terminateCancel }
+        guard textPad.canTerminate() else { return .terminateCancel }
         Task {
             sender.reply(toApplicationShouldTerminate: await model.flush())
         }
