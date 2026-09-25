@@ -20,7 +20,7 @@ struct SettingsView: View {
         TabView {
             Tab("App", systemImage: "macwindow") { app }
             Tab("Storage", systemImage: "externaldrive") { StorageSettingsView() }
-            Tab("TextPad", systemImage: "doc.text") { textPadSettings }
+            Tab("TextPad", systemImage: "note") { textPadSettings }
             Tab("Shortcuts", systemImage: "keyboard") { shortcuts }
             Tab("About", systemImage: "info.circle") { about }
         }
