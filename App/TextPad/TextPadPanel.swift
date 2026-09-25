@@ -37,7 +37,8 @@ final class TextPadPanel: NSPanel {
         level = .floating
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = false
+        // AppKit draws outside the window; a SwiftUI shadow gets clipped at the hosting bounds.
+        hasShadow = true
         isMovableByWindowBackground = true
         minSize = NSSize(width: 520, height: 320)
         contentView = NSHostingView(rootView: TextPadView(files: files))
@@ -107,11 +108,11 @@ private struct TextPadView: View {
                 DevelopmentBadge()
                 if files.isDirty { Circle().frame(width: 6, height: 6).foregroundStyle(.secondary) }
                 Spacer()
-                actionIcon("square.and.arrow.up", label: "Share") {
+                actionIcon("square.and.arrow.up", label: "Share", verticalOffset: -2) {
                     files.share(from: shareAnchor.view)
                 }
                 .background(TextPadShareAnchorView(anchor: shareAnchor).allowsHitTesting(false))
-                actionIcon("note.text.badge.plus", label: "Save to Memos") {
+                actionIcon("note.text.badge.plus", label: "Save to Memos", verticalOffset: 1) {
                     Task { await files.saveToMemos() }
                 }
                 Button("Save") { files.save() }
@@ -149,8 +150,6 @@ private struct TextPadView: View {
             .padding([.horizontal, .bottom], 7)
         }
         .glassEffect(.regular, in: .rect(cornerRadius: 22))
-        .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
-        .padding(8)
         .disabled(files.isBusy)
         .defaultFocus($editing, true)
         .onChange(of: files.isActive) {
@@ -158,10 +157,12 @@ private struct TextPadView: View {
         }
     }
 
-    private func actionIcon(_ symbol: String, label: String, perform: @escaping () -> Void) -> some View {
+    private func actionIcon(_ symbol: String, label: String, verticalOffset: CGFloat,
+                            perform: @escaping () -> Void) -> some View {
         Button(action: perform) {
             Image(systemName: symbol)
                 .frame(width: 16)
+                .offset(y: verticalOffset)
         }
         .buttonStyle(TextPadToolbarButtonStyle())
         .accessibilityLabel(label)
