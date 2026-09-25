@@ -3,7 +3,7 @@ import Testing
 @testable import Memos
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .opensWindows)
 struct FilenameInputTests {
     @Test func nativeEditingKeepsLiteralsAndInsertsAtCaret() async throws {
         let window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 440, height: 100),

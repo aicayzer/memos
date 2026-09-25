@@ -25,6 +25,7 @@ This file governs every session that works in this repository.
 - Requires Xcode 27 or later, XcodeGen, and pnpm.
 - `script/build_and_run.sh` builds and opens the isolated Debug app; `--build-only` skips opening it. Both refuse to rebuild a running preview. Check whether it is in use before quitting it and rerunning the script.
 - `xcodegen generate`, then `xcodebuild -project Memos.xcodeproj -scheme Memos -configuration Debug build` or `test`.
+- A suite that opens a window carries the `.opensWindows` trait, so a local run puts none on screen and CI, which sets `MEMOS_WINDOW_TESTS`, runs it.
 - In `editor/`: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm format`.
 
 ## Development builds
