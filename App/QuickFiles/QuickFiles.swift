@@ -479,8 +479,8 @@ private struct QuickFileView: View {
                     .onTapGesture(count: 2) { files.expand() }
                 if files.isDirty { Circle().frame(width: 6, height: 6).foregroundStyle(.secondary) }
                 Spacer()
-                icon("square.and.pencil", label: "Save As") { Task { await files.saveAs() } }
-                icon("square.and.arrow.up", label: "Share", yOffset: 1) { files.share() }
+                icon("square.and.pencil", label: "Save As", yOffset: -1) { Task { await files.saveAs() } }
+                icon("square.and.arrow.up", label: "Share", symbolSize: 14, yOffset: -1) { files.share() }
                 icon("note.text.badge.plus", label: "Save to Memos") { Task { await files.saveToMemos() } }
                 Button("Save") { files.save() }
                     .buttonStyle(.bordered)
@@ -522,10 +522,12 @@ private struct QuickFileView: View {
         .onAppear { editing = true }
     }
 
-    private func icon(_ symbol: String, label: String, yOffset: CGFloat = 0, action: @escaping () -> Void) -> some View {
+    private func icon(_ symbol: String, label: String, symbolSize: CGFloat = 15,
+                      yOffset: CGFloat = 0, action: @escaping () -> Void) -> some View {
         Button(action: action) {
+            // SF Symbols have different optical bounds even in identical button frames.
             Image(systemName: symbol)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: symbolSize, weight: .medium))
                 .offset(y: yOffset)
                 .frame(width: 24, height: 26)
                 .contentShape(Rectangle())
