@@ -54,6 +54,78 @@ struct OverlayFocusTests {
         return nil
     }
 
+    private func sendLetter(_ letter: String, keyCode: UInt16, to panel: NSPanel) throws {
+        let event = try #require(NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: panel.windowNumber, context: nil, characters: letter,
+            charactersIgnoringModifiers: letter, isARepeat: false, keyCode: keyCode
+        ))
+        panel.sendEvent(event)
+    }
+
+    @Test func inputBeforeFieldAttachmentReachesQueryInsteadOfMemo() async throws {
+        let panel = MemoPanel(content: EmptyView(), restoresFrame: false)
+        panel.setFrameAutosaveName("")
+        defer { close(panel) }
+        panel.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 480, height: 300))
+        let memo = NSTextView(frame: NSRect(x: 20, y: 20, width: 300, height: 150))
+        memo.string = "Unchanged memo"
+        panel.contentView!.addSubview(memo)
+        panel.makeKeyAndOrderFront(nil)
+        #expect(panel.makeFirstResponder(memo))
+        panel.prepareOverlayFocus()
+        #expect(panel.firstResponder is OverlayInputResponder)
+        try sendLetter("b", keyCode: 11, to: panel)
+        try sendLetter("r", keyCode: 15, to: panel)
+        #expect(memo.string == "Unchanged memo")
+
+        let query = Query()
+        let view = OverlaySearchField(placeholder: "Commands", text: query.binding,
+                                      isCurrent: { true }, submit: {}, dismiss: {})
+        let coordinator = view.makeCoordinator()
+        defer { withExtendedLifetime(coordinator) {} }
+        let field = field(in: panel)
+        field.delegate = coordinator
+        await mainQueueBoundary()
+        #expect(query.text == "br")
+        #expect(panel.firstResponder === field.currentEditor())
+        try sendLetter("o", keyCode: 31, to: panel)
+        #expect(query.text == "bro")
+        #expect(memo.string == "Unchanged memo")
+    }
+
+    @Test(arguments: [true, false])
+    func discardedPendingInputDoesNotReachReplacement(resigningKey: Bool) async throws {
+        let panel = MemoPanel(content: EmptyView(), restoresFrame: false)
+        panel.setFrameAutosaveName("")
+        let other = self.panel()
+        defer { close(panel); close(other) }
+        panel.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 480, height: 300))
+        panel.makeKeyAndOrderFront(nil)
+        panel.prepareOverlayFocus()
+        try sendLetter("b", keyCode: 11, to: panel)
+        if resigningKey {
+            other.makeKeyAndOrderFront(nil)
+            #expect(!panel.isKeyWindow)
+            panel.makeKeyAndOrderFront(nil)
+        } else {
+            panel.cancelPendingOverlayInput()
+        }
+
+        let query = Query()
+        let view = OverlaySearchField(placeholder: "Search memos", text: query.binding,
+                                      isCurrent: { true }, submit: {}, dismiss: {})
+        let coordinator = view.makeCoordinator()
+        defer { withExtendedLifetime(coordinator) {} }
+        let replacement = field(in: panel)
+        replacement.delegate = coordinator
+        await mainQueueBoundary()
+        #expect(query.text.isEmpty)
+        #expect(panel.firstResponder === replacement.currentEditor())
+        try sendLetter("r", keyCode: 15, to: panel)
+        #expect(query.text == "r")
+    }
+
     @Test func attachedFieldTakesActualFirstResponderFromMemo() async throws {
         let panel = panel()
         defer { close(panel) }

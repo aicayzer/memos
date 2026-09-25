@@ -21,6 +21,10 @@ final class AppModel {
     var overlay: Overlay? {
         didSet {
             editor.allowsFocus = overlay == nil
+            if overlay != oldValue {
+                if overlay != nil { (window as? MemoPanel)?.prepareOverlayFocus() }
+                else { (window as? MemoPanel)?.cancelPendingOverlayInput() }
+            }
             if oldValue == .find, overlay != .find {
                 findText = ""
                 editor.find("")

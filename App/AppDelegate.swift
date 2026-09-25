@@ -66,7 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         log.info("launched")
-        let panel = MemoPanel(content: MainView().environment(model))
+        let panel = MemoPanel(content: MainView().environment(model), restoresFrame: !Self.isTestHost)
         panel.keys = { [model] in model.shortcuts.windowKeys }
         panel.perform = { [model] in model.perform($0) }
         panel.onBecomeKey = { [textPad] in textPad.isActive = false }

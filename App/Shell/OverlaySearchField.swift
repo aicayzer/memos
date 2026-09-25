@@ -109,7 +109,14 @@ final class OverlayTextField: NSTextField {
             guard let self, request == self.generation else { return }
             self.scheduled = false
             guard !self.hasFocused, self.isCurrent(), let window = self.window, window.isKeyWindow else { return }
+            let pending = window.firstResponder as? OverlayInputResponder
             self.hasFocused = window.makeFirstResponder(self)
+            if self.hasFocused {
+                for event in pending?.takeEvents() ?? [] {
+                    guard self.isCurrent(), window.isKeyWindow else { break }
+                    window.sendEvent(event)
+                }
+            }
         }
     }
 
@@ -118,5 +125,17 @@ final class OverlayTextField: NSTextField {
         scheduled = false
         isCurrent = { false }
         NotificationCenter.default.removeObserver(self)
+    }
+}
+
+/// SwiftUI mounts the field after the shortcut returns. Keep those first keystrokes out of the memo.
+final class OverlayInputResponder: NSResponder {
+    private var events: [NSEvent] = []
+    override var acceptsFirstResponder: Bool { true }
+    override func keyDown(with event: NSEvent) { events.append(event) }
+    func discardEvents() { events.removeAll() }
+    func takeEvents() -> [NSEvent] {
+        defer { discardEvents() }
+        return events
     }
 }
