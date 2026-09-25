@@ -224,7 +224,7 @@ struct SettingsView: View {
             Section {
                 Toggle("Enable TextPad", isOn: $textPad.enabled)
             }
-            Section("Files") {
+            Section {
                 LabeledContent("Save to") {
                     Text(textPad.isDefaultFolder ? "Downloads" : textPad.folder.path)
                         .lineLimit(1)
@@ -238,10 +238,14 @@ struct SettingsView: View {
                     ForEach(TextPadFormat.allCases) { format in Text(format.title).tag(format) }
                 }
                 Toggle("Save automatically", isOn: $textPad.saveAutomatically)
-            }
-            .disabled(!textPad.enabled)
-            Section("Names") {
                 TextPadNamingSettings(files: textPad)
+            } header: {
+                Text("Files")
+            } footer: {
+                Text("Preview: \(textPad.namePreview)")
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
             .disabled(!textPad.enabled)
             Section("Session") {
