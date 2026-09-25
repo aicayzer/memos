@@ -127,10 +127,20 @@ struct MainView: View {
                 placeholder: "Search for actions…",
                 items: model.filteredPaletteItems(paletteQuery),
                 query: $paletteQuery,
-                dismiss: model.dismissOverlay
+                isCurrent: { model.overlay == .palette },
+                dismiss: model.dismissOverlay,
+                dismissForAction: { model.dismissOverlay(restoringEditor: false) },
+                restoreEditor: model.editor.focus
             )
+            .id(Overlay.palette)
         case .browse:
-            PaletteView(placeholder: "Search memos…", items: browseItems, query: $browseQuery, dismiss: model.dismissOverlay)
+            PaletteView(
+                placeholder: "Search memos…", items: browseItems, query: $browseQuery,
+                isCurrent: { model.overlay == .browse }, dismiss: model.dismissOverlay,
+                dismissForAction: { model.dismissOverlay(restoringEditor: false) },
+                restoreEditor: model.editor.focus
+            )
+                .id(Overlay.browse)
                 .task(id: "\(model.storeGeneration) \(browseQuery)") { browseItems = await model.browseItems(browseQuery) }
         default:
             EmptyView()

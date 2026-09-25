@@ -10,6 +10,7 @@ struct PaletteItem: Identifiable {
     /// The group the row sits in, shown as a label above the first of them.
     var section: String? = nil
     var enabled = true
+    var restoresEditor = true
     let action: () -> Void
 }
 
@@ -17,11 +18,13 @@ struct PaletteView: View {
     let placeholder: String
     let items: [PaletteItem]
     @Binding var query: String
+    let isCurrent: () -> Bool
     let dismiss: () -> Void
+    let dismissForAction: () -> Void
+    var restoreEditor: () -> Void = {}
 
     @State private var selected = 0
     @State private var rowsHeight: CGFloat = 0
-    @FocusState private var focused: Bool
 
     /// Set rather than padded, so the palette's height at its tallest is known to whatever places it.
     static let fieldHeight: CGFloat = 42
@@ -36,16 +39,10 @@ struct PaletteView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TextField(placeholder, text: $query)
-                .textFieldStyle(.plain)
-                .font(.system(size: 15))
+            OverlaySearchField(placeholder: placeholder, text: $query, isCurrent: isCurrent,
+                               submit: run, dismiss: dismiss, move: move, blur: dismiss)
                 .padding(.horizontal, 16)
                 .frame(height: Self.fieldHeight)
-                .focused($focused)
-                .onSubmit(run)
-                .onKeyPress(.upArrow) { move(-1); return .handled }
-                .onKeyPress(.downArrow) { move(1); return .handled }
-                .onKeyPress(.escape) { dismiss(); return .handled }
             Divider()
             if items.isEmpty {
                 Text("No results")
@@ -89,10 +86,8 @@ struct PaletteView: View {
         .glassEffect(.regular, in: .rect(cornerRadius: 16))
         .shadow(color: .black.opacity(0.18), radius: 24, y: 8)
         .onAppear {
-            focused = true
             selected = items.firstIndex(where: \.enabled) ?? 0
         }
-        .onChange(of: focused) { _, isFocused in if !isFocused { dismiss() } }
         .onChange(of: items.map(\.id)) { _, _ in selected = items.firstIndex(where: \.enabled) ?? 0 }
     }
 
@@ -142,7 +137,8 @@ struct PaletteView: View {
     private func run() {
         guard items.indices.contains(selected), items[selected].enabled else { return }
         let item = items[selected]
-        dismiss()
+        dismissForAction()
         item.action()
+        if item.restoresEditor { restoreEditor() }
     }
 }

@@ -10,6 +10,9 @@ options:
 configs:
   Debug: debug
   Release: release
+configFiles:
+  Debug: Config/Signing.xcconfig
+  Release: Config/Signing.xcconfig
 packages:
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
@@ -27,16 +30,20 @@ settings:
     MACOSX_DEPLOYMENT_TARGET: "26.0"
     # Keeps a Debug build self-contained when the .app is copied out of the build folder.
     ENABLE_DEBUG_DYLIB: NO
-    CODE_SIGN_STYLE: Automatic
-    DEVELOPMENT_TEAM: JCVH9W76MS
     ENABLE_HARDENED_RUNTIME: YES
     # Script sandboxing would block the editor phase's write into the bundle.
     ENABLE_USER_SCRIPT_SANDBOXING: NO
-    MARKETING_VERSION: "0.3.2"
+    MARKETING_VERSION: "0.4.0"
     CURRENT_PROJECT_VERSION: 1
     # The app's identifier, which the command line tool reads to find the app's container.
     MEMOS_APP_IDENTIFIER: me.cyzr.memos
     MEMOS_DISPLAY_NAME: Memos
+    MEMOS_URL_SCHEME: memos
+  configs:
+    Debug:
+      MEMOS_APP_IDENTIFIER: me.cyzr.memos.dev
+      MEMOS_DISPLAY_NAME: Memos Dev
+      MEMOS_URL_SCHEME: memos-dev
 targets:
   Memos:
     type: application
@@ -49,6 +56,7 @@ targets:
           - "**/.DS_Store"
           # The icon as rendered and the screenshot, for the README; the app's own icon comes from AppIcon.icon.
           - Resources/AppIcon.png
+          - Resources/AppIconDEV.png
           - Resources/Screenshot.png
           # The menu bar mark's artwork; the asset catalog carries the sizes drawn from it.
           - Resources/MenuBarIcon.png
@@ -80,7 +88,13 @@ targets:
         # memos://memo/<id> shows a memo; the tool's open command sends it.
         CFBundleURLTypes:
           - CFBundleURLName: $(MEMOS_APP_IDENTIFIER)
-            CFBundleURLSchemes: [memos]
+            CFBundleURLSchemes: [$(MEMOS_URL_SCHEME)]
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Text Document
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.plain-text, net.daringfireball.markdown]
+            CFBundleTypeExtensions: [txt, md]
     entitlements:
       path: App/Memos.entitlements
       properties:
@@ -89,6 +103,7 @@ targets:
         com.apple.security.network.client: true
         # Save As writes wherever the save panel points.
         com.apple.security.files.user-selected.read-write: true
+        com.apple.security.files.downloads.read-write: true
         com.apple.security.files.bookmarks.app-scope: true
         # The names Sparkle's installer tools are reached by from inside the sandbox.
         com.apple.security.temporary-exception.mach-lookup.global-name:
@@ -96,11 +111,15 @@ targets:
           - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
     settings:
       base:
-        PRODUCT_NAME: Memos
+        PRODUCT_NAME: $(MEMOS_DISPLAY_NAME)
+        PRODUCT_MODULE_NAME: Memos
         PRODUCT_BUNDLE_IDENTIFIER: $(MEMOS_APP_IDENTIFIER)
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # The app's accent, which the system uses for its own controls too unless the user chose one.
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+      configs:
+        Debug:
+          ASSETCATALOG_COMPILER_APPICON_NAME: AppIconDEV
     preBuildScripts:
       - name: Build editor
         basedOnDependencyAnalysis: false
@@ -128,6 +147,7 @@ targets:
       path: CLI/Info.plist
       properties:
         MemosAppIdentifier: $(MEMOS_APP_IDENTIFIER)
+        MemosURLScheme: $(MEMOS_URL_SCHEME)
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
     settings:
@@ -149,8 +169,10 @@ targets:
       - target: Memos
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: me.cyzr.memos.tests
+        PRODUCT_BUNDLE_IDENTIFIER: $(MEMOS_APP_IDENTIFIER).tests
         GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/$(MEMOS_DISPLAY_NAME).app/Contents/MacOS/$(MEMOS_DISPLAY_NAME)
+        BUNDLE_LOADER: $(TEST_HOST)
         ENABLE_HARDENED_RUNTIME: NO
 schemes:
   Memos:

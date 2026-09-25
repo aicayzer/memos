@@ -16,14 +16,25 @@ This file governs every session that works in this repository.
 
 ## Layout
 
-- `project.yml` is the XcodeGen source; `Memos.xcodeproj` is generated and not committed. `scripts/release.sh` cuts a release as `RELEASING.md` describes.
+- `project.yml` is the XcodeGen source; `Memos.xcodeproj` is generated and not committed. `scripts/release.sh` cuts a release as [RELEASING.md](RELEASING.md) describes.
 - `Core/` holds the memo model and the store, compiled into the app and the command line tool alike; `App/` the rest of the app's Swift sources, with the icon under `App/Resources/`; `CLI/` the tool; `Tests/` the Swift Testing target.
-- `editor/` is the web editor (Vite, TypeScript, Milkdown), built into a single HTML file that the app embeds. `editor/BRIDGE.md` is the message protocol between the two.
+- `editor/` is the web editor (Vite, TypeScript, Milkdown), built into a single offline HTML file during the app build. [editor/BRIDGE.md](editor/BRIDGE.md) defines the message protocol between the two.
 
 ## Commands
 
+- Requires Xcode 27 or later, XcodeGen, and pnpm.
+- `script/build_and_run.sh` builds and opens the isolated Debug app; `--build-only` skips opening it. Both refuse to rebuild a running preview. Check whether it is in use before quitting it and rerunning the script.
 - `xcodegen generate`, then `xcodebuild -project Memos.xcodeproj -scheme Memos -configuration Debug build` or `test`.
 - In `editor/`: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm format`.
+
+## Development builds
+
+- Debug builds use **Memos Dev**, a visible DEV label, and `App/Resources/AppIconDEV.icon`. Release builds retain the standard name and icon. Keep identity and icon configuration in `project.yml`.
+- Development builds default to normal window levels, including TextPad and Settings. The main window can still opt into Always on top in Settings.
+- Development builds have their own bundle identity, URL scheme, preferences, and store. Use disposable notes for UI checks. Development global shortcuts are Control-Option-Command-B (toggle), Control-Option-Command-M (new memo), and Control-Option-Command-Shift-B (TextPad).
+- Do not replace or quit the installed app for testing. `scripts/screenshots.sh` prepares sample content; it is not the isolated development launcher.
+- The checkout builds without a signing team. For local signing, run `aic-infisical-run -- scripts/render-local-signing.sh`, then regenerate the project. The renderer writes ignored `Config/Local.xcconfig`; never commit signing identifiers or hand-edit generated configuration.
+- Keep the README short and user-facing. Development procedures belong here or in the linked technical documents.
 
 ## Store
 

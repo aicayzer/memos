@@ -31,6 +31,7 @@ enum TextSize: Double, CaseIterable, Identifiable {
 final class EditorController: NSObject, Editing {
     private(set) var caret = CaretState()
     private(set) var isReady = false
+    var allowsFocus = true
 
     var onChanged: (String) -> Void = { _ in }
     var onOpenLink: (URL) -> Void = { _ in }
@@ -133,6 +134,7 @@ final class EditorController: NSObject, Editing {
     }
 
     func focus() {
+        guard allowsFocus, webView.window?.isKeyWindow == true else { return }
         webView.window?.makeFirstResponder(webView)
         call("focus")
     }

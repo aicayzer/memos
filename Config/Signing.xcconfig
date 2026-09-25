@@ -1,0 +1,5 @@
+// A checkout builds without a developer account. The optional local file is rendered from Infisical.
+CODE_SIGNING_ALLOWED = NO
+CODE_SIGN_STYLE = Manual
+DEVELOPMENT_TEAM =
+#include? "Local.xcconfig"

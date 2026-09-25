@@ -34,7 +34,7 @@ cd "${0:a:h}/.."
 
 app_name=$(sed -n 's/^name: *//p' project.yml)
 version=$(sed -n 's/^ *MARKETING_VERSION: *"\(.*\)"/\1/p' project.yml)
-team=$(sed -n 's/^ *DEVELOPMENT_TEAM: *//p' project.yml)
+team=$(sed -n 's/^DEVELOPMENT_TEAM = *//p' Config/Local.xcconfig 2>/dev/null || true)
 build=$(git rev-list --count HEAD)
 tag="v$version"
 bucket="memos-updates"
@@ -46,6 +46,7 @@ sparkle_bin="build/SourcePackages/artifacts/sparkle/Sparkle/bin"
 asc_key="${ASC_KEY_PATH:-$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID:-}.p8}"
 
 [[ -n "$version" ]] || fail "MARKETING_VERSION not found in project.yml"
+[[ -n "$team" ]] || fail "local signing configuration is missing; render it from Infisical first"
 # A dry run may come from any branch; a release comes from main as pushed.
 if ! $dry_run; then
   [[ -z "$(git status --porcelain)" ]] || fail "the tree has uncommitted changes"

@@ -4,10 +4,12 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(Updater.self) private var updater
+    @Environment(TextPad.self) private var textPad
     @Environment(\.colorScheme) private var colorScheme
     @State private var login = LoginItemSettings()
     @State private var globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
     @State private var newMemoShortcut = KeyboardShortcuts.getShortcut(for: .newMemo)
+    @State private var textPadShortcut = KeyboardShortcuts.getShortcut(for: .textPad)
     /// The empty box a key is being typed into, below one of a shortcut's others.
     @State private var adding: ShortcutRow?
     @State private var hovered: ShortcutRow.ID?
@@ -16,20 +18,28 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            Tab("App", systemImage: "macwindow") { app }
-            Tab("Storage", systemImage: "externaldrive") { StorageSettingsView() }
+            Tab("General", systemImage: "gearshape") { general }
+            Tab("Memos", systemImage: "note.text") { memos }
+            Tab("TextPad", systemImage: "note") { textPadSettings }
             Tab("Shortcuts", systemImage: "keyboard") { shortcuts }
             Tab("About", systemImage: "info.circle") { about }
         }
+        .frame(width: 520, height: 560)
         .tint(model.accentColor)
         // Otherwise the always-on-top memo window covers it.
-        .background(WindowReader { $0.level = .floating })
+        .background(WindowReader {
+            #if DEBUG
+            $0.level = .normal
+            #else
+            $0.level = .floating
+            #endif
+        })
         // Opened from the panel while another app is in front, Settings would open behind it.
-        .onAppear { NSApp.activate(); login.refresh() }
+        .onAppear { NSApp.activate(); login.refresh(); textPad.isActive = false }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in login.refresh() }
     }
 
-    private var app: some View {
+    private var general: some View {
         @Bindable var model = model
         return Form {
             Section {
@@ -81,6 +91,36 @@ struct SettingsView: View {
                     }
                 }
             }
+            Section("Appearance") {
+                Picker("Accent", selection: Binding(
+                    get: { AccentChoice(model.accent) },
+                    set: { choice in
+                        switch choice {
+                        case .standard: model.accent = .standard
+                        case .system: model.accent = .system
+                        case .custom: if let color = Self.systemAccentSnapshot() { model.accent = .custom(color) }
+                        }
+                    }
+                )) {
+                    Text("Default").tag(AccentChoice.standard)
+                    Text("System").tag(AccentChoice.system)
+                    Text("Custom").tag(AccentChoice.custom)
+                }
+                .tint(.primary)
+                if case .custom(let color) = model.accent {
+                    ColorPicker("Accent color", selection: Binding(
+                        get: { Color(nsColor: color) },
+                        set: { if let picked = Self.stored($0) { model.accent = .custom(picked) } }
+                    ), supportsOpacity: false)
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var memos: some View {
+        @Bindable var model = model
+        return Form {
             Section("Window") {
                 Toggle("Always on top", isOn: $model.floating)
                 Toggle("Side pane at launch", isOn: $model.sidePaneAtLaunch)
@@ -118,42 +158,26 @@ struct SettingsView: View {
                         set: { if let picked = Self.stored($0) { model.windowTint = picked } }
                     ), supportsOpacity: false)
                 }
-                Picker("Accent", selection: Binding(
-                    get: { AccentChoice(model.accent) },
-                    set: { choice in
-                        switch choice {
-                        case .standard: model.accent = .standard
-                        case .system: model.accent = .system
-                        case .custom: if let color = Self.systemAccentSnapshot() { model.accent = .custom(color) }
-                        }
-                    }
-                )) {
-                    Text("Default").tag(AccentChoice.standard)
-                    Text("System").tag(AccentChoice.system)
-                    Text("Custom").tag(AccentChoice.custom)
-                }
-                .tint(.primary)
-                if case .custom(let color) = model.accent {
-                    ColorPicker("Accent color", selection: Binding(
-                        get: { Color(nsColor: color) },
-                        set: { if let picked = Self.stored($0) { model.accent = .custom(picked) } }
-                    ), supportsOpacity: false)
-                }
             } header: {
                 Text("Appearance")
             } footer: {
                 HStack {
                     Spacer()
-                    Button("Reset Appearance") { model.resetAppearance() }
-                        .buttonStyle(.bordered)
-                        .tint(.primary)
-                        .disabled(model.isDefaultAppearance)
+                    Button("Reset Appearance") {
+                        model.textSize = AppModel.defaultTextSize
+                        model.standardControls = false
+                        model.windowOpacity = AppModel.defaultWindowOpacity
+                        model.windowTint = nil
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.primary)
+                    .disabled(model.textSize == AppModel.defaultTextSize && !model.standardControls
+                              && model.windowOpacity == AppModel.defaultWindowOpacity && model.windowTint == nil)
                 }
             }
+            StorageSettingsView()
         }
         .formStyle(.grouped)
-        .frame(width: 420)
-        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var shortcuts: some View {
@@ -180,9 +204,10 @@ struct SettingsView: View {
                     Button("Restore Defaults") {
                         adding = nil
                         model.shortcuts.reset()
-                        KeyboardShortcuts.reset(.toggleWindow, .newMemo)
+                        KeyboardShortcuts.reset(.toggleWindow, .newMemo, .textPad)
                         globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
                         newMemoShortcut = KeyboardShortcuts.getShortcut(for: .newMemo)
+                        textPadShortcut = KeyboardShortcuts.getShortcut(for: .textPad)
                     }
                     .buttonStyle(.bordered)
                     .tint(.primary)
@@ -191,8 +216,48 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        // The list outgrows a laptop screen, so this tab scrolls at a set height.
-        .frame(width: 420, height: 560)
+    }
+
+    private var textPadSettings: some View {
+        @Bindable var textPad = textPad
+        return Form {
+            Section {
+                Toggle("Enable TextPad", isOn: $textPad.enabled)
+            }
+            Section {
+                LabeledContent("Save to") {
+                    Text(textPad.isDefaultFolder ? "Downloads" : textPad.folder.path)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Button("Choose…") { Task { await textPad.chooseFolder() } }
+                    if !textPad.isDefaultFolder {
+                        Button("Downloads") { textPad.useDownloads() }
+                    }
+                }
+                Picker("Format", selection: $textPad.format) {
+                    ForEach(TextPadFormat.allCases) { format in Text(format.title).tag(format) }
+                }
+                Toggle("Save automatically", isOn: $textPad.saveAutomatically)
+                TextPadNamingSettings(files: textPad)
+            } header: {
+                Text("Files")
+            } footer: {
+                Text("Preview: \(textPad.namePreview)")
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .disabled(!textPad.enabled)
+            Section("Session") {
+                Picker("Reuse for", selection: $textPad.reusePeriod) {
+                    ForEach(TextPadReuse.allCases) { choice in Text(choice.title).tag(choice) }
+                }
+                globalRow("Show or hide TextPad", .textPad, $textPadShortcut)
+            }
+            .disabled(!textPad.enabled)
+            if let error = textPad.error { Text(error).foregroundStyle(.red) }
+        }
+        .formStyle(.grouped)
     }
 
     private var about: some View {
@@ -228,11 +293,9 @@ struct SettingsView: View {
             .foregroundStyle(.tint)
         }
         .formStyle(.grouped)
-        .frame(width: 420)
-        .fixedSize(horizontal: false, vertical: true)
     }
 
-    private static let globalNames: [KeyboardShortcuts.Name] = [.toggleWindow, .newMemo]
+    private static let globalNames: [KeyboardShortcuts.Name] = [.toggleWindow, .newMemo, .textPad]
 
     private func globalRow(
         _ title: String, _ name: KeyboardShortcuts.Name, _ shortcut: Binding<KeyboardShortcuts.Shortcut?>
@@ -258,7 +321,8 @@ struct SettingsView: View {
     ) -> Bool {
         guard let recorded = KeyboardShortcuts.Shortcut(event: event), let combo = KeyCombo(event: event), combo.isHotkey,
               !recorded.isTakenBySystem, NSApp.mainMenu.flatMap(combo.menuItem(in:)) == nil,
-              !Self.globalNames.contains(where: { $0 != name && KeyboardShortcuts.getShortcut(for: $0) == recorded })
+              !Self.globalNames.contains(where: { $0 != name && KeyboardShortcuts.getShortcut(for: $0) == recorded }),
+              !Shortcut.allCases.contains(where: { model.shortcuts.keys(for: $0).contains(combo) })
         else { return false }
         KeyboardShortcuts.setShortcut(recorded, for: name)
         shortcut.wrappedValue = recorded
@@ -283,7 +347,7 @@ struct SettingsView: View {
                 ) { event in
                     // The global hotkey takes its chord before the menu could, so no shortcut may share it.
                     guard let recorded = KeyCombo(event: event), recorded.isShortcut,
-                          globalShortcut == nil || KeyboardShortcuts.Shortcut(event: event) != globalShortcut else { return false }
+                          !Self.globalNames.contains(where: { KeyboardShortcuts.getShortcut(for: $0) == KeyboardShortcuts.Shortcut(event: event) }) else { return false }
                     adding = nil
                     model.shortcuts.record(recorded, in: row)
                     return true

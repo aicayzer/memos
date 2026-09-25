@@ -9,6 +9,7 @@ private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "ap
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model: AppModel
+    let textPad: TextPad
     private var panel: MemoPanel?
     private var watcher: LibraryWatcher?
     private var spotlight: SpotlightIndexer?
@@ -21,12 +22,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         let store: LibraryStore
+        let defaults = Self.isTestHost ? UserDefaults(suiteName: "tests-\(UUID().uuidString)")! : .standard
+        let testFolder = Self.isTestHost ? FileManager.default.temporaryDirectory.appending(path: "textpad-\(UUID().uuidString)") : nil
         do {
             if Self.isTestHost {
                 store = LibraryStore(fileURL: FileManager.default.temporaryDirectory.appending(path: "store-\(UUID().uuidString).json"))
                 model = AppModel(
                     store: store, images: store,
-                    defaults: UserDefaults(suiteName: "tests")!
+                    defaults: defaults
                 )
             } else {
                 // Another file, inside the container, for a run that must not show the real memos.
@@ -36,7 +39,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             fatalError("memo store unavailable: \(error)")
         }
+        textPad = TextPad(memoModel: model, defaults: defaults, defaultFolder: testFolder, presentsWindow: !Self.isTestHost)
         super.init()
+        if Self.isTestHost { KeyboardShortcuts.isEnabled = false }
         if !Self.isTestHost {
             spotlight = SpotlightIndexer(store: store, index: SystemMemoSearchIndex()) { [model] in model.spotlightError = $0 }
         }
@@ -61,26 +66,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         log.info("launched")
-        let panel = MemoPanel(content: MainView().environment(model))
+        let panel = MemoPanel(content: MainView().environment(model), restoresFrame: !Self.isTestHost)
         panel.keys = { [model] in model.shortcuts.windowKeys }
         panel.perform = { [model] in model.perform($0) }
+        panel.onBecomeKey = { [textPad] in textPad.isActive = false }
         self.panel = panel
         model.attach(panel)
-        if !LoginItemSettings.isLoginLaunch(NSAppleEventManager.shared().currentAppleEvent) { model.showWindow() }
+        if !Self.isTestHost,
+           !LoginItemSettings.isLoginLaunch(NSAppleEventManager.shared().currentAppleEvent),
+           !textPad.isVisible {
+            model.showWindow()
+        }
         startup = Task {
             await model.start()
             if let id = pendingMemoID { pendingMemoID = nil; await model.open(id) }
             spotlight?.refresh()
         }
-        KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
-        KeyboardShortcuts.onKeyDown(for: .newMemo) { [model] in Task { await model.newMemo() } }
+        if !Self.isTestHost {
+            KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
+            KeyboardShortcuts.onKeyDown(for: .newMemo) { [model] in Task { await model.newMemo() } }
+            textPad.installShortcut()
+        }
         updater.start()
     }
 
-    /// memos://memo/<id> opens that memo; anything else on the scheme just shows the window.
+    /// Open With sends files here; memos://memo/<id> opens a memo.
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
-            if url.host() == "memo", let id = UUID(uuidString: url.lastPathComponent) {
+            if url.isFileURL {
+                textPad.open(url)
+            } else if url.host() == "memo", let id = UUID(uuidString: url.lastPathComponent) {
                 openMemo(id)
             } else {
                 model.showWindow()
@@ -121,6 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard textPad.canTerminate() else { return .terminateCancel }
         Task {
             sender.reply(toApplicationShouldTerminate: await model.flush())
         }

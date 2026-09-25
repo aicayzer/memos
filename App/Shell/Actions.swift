@@ -25,7 +25,7 @@ extension AppModel {
             },
             PaletteItem(
                 id: "browse", title: "Browse Memos", symbol: "square.stack",
-                shortcut: shortcuts.label(.browse), section: "Navigate"
+                shortcut: shortcuts.label(.browse), section: "Navigate", restoresEditor: false
             ) {
                 self.toggle(.browse)
             },
@@ -43,7 +43,7 @@ extension AppModel {
             },
             PaletteItem(
                 id: "find", title: "Find in Memo", symbol: "text.magnifyingglass",
-                shortcut: shortcuts.label(.find), section: "Text"
+                shortcut: shortcuts.label(.find), section: "Text", restoresEditor: false
             ) {
                 self.toggle(.find)
             },
@@ -61,11 +61,11 @@ extension AppModel {
             },
             PaletteItem(
                 id: "saveAs", title: "Save As…", symbol: "square.and.arrow.down",
-                shortcut: shortcuts.label(.saveAs), section: "Export"
+                shortcut: shortcuts.label(.saveAs), section: "Export", restoresEditor: false
             ) {
                 Task { await self.saveAs() }
             },
-            PaletteItem(id: "share", title: "Share…", symbol: "square.and.arrow.up", section: "Export") {
+            PaletteItem(id: "share", title: "Share…", symbol: "square.and.arrow.up", section: "Export", restoresEditor: false) {
                 Task { await self.share() }
             },
             PaletteItem(
@@ -80,7 +80,7 @@ extension AppModel {
             ) {
                 self.toggleSidePane()
             },
-            PaletteItem(id: "settings", title: "Settings…", symbol: "gearshape", shortcut: "⌘,", section: "Window") {
+            PaletteItem(id: "settings", title: "Settings…", symbol: "gearshape", shortcut: "⌘,", section: "Window", restoresEditor: false) {
                 self.showSettings()
             },
         ]

@@ -214,13 +214,16 @@ struct Open: AsyncParsableCommand {
 
     func run() async throws {
         var url = URLComponents()
-        url.scheme = "memos"
+        guard let scheme = Bundle.main.object(forInfoDictionaryKey: "MemosURLScheme") as? String else {
+            throw ToolError(description: "the tool was built without the app URL scheme")
+        }
+        url.scheme = scheme
         if let memo {
             let found = try await Shared.find(memo, in: try Shared.store())
             url.host = "memo"
             url.path = "/\(found.id.uuidString.lowercased())"
         }
-        guard NSWorkspace.shared.open(url.url!) else { throw ToolError(description: "Memos is not registered to open memos:// links; open the app once") }
+        guard NSWorkspace.shared.open(url.url!) else { throw ToolError(description: "The app is not registered to open \(scheme):// links; open it once") }
     }
 }
 

@@ -15,6 +15,33 @@ import Testing
         return (model, store, editor)
     }
 
+    @Test func overlaysOwnFocusUntilDismissed() async {
+        let (model, _, editor) = await model("Keep this memo")
+        for overlay in [Overlay.palette, .browse, .find] {
+            model.overlay = overlay
+            #expect(!editor.allowsFocus)
+            let before = editor.focusCount
+            editor.focus()
+            #expect(editor.focusCount == before)
+            model.dismissOverlay()
+            #expect(editor.allowsFocus)
+            #expect(editor.focusCount == before + 1)
+        }
+    }
+
+    @Test func paletteActionsDoNotFocusEditorBeforeTheirDestination() async {
+        let (model, _, editor) = await model("Keep this memo")
+        model.overlay = .palette
+        let before = editor.focusCount
+        model.dismissOverlay(restoringEditor: false)
+        model.toggle(.browse)
+        #expect(editor.focusCount == before)
+        #expect(model.overlay == .browse)
+        #expect(!editor.allowsFocus)
+        model.overlay = nil
+        #expect(editor.focusCount == before)
+    }
+
     @Test func dismissingFindClearsTheSearch() async {
         let (model, _, editor) = await model("A memo")
         model.overlay = .find

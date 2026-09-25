@@ -16,7 +16,7 @@ extension AppModel {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
-        panel.message = "Locate the Memos folder shown in Storage settings."
+        panel.message = "Locate your Markdown memos folder."
         guard await panel.begin() == .OK, let folder = panel.url else { return }
         let accessing = folder.startAccessingSecurityScopedResource()
         defer { if accessing { folder.stopAccessingSecurityScopedResource() } }
@@ -53,7 +53,7 @@ extension AppModel {
         storageError = nil
         do {
             storageStatus = try await library.convert(toMarkdown: enabled, parent: parent, bookmark: bookmark)
-            storageNotice = "Storage converted and verified. The previous files are kept as a recovery snapshot."
+            storageNotice = "Storage updated and verified."
             didConvertStorage()
         } catch { storageError = error.localizedDescription }
     }
@@ -61,45 +61,56 @@ extension AppModel {
 
 struct StorageSettingsView: View {
     @Environment(AppModel.self) private var model
+    @State private var confirmingConversion = false
+    @State private var requestedMarkdown = false
 
     var body: some View {
-        Form {
-            Section {
-                Toggle("Store memos as Markdown files", isOn: Binding(
-                    get: { model.storageStatus?.markdown ?? false },
-                    set: { enabled in Task { await model.setMarkdownStorage(enabled) } }
-                ))
-                .disabled(model.convertingStorage || model.storageStatus == nil)
-                if model.convertingStorage {
-                    ProgressView("Converting and verifying memos…")
+        Section {
+            Toggle("Store memos as Markdown files", isOn: Binding(
+                get: { model.storageStatus?.markdown ?? false },
+                set: { enabled in
+                    requestedMarkdown = enabled
+                    confirmingConversion = true
                 }
-                if let status = model.storageStatus {
-                    LabeledContent("Location") {
-                        Text(status.location.path).textSelection(.enabled).lineLimit(3).truncationMode(.middle)
-                    }
-                    Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([status.location]) }
-                    if let recovery = status.recovery {
-                        Button("Show Previous Storage") { NSWorkspace.shared.activateFileViewerSelecting([recovery]) }
-                    }
+            ))
+            .disabled(model.convertingStorage || model.storageStatus == nil)
+            if model.convertingStorage {
+                ProgressView("Converting and verifying memos…")
+            }
+            if let status = model.storageStatus, status.markdown {
+                LabeledContent("Folder") {
+                    Text(status.location.path).textSelection(.enabled).lineLimit(2).truncationMode(.middle)
                 }
-            } footer: {
-                Text("Switching converts all existing memos, including their images, favorites and dates. Only the selected format stays active. Previous files are retained for recovery; edits to those copies do not appear here.")
+                Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([status.location]) }
+            }
+            if let recovery = model.storageStatus?.recovery {
+                Button("Show Previous Storage") { NSWorkspace.shared.activateFileViewerSelecting([recovery]) }
             }
             if let error = model.storageError {
-                Section {
-                    Text(error).foregroundStyle(.red).textSelection(.enabled)
-                    if model.storageStatus?.markdown == true {
-                        Button("Locate Markdown Folder…") { Task { await model.locateMarkdownFolder() } }
-                    }
+                Text(error).foregroundStyle(.red).textSelection(.enabled)
+                if model.storageStatus?.markdown == true {
+                    Button("Locate Markdown Folder…") { Task { await model.locateMarkdownFolder() } }
                 }
             }
             if let notice = model.storageNotice {
-                Section { Text(notice).foregroundStyle(.secondary) }
+                Text(notice).foregroundStyle(.secondary)
             }
+        } header: {
+            Text("Storage")
+        } footer: {
+            Text("Keep memos as Markdown files in a folder you choose.")
         }
-        .formStyle(.grouped)
-        .frame(width: 480)
-        .fixedSize(horizontal: false, vertical: true)
+        .confirmationDialog("Change memo storage?", isPresented: $confirmingConversion, titleVisibility: .visible) {
+            Button(requestedMarkdown ? "Use Markdown Files…" : "Keep Memos Internally") {
+                let enabled = requestedMarkdown
+                Task { await model.setMarkdownStorage(enabled) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(requestedMarkdown
+                 ? "All memos and images will be converted to files. Previous storage is kept for recovery."
+                 : "All memos and images will move into Memos. The Markdown folder is kept for recovery; edits there will no longer appear in Memos.")
+        }
         .task { await model.refreshStorage() }
     }
 }

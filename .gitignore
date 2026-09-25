@@ -31,3 +31,5 @@ _local/
 _ignore/
 *.log
 releases/
+Config/Local.xcconfig
+Config/Local.xcconfig.*

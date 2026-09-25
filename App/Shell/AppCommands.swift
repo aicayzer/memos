@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AppCommands: Commands {
     @Bindable var model: AppModel
+    let textPad: TextPad
     let updater: Updater
 
     var body: some Commands {
@@ -12,7 +13,18 @@ struct AppCommands: Commands {
             }
         }
         CommandGroup(replacing: .newItem) {
-            item(.newMemo)
+            if textPad.isActive {
+                Button("New TextPad") { textPad.commandNew() }
+                    .keyboardShortcut("n", modifiers: .command)
+            } else {
+                item(.newMemo)
+            }
+            if !textPad.isActive {
+                Button("New TextPad") { textPad.newFile() }
+                    .disabled(!textPad.enabled)
+            }
+            Button("Open Text File…") { Task { await textPad.openPicker() } }
+                .disabled(!textPad.enabled)
             item(.duplicate)
             item(.delete)
             item(.favorite, title: model.current?.favorite == true ? "Unfavorite Memo" : "Favorite Memo")
@@ -23,10 +35,24 @@ struct AppCommands: Commands {
             Divider()
             item(.copyMarkdown)
         }
+        CommandGroup(replacing: .saveItem) {
+            Button("Save") {
+                if textPad.isActive { textPad.save() }
+                else { Task { _ = await model.flush() } }
+            }
+            .keyboardShortcut("s", modifiers: .command)
+        }
         CommandGroup(after: .saveItem) {
             Divider()
-            item(.saveAs)
-            Button("Share…") { Task { await model.share() } }
+            if textPad.isActive {
+                Button("Save As…") { Task { await textPad.saveAs() } }
+                    .keyboardShortcut("s", modifiers: [.command, .shift])
+                Button("Share…") { textPad.share() }
+                Button("Save to Memos") { Task { await textPad.saveToMemos() } }
+            } else {
+                item(.saveAs)
+                Button("Share…") { Task { await model.share() } }
+            }
         }
         CommandGroup(after: .pasteboard) {
             Divider()
@@ -67,5 +93,6 @@ struct AppCommands: Commands {
     private func item(_ shortcut: Shortcut, title: String? = nil) -> some View {
         Button(title ?? shortcut.title) { model.perform(shortcut) }
             .keyboardShortcut(model.shortcuts.keyboardShortcut(shortcut))
+            .disabled(textPad.isActive)
     }
 }

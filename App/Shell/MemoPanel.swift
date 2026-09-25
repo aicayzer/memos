@@ -4,7 +4,9 @@ import SwiftUI
 /// The memo window is a panel that takes the keyboard without activating the app, as a launcher's
 /// does: the app in front stays in front, its name stays in the menu bar, and typing lands here.
 final class MemoPanel: NSPanel {
-    init<Content: View>(content: Content) {
+    var onBecomeKey: () -> Void = {}
+    private let pendingOverlayInput = OverlayInputResponder()
+    init<Content: View>(content: Content, restoresFrame: Bool = true) {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 640),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView, .nonactivatingPanel],
@@ -18,8 +20,12 @@ final class MemoPanel: NSPanel {
         // The content's minimum becomes the window's, so it follows the side pane.
         hosting.sizingOptions = [.minSize]
         contentView = hosting
-        if !setFrameUsingName(Self.frameName) { center() }
-        setFrameAutosaveName(Self.frameName)
+        if restoresFrame {
+            if !setFrameUsingName(Self.frameName) { center() }
+            setFrameAutosaveName(Self.frameName)
+        } else {
+            center()
+        }
     }
 
     /// The app's shortcuts, matched here before the content, since the web view claims every Command chord
@@ -34,6 +40,23 @@ final class MemoPanel: NSPanel {
             return true
         }
         return super.performKeyEquivalent(with: event)
+    }
+
+    override func becomeKey() {
+        super.becomeKey()
+        onBecomeKey()
+    }
+
+    func prepareOverlayFocus() {
+        pendingOverlayInput.discardEvents()
+        makeFirstResponder(pendingOverlayInput)
+    }
+
+    func cancelPendingOverlayInput() { pendingOverlayInput.discardEvents() }
+
+    override func resignKey() {
+        cancelPendingOverlayInput()
+        super.resignKey()
     }
 
     private static let frameName = "main"

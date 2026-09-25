@@ -20,6 +20,11 @@ final class AppModel {
     private(set) var history = History()
     var overlay: Overlay? {
         didSet {
+            editor.allowsFocus = overlay == nil
+            if overlay != oldValue {
+                if overlay != nil { (window as? MemoPanel)?.prepareOverlayFocus() }
+                else { (window as? MemoPanel)?.cancelPendingOverlayInput() }
+            }
             if oldValue == .find, overlay != .find {
                 findText = ""
                 editor.find("")
@@ -148,7 +153,11 @@ final class AppModel {
         self.editor = editor
         self.defaults = defaults
         shortcuts = ShortcutSettings(defaults: defaults)
+        #if DEBUG
+        floating = defaults.object(forKey: Self.floatingKey) as? Bool ?? false
+        #else
         floating = defaults.object(forKey: Self.floatingKey) as? Bool ?? true
+        #endif
         formatBarHidden = defaults.bool(forKey: Self.formatBarHiddenKey)
         let paneAtLaunch = defaults.bool(forKey: Self.sidePaneAtLaunchKey)
         sidePaneAtLaunch = paneAtLaunch
@@ -210,7 +219,7 @@ final class AppModel {
 
     func open(_ id: Memo.ID, recording: Bool = true) async {
         showWindowIfHidden()
-        guard id != current?.id else { return }
+        guard id != current?.id else { editor.focus(); return }
         guard !convertingStorage, await flush() else { return }
         do {
             guard let memo = try await store.get(id) else { return }
@@ -467,19 +476,6 @@ final class AppModel {
         pasteboard.setString(text, forType: .string)
     }
 
-    var isDefaultAppearance: Bool {
-        accent == .standard && textSize == Self.defaultTextSize && !standardControls
-            && windowOpacity == Self.defaultWindowOpacity && windowTint == nil
-    }
-
-    func resetAppearance() {
-        accent = .standard
-        textSize = Self.defaultTextSize
-        standardControls = false
-        windowOpacity = Self.defaultWindowOpacity
-        windowTint = nil
-    }
-
     func toggleSidePane() {
         showWindowIfHidden()
         // The frame first: a window narrower than its content is widened to the right, and setFrame is
@@ -516,13 +512,19 @@ final class AppModel {
     }
 
     func toggle(_ overlay: Overlay) {
-        showWindowIfHidden()
-        if self.overlay == overlay { dismissOverlay() } else { self.overlay = overlay }
+        if self.overlay == overlay {
+            dismissOverlay()
+        } else {
+            self.overlay = overlay
+            showWindowIfHidden()
+        }
     }
 
-    func dismissOverlay() {
+    func dismissOverlay() { dismissOverlay(restoringEditor: true) }
+
+    func dismissOverlay(restoringEditor: Bool) {
         overlay = nil
-        editor.focus()
+        if restoringEditor { editor.focus() }
     }
 
     func find() {
