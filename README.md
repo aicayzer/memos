@@ -22,6 +22,7 @@ Or download the [latest release](https://github.com/aicayzer/memos/releases/late
 - Search your memos, keep favorites, and find them in Spotlight.
 - Keep notes inside Memos or as Markdown files in a folder you choose.
 - Save or share a note as a Markdown file.
+- Enable TextPad in Settings to edit text and Markdown files directly.
 - Adjust the window, appearance, and shortcuts in Settings.
 
 ## A few shortcuts
