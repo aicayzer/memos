@@ -46,6 +46,10 @@ final class TextPadPanel: NSPanel {
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if event.charactersIgnoringModifiers == "n", modifiers == .command {
+            files.commandNew()
+            return true
+        }
         if event.charactersIgnoringModifiers == "s", modifiers == .command {
             files.save()
             return true
@@ -76,6 +80,7 @@ final class TextPadPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
+        files.isActive = false
         files.lostFocus()
     }
 
@@ -84,10 +89,7 @@ final class TextPadPanel: NSPanel {
 private struct TextPadView: View {
     @Bindable var files: TextPad
     @FocusState private var editing: Bool
-    @State private var hoveredAction: Action?
     @State private var shareAnchor = TextPadShareAnchor()
-
-    private enum Action: Hashable { case share, saveToMemos }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -102,22 +104,18 @@ private struct TextPadView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .lineLimit(1)
                     .onTapGesture(count: 2) { files.expand() }
+                DevelopmentBadge()
                 if files.isDirty { Circle().frame(width: 6, height: 6).foregroundStyle(.secondary) }
                 Spacer()
-                actionIcon("square.and.arrow.up", label: "Share", action: .share) {
+                actionIcon("square.and.arrow.up", label: "Share") {
                     files.share(from: shareAnchor.view)
                 }
                 .background(TextPadShareAnchorView(anchor: shareAnchor).allowsHitTesting(false))
-                actionIcon("note.text.badge.plus", label: "Save to Memos", action: .saveToMemos) {
+                actionIcon("note.text.badge.plus", label: "Save to Memos") {
                     Task { await files.saveToMemos() }
                 }
                 Button("Save") { files.save() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .padding(.horizontal, 14)
-                    .frame(height: 24)
-                    .background(Color.primary.opacity(0.1), in: Capsule())
+                    .buttonStyle(TextPadToolbarButtonStyle(primary: true))
             }
             .buttonStyle(.plain)
             .font(.system(size: 14, weight: .medium))
@@ -153,23 +151,37 @@ private struct TextPadView: View {
         .glassEffect(.regular, in: .rect(cornerRadius: 22))
         .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
         .padding(8)
-        .onAppear { editing = true }
+        .disabled(files.isBusy)
+        .defaultFocus($editing, true)
+        .onChange(of: files.isActive) {
+            if files.isActive { editing = true }
+        }
     }
 
-    private func actionIcon(_ symbol: String, label: String, action: Action,
-                            perform: @escaping () -> Void) -> some View {
+    private func actionIcon(_ symbol: String, label: String, perform: @escaping () -> Void) -> some View {
         Button(action: perform) {
             Image(systemName: symbol)
-                .font(.system(size: 13, weight: .medium))
-                .frame(width: 32, height: 26)
-                .contentShape(Rectangle())
+                .frame(width: 16)
         }
-        .background {
-            Capsule()
-                .fill(hoveredAction == action ? Color.primary.opacity(0.09) : .clear)
-        }
-        .onHover { hoveredAction = $0 ? action : nil }
+        .buttonStyle(TextPadToolbarButtonStyle())
         .accessibilityLabel(label)
         .help(label)
+    }
+}
+
+private struct TextPadToolbarButtonStyle: ButtonStyle {
+    var primary = false
+    @State private var hovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(primary ? .primary : .secondary)
+            .frame(height: 16)
+            .padding(.horizontal, primary ? 14 : 8)
+            .padding(.vertical, 4)
+            .background(Color.primary.opacity(primary || hovered || configuration.isPressed ? 0.1 : 0), in: Capsule())
+            .contentShape(Capsule())
+            .onHover { hovered = $0 }
     }
 }

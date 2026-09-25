@@ -298,7 +298,8 @@ struct SettingsView: View {
     ) -> Bool {
         guard let recorded = KeyboardShortcuts.Shortcut(event: event), let combo = KeyCombo(event: event), combo.isHotkey,
               !recorded.isTakenBySystem, NSApp.mainMenu.flatMap(combo.menuItem(in:)) == nil,
-              !Self.globalNames.contains(where: { $0 != name && KeyboardShortcuts.getShortcut(for: $0) == recorded })
+              !Self.globalNames.contains(where: { $0 != name && KeyboardShortcuts.getShortcut(for: $0) == recorded }),
+              !Shortcut.allCases.contains(where: { model.shortcuts.keys(for: $0).contains(combo) })
         else { return false }
         KeyboardShortcuts.setShortcut(recorded, for: name)
         shortcut.wrappedValue = recorded
@@ -323,7 +324,7 @@ struct SettingsView: View {
                 ) { event in
                     // The global hotkey takes its chord before the menu could, so no shortcut may share it.
                     guard let recorded = KeyCombo(event: event), recorded.isShortcut,
-                          globalShortcut == nil || KeyboardShortcuts.Shortcut(event: event) != globalShortcut else { return false }
+                          !Self.globalNames.contains(where: { KeyboardShortcuts.getShortcut(for: $0) == KeyboardShortcuts.Shortcut(event: event) }) else { return false }
                     adding = nil
                     model.shortcuts.record(recorded, in: row)
                     return true

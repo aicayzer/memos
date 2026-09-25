@@ -9,6 +9,7 @@ struct TopRow: View {
     var body: some View {
         ZStack {
             HStack(spacing: 5) {
+                DevelopmentBadge()
                 if model.current?.favorite == true {
                     Image(systemName: "star.fill")
                         .font(.system(size: 10))

@@ -22,12 +22,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         let store: LibraryStore
+        let defaults = Self.isTestHost ? UserDefaults(suiteName: "tests-\(UUID().uuidString)")! : .standard
+        let testFolder = Self.isTestHost ? FileManager.default.temporaryDirectory.appending(path: "textpad-\(UUID().uuidString)") : nil
         do {
             if Self.isTestHost {
                 store = LibraryStore(fileURL: FileManager.default.temporaryDirectory.appending(path: "store-\(UUID().uuidString).json"))
                 model = AppModel(
                     store: store, images: store,
-                    defaults: UserDefaults(suiteName: "tests")!
+                    defaults: defaults
                 )
             } else {
                 // Another file, inside the container, for a run that must not show the real memos.
@@ -37,8 +39,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             fatalError("memo store unavailable: \(error)")
         }
-        textPad = TextPad(memoModel: model)
+        textPad = TextPad(memoModel: model, defaults: defaults, defaultFolder: testFolder, presentsWindow: !Self.isTestHost)
         super.init()
+        if Self.isTestHost { KeyboardShortcuts.isEnabled = false }
         if !Self.isTestHost {
             spotlight = SpotlightIndexer(store: store, index: SystemMemoSearchIndex()) { [model] in model.spotlightError = $0 }
         }
@@ -79,9 +82,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let id = pendingMemoID { pendingMemoID = nil; await model.open(id) }
             spotlight?.refresh()
         }
-        KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
-        KeyboardShortcuts.onKeyDown(for: .newMemo) { [model] in Task { await model.newMemo() } }
-        textPad.installShortcut()
+        if !Self.isTestHost {
+            KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
+            KeyboardShortcuts.onKeyDown(for: .newMemo) { [model] in Task { await model.newMemo() } }
+            textPad.installShortcut()
+        }
         updater.start()
     }
 

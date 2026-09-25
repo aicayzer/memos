@@ -75,15 +75,17 @@ final class TextPad {
     private var shortcutInstalled = false
     private var createdAt: Date?
     private var openedFromDisk = false
-    private var isPresentingFilePanel = false
-    private var isPresentingSharePicker = false
-    private var isDismissing = false
+    private enum Operation { case transition, filePanel, sharing, savingMemo }
+    private var operation: Operation?
     private var sharePicker: NSSharingServicePicker?
     private var shareDelegate: TextPadSharePickerDelegate?
     private let defaults: UserDefaults
     private let memoModel: AppModel
     private let presentsWindow: Bool
     private let copyPath: @MainActor (String) -> Void
+    private let selectOpenFile: @MainActor () async -> URL?
+    private let selectSaveFile: @MainActor (URL, String) async -> URL?
+    private let discardChanges: @MainActor () -> Bool
 
     private static let enabledKey = "textPad.enabled"
     private static let formatKey = "textPad.format"
@@ -104,11 +106,17 @@ final class TextPad {
          copyPath: @escaping @MainActor (String) -> Void = {
              NSPasteboard.general.clearContents()
              NSPasteboard.general.setString($0, forType: .string)
-         }) {
+         },
+         selectOpenFile: (@MainActor () async -> URL?)? = nil,
+         selectSaveFile: (@MainActor (URL, String) async -> URL?)? = nil,
+         discardChanges: (@MainActor () -> Bool)? = nil) {
         self.memoModel = memoModel
         self.defaults = defaults
         self.presentsWindow = presentsWindow
         self.copyPath = copyPath
+        self.selectOpenFile = selectOpenFile ?? Self.presentOpenPanel
+        self.selectSaveFile = selectSaveFile ?? Self.presentSavePanel
+        self.discardChanges = discardChanges ?? Self.confirmDiscard
         enabled = defaults.bool(forKey: Self.enabledKey)
         format = defaults.string(forKey: Self.formatKey).flatMap(TextPadFormat.init(rawValue:)) ?? .txt
         saveAutomatically = defaults.object(forKey: Self.autoSaveKey) as? Bool ?? true
@@ -123,6 +131,7 @@ final class TextPad {
     }
 
     var isDirty: Bool { text != savedText }
+    var isBusy: Bool { operation != nil }
     var isVisible: Bool { panel?.isVisible == true }
     var isDefaultFolder: Bool { defaults.data(forKey: Self.folderBookmarkKey) == nil }
 
@@ -142,6 +151,9 @@ final class TextPad {
     }
 
     func chooseFolder() async {
+        guard !isBusy else { return }
+        operation = .filePanel
+        defer { operation = nil }
         let picker = NSOpenPanel()
         picker.canChooseFiles = false
         picker.canChooseDirectories = true
@@ -160,6 +172,7 @@ final class TextPad {
     }
 
     func useDownloads() {
+        guard !isBusy else { return }
         folderScope?.stopAccessingSecurityScopedResource()
         folderScope = nil
         defaults.removeObject(forKey: Self.folderBookmarkKey)
@@ -168,17 +181,21 @@ final class TextPad {
     }
 
     func newFile(now: Date = .now) {
-        guard enabled, finishCurrent() else { return }
+        guard enabled, !isBusy else { return }
+        operation = .transition
+        defer { operation = nil }
+        guard finishCurrent() else { return }
         resetDocument()
         createdAt = now
         show()
     }
 
     func toggle(now: Date = .now) {
-        guard enabled else { return }
+        guard enabled, !isBusy else { return }
         if isVisible {
             close()
         } else if openedFromDisk || isReusable(at: now) {
+            refreshCurrentFile()
             show()
         } else {
             newFile(now: now)
@@ -186,8 +203,9 @@ final class TextPad {
     }
 
     func commandNew(now: Date = .now) {
-        guard enabled else { return }
+        guard enabled, !isBusy else { return }
         if isReusable(at: now) {
+            refreshCurrentFile()
             show()
         } else {
             newFile(now: now)
@@ -213,17 +231,29 @@ final class TextPad {
     }
 
     func openPicker() async {
-        guard enabled else { return }
-        isPresentingFilePanel = true
-        defer { isPresentingFilePanel = false }
+        guard enabled, !isBusy else { return }
+        operation = .filePanel
+        defer { operation = nil }
+        guard let chosen = await selectOpenFile() else { return }
+        openDocument(chosen)
+    }
+
+    private static func presentOpenPanel() async -> URL? {
         let picker = NSOpenPanel()
         picker.allowedContentTypes = [.plainText, UTType(filenameExtension: "md") ?? .plainText]
         picker.allowsOtherFileTypes = false
-        guard await picker.begin() == .OK, let chosen = picker.url else { return }
-        open(chosen)
+        guard await picker.begin() == .OK else { return nil }
+        return picker.url
     }
 
     func open(_ file: URL) {
+        guard !isBusy else { return }
+        operation = .transition
+        defer { operation = nil }
+        openDocument(file)
+    }
+
+    private func openDocument(_ file: URL) {
         if !enabled {
             guard presentsWindow else { return }
             let alert = NSAlert()
@@ -240,6 +270,7 @@ final class TextPad {
             return
         }
         if file.standardizedFileURL == url?.standardizedFileURL {
+            refreshCurrentFile()
             show()
             return
         }
@@ -269,7 +300,32 @@ final class TextPad {
         }
     }
 
+    private func refreshCurrentFile() {
+        guard let url else { return }
+        do {
+            let bytes = try Data(contentsOf: url)
+            guard let content = String(data: bytes, encoding: .utf8) else { throw TextPadError.encoding }
+            if isDirty {
+                guard bytes == baseline else { throw TextPadError.changed }
+            } else {
+                text = content
+                savedText = content
+                baseline = bytes
+                notice = nil
+            }
+            error = nil
+        } catch {
+            self.error = error.localizedDescription
+            notice = nil
+        }
+    }
+
     func save() {
+        guard !isBusy else { return }
+        saveCurrent()
+    }
+
+    private func saveCurrent() {
         do {
             if let url {
                 guard try Data(contentsOf: url) == baseline else { throw TextPadError.changed }
@@ -297,40 +353,51 @@ final class TextPad {
     }
 
     func saveAs() async {
-        isPresentingFilePanel = true
-        defer { isPresentingFilePanel = false }
-        let picker = NSSavePanel()
-        picker.allowedContentTypes = [.plainText, UTType(filenameExtension: "md") ?? .plainText]
-        picker.directoryURL = url?.deletingLastPathComponent() ?? folder
-        picker.nameFieldStringValue = url?.lastPathComponent ?? Self.suggestedName(format: format)
-        guard await picker.begin() == .OK, let destination = picker.url else { return }
+        guard !isBusy else { return }
+        operation = .filePanel
+        defer { operation = nil }
+        let content = text
+        let directory = url?.deletingLastPathComponent() ?? folder
+        let name = url?.lastPathComponent ?? Self.suggestedName(format: format)
+        guard let destination = await selectSaveFile(directory, name) else { return }
         let accessing = destination.startAccessingSecurityScopedResource()
         do {
             if destination.standardizedFileURL == url?.standardizedFileURL,
                try Data(contentsOf: destination) != baseline {
                 throw TextPadError.changed
             }
-            let bytes = Data(text.utf8)
+            let bytes = Data(content.utf8)
             try bytes.write(to: destination, options: .atomic)
             documentScope?.stopAccessingSecurityScopedResource()
             documentScope = accessing ? destination : nil
             url = destination
             baseline = bytes
-            savedText = text
+            savedText = content
             error = nil
             notice = "Saved"
         } catch {
             if accessing { destination.stopAccessingSecurityScopedResource() }
             self.error = error.localizedDescription
+            notice = nil
         }
     }
 
+    private static func presentSavePanel(directory: URL, name: String) async -> URL? {
+        let picker = NSSavePanel()
+        picker.allowedContentTypes = [.plainText, UTType(filenameExtension: "md") ?? .plainText]
+        picker.directoryURL = directory
+        picker.nameFieldStringValue = name
+        guard await picker.begin() == .OK else { return nil }
+        return picker.url
+    }
+
     func share(from anchor: NSView? = nil) {
-        guard let view = anchor ?? panel?.contentView else { return }
+        guard !isBusy, let view = anchor ?? panel?.contentView else { return }
+        operation = .sharing
         do {
             let picker = NSSharingServicePicker(items: [try shareableURL()])
             let delegate = TextPadSharePickerDelegate { [weak self] in
-                self?.isPresentingSharePicker = false
+                self?.operation = nil
                 self?.sharePicker = nil
                 self?.shareDelegate = nil
                 if self?.panel?.isKeyWindow == false { self?.lostFocus() }
@@ -338,13 +405,15 @@ final class TextPad {
             picker.delegate = delegate
             sharePicker = picker
             shareDelegate = delegate
-            isPresentingSharePicker = true
             let rect = anchor == nil
                 ? NSRect(x: view.bounds.maxX - 90, y: view.bounds.maxY - 38, width: 32, height: 24)
                 : view.bounds
             picker.show(relativeTo: rect, of: view, preferredEdge: .minY)
             error = nil
-        } catch { self.error = error.localizedDescription }
+        } catch {
+            operation = nil
+            self.error = error.localizedDescription
+        }
     }
 
     func shareableURL(in temporaryFolder: URL = FileManager.default.temporaryDirectory) throws -> URL {
@@ -358,6 +427,9 @@ final class TextPad {
     }
 
     func saveToMemos() async {
+        guard !isBusy else { return }
+        operation = .savingMemo
+        defer { operation = nil }
         let content = text
         do {
             let memo = try await memoModel.store.create(markdown: content)
@@ -368,34 +440,39 @@ final class TextPad {
     }
 
     func close() {
+        guard !isBusy else { return }
+        operation = .transition
+        defer { operation = nil }
         guard finishCurrent() else { return }
-        isDismissing = true
         isActive = false
         panel?.orderOut(nil)
-        isDismissing = false
     }
 
     func lostFocus() {
-        guard !isDismissing, !isPresentingFilePanel, !isPresentingSharePicker, panel?.isVisible == true else { return }
+        guard !isBusy, panel?.isVisible == true else { return }
         close()
-        if panel?.isVisible == true { panel?.makeKeyAndOrderFront(nil) }
     }
 
     private func finishCurrent() -> Bool {
         guard isDirty else { return true }
         if saveAutomatically {
-            save()
+            saveCurrent()
             return !isDirty
         }
-        if openedFromDisk {
-            guard confirmDiscard() else { return false }
+        if url != nil {
+            guard discardChanges() else { return false }
         }
-        if !openedFromDisk { resetDocument() }
+        if url == nil { resetDocument() }
         else { text = savedText }
         return true
     }
 
-    func canTerminate() -> Bool { finishCurrent() }
+    func canTerminate() -> Bool {
+        guard !isBusy else { return false }
+        operation = .transition
+        defer { operation = nil }
+        return finishCurrent()
+    }
 
     func expand() { panel?.toggleExpanded() }
 
@@ -407,8 +484,7 @@ final class TextPad {
         panel?.makeKeyAndOrderFront(nil)
     }
 
-    private func confirmDiscard() -> Bool {
-        guard isDirty else { return true }
+    private static func confirmDiscard() -> Bool {
         let alert = NSAlert()
         alert.messageText = "Discard unsaved changes?"
         alert.informativeText = "Your changes to this text file have not been saved."
