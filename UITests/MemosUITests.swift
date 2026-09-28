@@ -41,15 +41,15 @@ final class MemosUITests: XCTestCase {
         attach(app, name: "Memos General settings")
         let dock = settings.switches["showInDock"]
         XCTAssertTrue(dock.waitForExistence(timeout: 5), settings.debugDescription)
-        let process = try XCTUnwrap(NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleIdentifier).first)
-        XCTAssertEqual(process.activationPolicy, .regular)
+        let process = try XCTUnwrap(NSRunningApplication.runningApplications(withBundleIdentifier: fixture.bundleIdentifier).first)
+        expectPolicy(.regular, process: process)
         dock.click()
         expectPolicy(.accessory, process: process)
         selectTab("Appearance", in: settings)
         XCTAssertTrue(settings.staticTexts["Opacity"].exists)
         attach(app, name: "Memos Appearance settings without Dock icon")
         selectTab("Storage", in: settings)
-        XCTAssertTrue(settings.staticTexts["Store memos as Markdown files"].exists)
+        XCTAssertTrue(settings.staticTexts["Keep memos"].exists)
         attach(app, name: "Memos Storage settings")
         selectTab("Shortcuts", in: settings)
         XCTAssertFalse(settings.staticTexts["Show or hide TextPad"].exists)
@@ -102,14 +102,21 @@ final class MemosUITests: XCTestCase {
     private struct Fixture {
         let app: XCUIApplication
         let folder: URL
+        let bundleIdentifier: String
     }
 
     private func launchMemos() throws -> Fixture {
         continueAfterFailure = false
+        let testBundleID = try XCTUnwrap(Bundle(for: Self.self).bundleIdentifier)
+        guard testBundleID.hasSuffix(".uitests") else {
+            throw NSError(domain: "MemosUITests", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Unexpected UI test bundle identifier: \(testBundleID)"])
+        }
+        let bundleIdentifier = String(testBundleID.dropLast(".uitests".count))
         let app = XCUIApplication()
         XCTAssertEqual(app.state, .notRunning, "Leave an existing development app untouched.")
         let folder = FileManager.default.homeDirectoryForCurrentUser
-            .appending(path: "Library/Containers/\(app.bundleIdentifier)/Data/tmp/memos-ui-\(UUID().uuidString)", directoryHint: .isDirectory)
+            .appending(path: "Library/Containers/\(bundleIdentifier)/Data/tmp/memos-ui-\(UUID().uuidString)", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let store = folder.appending(path: "store.json")
         try Data("[]".utf8).write(to: store)
@@ -119,7 +126,7 @@ final class MemosUITests: XCTestCase {
                                "-KeyboardShortcuts_toggleWindow", #""{\"carbonKeyCode\":11,\"carbonModifiers\":6400}""#,
                                "-KeyboardShortcuts_newMemo", #""{\"carbonKeyCode\":46,\"carbonModifiers\":6400}""#]
         app.launch()
-        return Fixture(app: app, folder: folder)
+        return Fixture(app: app, folder: folder, bundleIdentifier: bundleIdentifier)
     }
 
     private func finish(_ fixture: Fixture) {
