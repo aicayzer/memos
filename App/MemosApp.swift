@@ -73,7 +73,7 @@ enum MenuBarIcon: String, CaseIterable, Identifiable {
         if let systemImage {
             Image(systemName: systemImage)
         } else {
-            Image(Self.asset).resizable().scaledToFit().frame(height: 13)
+            Image(Self.asset).renderingMode(.template).resizable().scaledToFit().frame(height: 13)
         }
     }
 
