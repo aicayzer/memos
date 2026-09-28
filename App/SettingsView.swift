@@ -3,13 +3,10 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
-    @Environment(Updater.self) private var updater
-    @Environment(TextPad.self) private var textPad
     @Environment(\.colorScheme) private var colorScheme
     @State private var login = LoginItemSettings()
     @State private var globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
     @State private var newMemoShortcut = KeyboardShortcuts.getShortcut(for: .newMemo)
-    @State private var textPadShortcut = KeyboardShortcuts.getShortcut(for: .textPad)
     /// The empty box a key is being typed into, below one of a shortcut's others.
     @State private var adding: ShortcutRow?
     @State private var hovered: ShortcutRow.ID?
@@ -19,12 +16,11 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             Tab("General", systemImage: "gearshape") { general }
-            Tab("Memos", systemImage: "note.text") { memos }
-            Tab("TextPad", systemImage: "note") { textPadSettings }
+            Tab("Appearance", systemImage: "paintbrush") { appearance }
+            Tab("Storage", systemImage: "externaldrive") { storage }
             Tab("Shortcuts", systemImage: "keyboard") { shortcuts }
-            Tab("About", systemImage: "info.circle") { about }
         }
-        .frame(width: 520, height: 560)
+        .frame(width: 460, height: 560)
         .tint(model.accentColor)
         // Otherwise the always-on-top memo window covers it.
         .background(WindowReader {
@@ -35,7 +31,7 @@ struct SettingsView: View {
             #endif
         })
         // Opened from the panel while another app is in front, Settings would open behind it.
-        .onAppear { NSApp.activate(); login.refresh(); textPad.isActive = false }
+        .onAppear { NSApp.activate(); login.refresh() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in login.refresh() }
     }
 
@@ -43,7 +39,7 @@ struct SettingsView: View {
         @Bindable var model = model
         return Form {
             Section {
-                Toggle("Open at Login", isOn: Binding(get: { login.enabled }, set: { enabled in
+                Toggle("Open at login", isOn: Binding(get: { login.enabled }, set: { enabled in
                     Task { await login.setEnabled(enabled) }
                 }))
                 .disabled(login.updating)
@@ -52,6 +48,8 @@ struct SettingsView: View {
                 }
                 if let error = login.error { Text(error).foregroundStyle(.red) }
                 // Without a shortcut, the last way back to the window cannot be switched off.
+                Toggle("Show in Dock", isOn: $model.showInDock)
+                    .disabled(model.showInDock && !model.menuBarItem && !hasShortcut)
                 Toggle("Show in menu bar", isOn: $model.menuBarItem)
                     .disabled(model.menuBarItem && !model.showInDock && !hasShortcut)
                 // A menu of icons rather than a picker: what is chosen is already shown as the menu's own
@@ -71,21 +69,18 @@ struct SettingsView: View {
                     .buttonStyle(.borderless)
                     .tint(.primary)
                     .fixedSize()
+                    .accessibilityLabel("Menu bar icon")
                     .accessibilityValue(model.menuBarIcon.title)
                 }
                 .disabled(!model.menuBarItem)
-                Toggle("Show in Dock", isOn: $model.showInDock)
-                    .disabled(model.showInDock && !model.menuBarItem && !hasShortcut)
             } header: {
-                Text("General")
+                Text("App")
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
                     if let error = model.spotlightError { Text(error).foregroundStyle(.red) }
-                    if model.policyPending {
-                        Text("The Dock changes when you switch to another app.")
-                    }
-                    if !model.menuBarItem, !model.showInDock {
-                        Text("With both off, the keyboard shortcut still opens the window.")
+                    if let error = model.activationPolicyError { Text(error).foregroundStyle(.red) }
+                    if !model.menuBarItem, !model.showInDock, let globalShortcut {
+                        Text("Open Memos with \(globalShortcut.description).")
                     } else if !hasShortcut, model.menuBarItem != model.showInDock {
                         Text("Set a shortcut in Shortcuts to switch this off as well.")
                     }
@@ -114,16 +109,28 @@ struct SettingsView: View {
                     ), supportsOpacity: false)
                 }
             }
+            Section("About") {
+                LabeledContent("Version", value: "\(Bundle.main.shortVersion) (\(Bundle.main.buildNumber))")
+                Link(destination: URL(string: "https://github.com/aicayzer/memos")!) {
+                    Text("Source Code").foregroundStyle(model.accentColor)
+                }
+                Link(destination: URL(string: "https://github.com/aicayzer/memos/releases")!) {
+                    Text("Releases").foregroundStyle(model.accentColor)
+                }
+                Link(destination: URL(string: "https://github.com/aicayzer/memos/blob/main/LICENSE")!) {
+                    Text("License").foregroundStyle(model.accentColor)
+                }
+            }
         }
         .formStyle(.grouped)
     }
 
-    private var memos: some View {
+    private var appearance: some View {
         @Bindable var model = model
         return Form {
             Section("Window") {
                 Toggle("Always on top", isOn: $model.floating)
-                Toggle("Side pane at launch", isOn: $model.sidePaneAtLaunch)
+                Toggle("Show sidebar at launch", isOn: $model.sidePaneAtLaunch)
             }
             Section {
                 Picker("Controls", selection: $model.standardControls) {
@@ -138,8 +145,14 @@ struct SettingsView: View {
                 }
                 .tint(.primary)
                 LabeledContent("Opacity") {
-                    Slider(value: $model.windowOpacity, in: 0...1) { Text("Opacity") }
-                        .labelsHidden()
+                    HStack(spacing: 8) {
+                        Slider(value: $model.windowOpacity, in: 0...1) { Text("Opacity") }
+                            .labelsHidden()
+                            .frame(width: 115)
+                        Text(model.windowOpacity, format: .percent.precision(.fractionLength(0)))
+                            .monospacedDigit()
+                            .frame(width: 38, alignment: .trailing)
+                    }
                 }
                 Picker("Tint", selection: Binding(
                     get: { model.windowTint != nil },
@@ -159,7 +172,7 @@ struct SettingsView: View {
                     ), supportsOpacity: false)
                 }
             } header: {
-                Text("Appearance")
+                Text("Editor")
             } footer: {
                 HStack {
                     Spacer()
@@ -175,16 +188,20 @@ struct SettingsView: View {
                               && model.windowOpacity == AppModel.defaultWindowOpacity && model.windowTint == nil)
                 }
             }
-            StorageSettingsView()
         }
         .formStyle(.grouped)
+    }
+
+    private var storage: some View {
+        Form { StorageSettingsView() }
+            .formStyle(.grouped)
     }
 
     private var shortcuts: some View {
         let conflicts = model.shortcuts.conflicts
         return Form {
             Section("Global Shortcuts") {
-                globalRow("Show or hide the window", .toggleWindow, $globalShortcut)
+                globalRow("Show or hide Memos", .toggleWindow, $globalShortcut)
                 globalRow("New memo", .newMemo, $newMemoShortcut)
             }
             Section {
@@ -197,17 +214,16 @@ struct SettingsView: View {
             Section {
                 ForEach(model.shortcuts.rows(for: Shortcut.editor, adding: adding)) { row($0, conflicts: conflicts) }
             } header: {
-                Text("Editor")
+                Text("Formatting")
             } footer: {
                 HStack {
                     Spacer()
                     Button("Restore Defaults") {
                         adding = nil
                         model.shortcuts.reset()
-                        KeyboardShortcuts.reset(.toggleWindow, .newMemo, .textPad)
+                        KeyboardShortcuts.reset(.toggleWindow, .newMemo)
                         globalShortcut = KeyboardShortcuts.getShortcut(for: .toggleWindow)
                         newMemoShortcut = KeyboardShortcuts.getShortcut(for: .newMemo)
-                        textPadShortcut = KeyboardShortcuts.getShortcut(for: .textPad)
                     }
                     .buttonStyle(.bordered)
                     .tint(.primary)
@@ -218,84 +234,7 @@ struct SettingsView: View {
         .formStyle(.grouped)
     }
 
-    private var textPadSettings: some View {
-        @Bindable var textPad = textPad
-        return Form {
-            Section {
-                Toggle("Enable TextPad", isOn: $textPad.enabled)
-            }
-            Section {
-                LabeledContent("Save to") {
-                    Text(textPad.isDefaultFolder ? "Downloads" : textPad.folder.path)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Button("Choose…") { Task { await textPad.chooseFolder() } }
-                    if !textPad.isDefaultFolder {
-                        Button("Downloads") { textPad.useDownloads() }
-                    }
-                }
-                Picker("Format", selection: $textPad.format) {
-                    ForEach(TextPadFormat.allCases) { format in Text(format.title).tag(format) }
-                }
-                Toggle("Save automatically", isOn: $textPad.saveAutomatically)
-                TextPadNamingSettings(files: textPad)
-            } header: {
-                Text("Files")
-            } footer: {
-                Text("Preview: \(textPad.namePreview)")
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            .disabled(!textPad.enabled)
-            Section("Session") {
-                Picker("Reuse for", selection: $textPad.reusePeriod) {
-                    ForEach(TextPadReuse.allCases) { choice in Text(choice.title).tag(choice) }
-                }
-                globalRow("Show or hide TextPad", .textPad, $textPadShortcut)
-            }
-            .disabled(!textPad.enabled)
-            if let error = textPad.error { Text(error).foregroundStyle(.red) }
-        }
-        .formStyle(.grouped)
-    }
-
-    private var about: some View {
-        Form {
-            Section {
-                HStack(spacing: 14) {
-                    Image(nsImage: NSApp.applicationIconImage)
-                        .resizable()
-                        .frame(width: 64, height: 64)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(Bundle.main.displayName).font(.title2.weight(.semibold))
-                        Text("Version \(Bundle.main.shortVersion) (\(Bundle.main.buildNumber))")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-            Section {
-                LabeledContent("Updates") {
-                    Button("Check for Updates…") { updater.check() }
-                        .buttonStyle(.bordered)
-                        .tint(.primary)
-                        .disabled(!updater.canCheck)
-                }
-            } footer: {
-                Text(updater.isAvailable ? "The app checks on its own and offers what it finds." : "A build from the tree carries no updater.")
-            }
-            Section {
-                Link("Source and releases", destination: URL(string: "https://github.com/aicayzer/memos")!)
-                Link("License", destination: URL(string: "https://github.com/aicayzer/memos/blob/main/LICENSE")!)
-            }
-            // A link is drawn in the system's link color, which is blue whatever the app's accent is.
-            .foregroundStyle(.tint)
-        }
-        .formStyle(.grouped)
-    }
-
-    private static let globalNames: [KeyboardShortcuts.Name] = [.toggleWindow, .newMemo, .textPad]
+    private static let globalNames: [KeyboardShortcuts.Name] = [.toggleWindow, .newMemo]
 
     private func globalRow(
         _ title: String, _ name: KeyboardShortcuts.Name, _ shortcut: Binding<KeyboardShortcuts.Shortcut?>
@@ -308,6 +247,7 @@ struct SettingsView: View {
                 onClear: {
                     KeyboardShortcuts.setShortcut(nil, for: name)
                     shortcut.wrappedValue = nil
+                    if !hasShortcut && !model.showInDock && !model.menuBarItem { model.menuBarItem = true }
                 }
             )
         }
