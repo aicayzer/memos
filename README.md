@@ -8,13 +8,17 @@ A small Mac app for notes that stay close at hand. Open a floating window, write
 
 ## Install
 
-Requires macOS 26 or later.
+Requires macOS 27 or later. Memos is distributed through TestFlight and the App Store. Updates come through the same channel.
+
+The optional [command-line tool](https://github.com/aicayzer/memos/releases) is a separate download for Apple silicon. Open Memos once, unzip the CLI release, then install its `memos` executable into a directory on your `PATH`:
 
 ```sh
-brew install --cask aicayzer/tap/memos
+mkdir -p "$HOME/.local/bin"
+install -m 755 memos "$HOME/.local/bin/memos"
+memos --help
 ```
 
-Or download the [latest release](https://github.com/aicayzer/memos/releases/latest) and drag Memos to Applications. Updates are available from the Memos menu.
+The CLI reads and writes the same library as the app. It is not included in the App Store download. Add `$HOME/.local/bin` to your shell's `PATH` if needed.
 
 ## Make yourself at home
 
@@ -22,7 +26,6 @@ Or download the [latest release](https://github.com/aicayzer/memos/releases/late
 - Search your memos, keep favorites, and find them in Spotlight.
 - Keep notes inside Memos or as Markdown files in a folder you choose.
 - Save or share a note as a Markdown file.
-- Enable TextPad in Settings to edit text and Markdown files directly.
 - Adjust the window, appearance, and shortcuts in Settings.
 
 ## A few shortcuts

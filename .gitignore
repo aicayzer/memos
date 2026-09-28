@@ -1,11 +1,7 @@
 # macOS
 .DS_Store
 
-# Generated from project.yml by XcodeGen
-*.xcodeproj/
-App/Info.plist
-CLI/Info.plist
-App/*.entitlements
+# Generated project, plist files, and entitlements are committed for Xcode Cloud.
 build*/
 # Intermediates that a stray xcodebuild without a derived data path leaves at the root
 *.o
@@ -33,3 +29,14 @@ _ignore/
 releases/
 Config/Local.xcconfig
 Config/Local.xcconfig.*
+
+Config/Cloud.xcconfig
+*.xcuserstate
+*.xcarchive
+*.pkg
+*.p12
+*.mobileprovision
+*.provisionprofile
+*.keychain-db
+*.p8
+*.xcodeproj/xcshareddata/xcodecloud/
