@@ -49,6 +49,7 @@ struct SettingsView: View {
                 if let error = login.error { Text(error).foregroundStyle(.red) }
                 // Without a shortcut, the last way back to the window cannot be switched off.
                 Toggle("Show in Dock", isOn: $model.showInDock)
+                    .accessibilityIdentifier("showInDock")
                     .disabled(model.showInDock && !model.menuBarItem && !hasShortcut)
                 Toggle("Show in menu bar", isOn: $model.menuBarItem)
                     .disabled(model.menuBarItem && !model.showInDock && !hasShortcut)
