@@ -59,11 +59,14 @@ struct SettingsView: View {
                     Menu {
                         ForEach(MenuBarIcon.allCases) { icon in
                             Button { model.menuBarIcon = icon } label: {
-                                icon.image.accessibilityLabel(icon.title)
+                                icon.image
+                                    .foregroundStyle(.primary)
+                                    .accessibilityLabel(icon.title)
                             }
                         }
                     } label: {
                         model.menuBarIcon.image
+                            .foregroundStyle(.primary)
                     }
                     .menuStyle(.button)
                     .menuIndicator(.visible)
