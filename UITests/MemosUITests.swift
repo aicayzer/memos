@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import XCTest
 
 @MainActor
@@ -6,7 +7,6 @@ final class MemosUITests: XCTestCase {
     func testEditingSearchSettingsAndDockPreserveMemo() throws {
         let fixture = try launchMemos()
         let app = fixture.app
-        defer { finish(fixture) }
         let editor = app.webViews.textViews.firstMatch
         XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
         let first = "Disposable first memo \(UUID().uuidString)"
@@ -71,7 +71,6 @@ final class MemosUITests: XCTestCase {
     func testDevelopmentGlobalShortcutsDoNotActivatePad() throws {
         let fixture = try launchMemos()
         let app = fixture.app
-        defer { finish(fixture) }
         let editor = app.webViews.textViews.firstMatch
         XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
         app.typeText("Disposable global shortcut memo")
@@ -115,23 +114,25 @@ final class MemosUITests: XCTestCase {
         let bundleIdentifier = String(testBundleID.dropLast(".uitests".count))
         let app = XCUIApplication()
         XCTAssertEqual(app.state, .notRunning, "Leave an existing development app untouched.")
-        let folder = FileManager.default.homeDirectoryForCurrentUser
+        let account = try XCTUnwrap(getpwuid(getuid()))
+        let home = URL(fileURLWithPath: String(cString: account.pointee.pw_dir), isDirectory: true)
+        let folder = home
             .appending(path: "Library/Containers/\(bundleIdentifier)/Data/tmp/memos-ui-\(UUID().uuidString)", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let store = folder.appending(path: "store.json")
         app.launchEnvironment["MEMOS_STORE"] = store.path
         app.launchArguments = ["-showInDock", "YES", "-menuBarItem", "NO", "-floating", "NO",
                                "-sidePaneAtLaunch", "NO", "-shortcuts", "invalid",
                                "-KeyboardShortcuts_toggleWindow", #""{\"carbonKeyCode\":11,\"carbonModifiers\":6400}""#,
                                "-KeyboardShortcuts_newMemo", #""{\"carbonKeyCode\":46,\"carbonModifiers\":6400}""#]
+        let fixture = Fixture(app: app, folder: folder, bundleIdentifier: bundleIdentifier)
+        addTeardownBlock { @MainActor in self.finish(fixture) }
         app.launch()
-        return Fixture(app: app, folder: folder, bundleIdentifier: bundleIdentifier)
+        return fixture
     }
 
     private func finish(_ fixture: Fixture) {
         attach(fixture.app, name: "Final Memos accessibility state")
         fixture.app.terminate()
-        try? FileManager.default.removeItem(at: fixture.folder)
     }
 
     private func selectTab(_ title: String, in settings: XCUIElement) {
