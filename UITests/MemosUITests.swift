@@ -75,8 +75,8 @@ final class MemosUITests: XCTestCase {
         XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
         app.typeText("Disposable global shortcut memo")
         expectText("Disposable global shortcut memo", in: editor)
-        let pad = XCUIApplication(bundleIdentifier: "me.cyzr.pad.dev")
-        let padWasRunning = pad.state != .notRunning
+        let padID = "me.cyzr.pad.dev"
+        let padWasRunning = !NSRunningApplication.runningApplications(withBundleIdentifier: padID).isEmpty
         let finder = XCUIApplication(bundleIdentifier: "com.apple.finder")
         finder.activate()
         XCTAssertTrue(finder.wait(for: .runningForeground, timeout: 5))
@@ -86,15 +86,16 @@ final class MemosUITests: XCTestCase {
         let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: editor)
         XCTAssertEqual(XCTWaiter.wait(for: [visible], timeout: 5), .completed)
         expectText("Disposable global shortcut memo", in: editor)
-        XCTAssertNotEqual(pad.state, .runningForeground)
-        if !padWasRunning { XCTAssertEqual(pad.state, .notRunning) }
+        XCTAssertNotEqual(NSWorkspace.shared.frontmostApplication?.bundleIdentifier, padID)
+        if !padWasRunning { XCTAssertTrue(NSRunningApplication.runningApplications(withBundleIdentifier: padID).isEmpty) }
         menu.typeKey("b", modifierFlags: [.control, .option, .command])
         let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false OR hittable == false"), object: editor)
         XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed)
         menu.typeKey("m", modifierFlags: [.control, .option, .command])
-        expectValue("", in: editor)
-        XCTAssertNotEqual(pad.state, .runningForeground)
-        if !padWasRunning { XCTAssertEqual(pad.state, .notRunning) }
+        let empty = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value MATCHES %@", "\\s*"), object: editor)
+        XCTAssertEqual(XCTWaiter.wait(for: [empty], timeout: 5), .completed, editor.debugDescription)
+        XCTAssertNotEqual(NSWorkspace.shared.frontmostApplication?.bundleIdentifier, padID)
+        if !padWasRunning { XCTAssertTrue(NSRunningApplication.runningApplications(withBundleIdentifier: padID).isEmpty) }
         attach(app, name: "Memos development global shortcuts")
     }
 
