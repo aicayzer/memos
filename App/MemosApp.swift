@@ -11,18 +11,13 @@ struct MemosApp: App {
         Settings {
             SettingsView()
                 .environment(model)
-                .environment(delegate.textPad)
-                .environment(delegate.updater)
         }
         .windowResizability(.contentSize)
-        .commands { AppCommands(model: model, textPad: delegate.textPad, updater: delegate.updater) }
+        .commands { AppCommands(model: model) }
 
         MenuBarExtra(isInserted: Binding(get: { model.menuBarItem }, set: { model.menuBarItem = $0 })) {
             Button("Open \(Bundle.main.displayName)") { model.showWindow() }
             Button("New Memo") { Task { await model.newMemo() } }
-            if delegate.textPad.enabled {
-                Button("New TextPad") { delegate.textPad.newFile() }
-            }
             Divider()
             SettingsLink { Text("Settings…") }
             Divider()
