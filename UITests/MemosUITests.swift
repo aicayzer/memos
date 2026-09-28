@@ -119,7 +119,6 @@ final class MemosUITests: XCTestCase {
             .appending(path: "Library/Containers/\(bundleIdentifier)/Data/tmp/memos-ui-\(UUID().uuidString)", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let store = folder.appending(path: "store.json")
-        try Data("[]".utf8).write(to: store)
         app.launchEnvironment["MEMOS_STORE"] = store.path
         app.launchArguments = ["-showInDock", "YES", "-menuBarItem", "NO", "-floating", "NO",
                                "-sidePaneAtLaunch", "NO", "-shortcuts", "invalid",
