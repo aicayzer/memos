@@ -6,8 +6,8 @@ extension Trait where Self == ConditionTrait {
     /// where the environment asks for it, as CI does.
     static var opensWindows: Self {
         .enabled(
-            if: ProcessInfo.processInfo.environment["MEMOS_WINDOW_TESTS"] != nil,
-            "set MEMOS_WINDOW_TESTS to run a suite that opens a window"
+            if: ProcessInfo.processInfo.environment["MEMOS_WINDOW_TESTS"] == "1",
+            "set MEMOS_WINDOW_TESTS=1 to run a suite that opens a window"
         )
     }
 }

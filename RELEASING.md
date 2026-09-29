@@ -1,21 +1,49 @@
 # Releasing
 
-A release is a Developer ID-signed, notarized app on a DMG, listed in an EdDSA-signed appcast that the app checks through [Sparkle](https://sparkle-project.org). `scripts/release.sh` does the whole run; what follows is the one-time setup it relies on and the routine.
+The app ships through TestFlight and the App Store. The optional CLI ships separately as a Developer ID-signed, notarized archive on GitHub. Neither channel bundles the other executable.
 
-## One-time setup
+## App preparation
 
-- **Developer ID Application certificate** for the team provided by Infisical, in the login keychain. Run `aic-infisical-run -- scripts/render-local-signing.sh` (or inject this project's Infisical development environment by another supported method) before building or releasing. This writes the ignored `Config/Local.xcconfig`; without it, the app builds unsigned.
-- **App Store Connect API key** with the Developer role, for notarization: the `.p8` at `~/.appstoreconnect/private_keys/AuthKey_<key id>.p8` (or wherever `ASC_KEY_PATH` points), with `ASC_KEY_ID` and `ASC_ISSUER_ID` in the environment.
-- **Sparkle signing key** in the login keychain under the account `me.cyzr.memos`, backed up as `SPARKLE_PRIVATE_KEY` in the mapped Infisical project's `dev` environment. Use Sparkle's `generate_keys --account me.cyzr.memos -p` to check the existing public key against `SUPublicEDKey` in `project.yml`. Preserve that key: installed apps cannot verify updates signed by a replacement. Export with `-x` only to a private temporary file, verify a backup before removing any old copy, and never commit or print the private key.
-- **The updates bucket**, a Cloudflare R2 bucket named `memos-updates` behind `memos.cyzr.me`, which is `SUFeedURL`'s host. `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the environment give `wrangler` the account.
-- `gh` signed in to an account that can create releases on the repository and push to the tap.
-- **The Homebrew tap**, [aicayzer/homebrew-tap](https://github.com/aicayzer/homebrew-tap), whose `Casks/memos.rb` the script points at each release's DMG; the script taps it if `brew` has not.
+Use Xcode 27 and macOS 27. `project.yml` is authoritative; check in the generated project, shared schemes, plist files, entitlements, and package lockfile. Regenerate with `xcodegen generate`; CI rejects differences. The `Memos` scheme archives only the app. `MemosTool` builds the standalone CLI.
 
-## Cutting a release
+For local development signing, inject the repository's existing credential-manager environment and run `scripts/render-local-signing.sh`. This renders ignored `Config/Local.xcconfig`; never edit it or commit signing identifiers. Development has its own bundle identifier, icon, preferences, library, and shortcuts.
 
-1. Bump `MARKETING_VERSION` in `project.yml`, commit and merge; the release is cut from `main` at `origin/main`.
-2. Run `scripts/release.sh`, with `--notes FILE` for written release notes (otherwise the commit subjects since the last tag) and `--dry-run` to build, sign and notarize without publishing.
+Before shipping, run native and editor tests, then exercise memo editing, search/focus, storage conversion, shortcuts, Settings, and CLI access on an isolated test machine. Keep GUI suites serial and use disposable libraries. App Store delivery must also verify CLI access to the installed app's library; source-level shared store tests do not establish filesystem permission behavior.
 
-The script archives the app with the commit count as its build number, exports it with Developer ID signing (which re-signs the framework, its XPC services and the tool with the hardened runtime and a timestamp), notarizes and staples the app, builds the DMG and notarizes and staples that too, fetches the appcast from the bucket and adds the release to it with `generate_appcast`, uploads the DMG and the appcast, tags `v<version>`, creates the GitHub release with the DMG attached, and points the Homebrew cask at that DMG, audited before it is pushed. `releases/` holds the local copies and is ignored.
+## Xcode Cloud owner checklist
 
-Installed apps ask once whether to check for updates automatically; **Check for Updates…** in the app menu, or in Settings' About tab, checks on demand. A Debug build carries no updater.
+1. Register the existing app bundle identifier and create the App Store Connect app record. Keep its chosen locale. Enable Xcode Cloud through Product > Xcode Cloud > Create Workflow in Xcode, connecting the public repository and the shared `Memos` scheme.
+2. Configure a Release workflow with Xcode 27, macOS 27, clean builds, and an **Archive — macOS** action using `Memos`, **TestFlight and App Store** distribution, and the scheme's Release configuration. Restrict workflow editing for App Store eligibility.
+3. Set `APPLE_DEVELOPMENT_TEAM` in the workflow environment from the canonical credential-manager value. Do not substitute `CI_TEAM_ID`: it did not provide a valid signing team in the observed Cloud environment. The post-clone hook renders automatic signing, installs Node/pnpm for the bundled editor, and updates the build number from `CI_BUILD_NUMBER`.
+4. Use a tag-change condition **begins with `v`** (the `v*` family). Remove branch, pull-request, and scheduled triggers. The hook requires a `vMAJOR.MINOR.PATCH` tag matching `MARKETING_VERSION`.
+5. Set the next Cloud build number above every previously uploaded app build. Keep this counter monotonic. Add a **TestFlight Internal Testing** post-action for the intended internal group; do not enable external testing or public App Store submission.
+6. After a green PR is squash merged, create the version-matching tag on main. Confirm the Cloud run uses that exact commit, successfully archives and uploads, and makes the processed build available to the internal group. Install the update through TestFlight on the isolated test machine and verify the installed version, app behavior, and library before marking delivery complete.
+
+Apple references: [project requirements](https://developer.apple.com/documentation/xcode/setting-up-your-project-to-use-xcode-cloud), [distribution workflow](https://developer.apple.com/documentation/xcode/creating-a-workflow-that-builds-your-app-for-distribution), [build numbering](https://developer.apple.com/documentation/xcode/setting-the-next-build-number-for-xcode-cloud-builds), and [internal testing](https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers).
+
+## Manual TestFlight archive
+
+When Cloud is unavailable, use an isolated checkout and the existing credential manager. Supply `APPLE_DEVELOPMENT_TEAM`, an installed `APPLE_PROVISIONING_PROFILE`, and the appropriate `APPLE_DISTRIBUTION_IDENTITY` and `APPLE_INSTALLER_IDENTITY`. An existing task keychain can be selected with `MEMOS_SIGNING_KEYCHAIN` and unlocked using injected `MEMOS_KEYCHAIN_PASSWORD`. Run:
+
+```sh
+scripts/archive-testflight.sh BUILD_NUMBER
+scripts/upload-testflight.py build/TestFlight-BUILD_NUMBER/Export/Memos.pkg --wait
+```
+
+The upload requires injected `ASC_KEY_ID`, `ASC_ISSUER_ID`, and PEM `ASC_PRIVATE_KEY`. It renders a temporary private key, uploads, and removes that key. Logs stay private. The archive helper refuses existing output and verifies installed app file permissions before export. Check App Store Connect before retrying any uncertain upload. Advance Cloud's next build number afterward.
+
+## Standalone CLI release
+
+Release the CLI only after the corresponding installed app's create/read/update/delete behavior and CLI library access are verified. Public hosted CI builds the CLI unsigned and runs create/read/append/delete against a disposable library. No personal runner or signing secrets are exposed to public PRs.
+
+On the isolated release machine, inject the existing mapped credential-manager environment. The CLI script needs `APPLE_DEVELOPMENT_TEAM`, an unlocked **Developer ID Application** certificate, `ASC_KEY_ID`, `ASC_ISSUER_ID`, and either PEM `ASC_PRIVATE_KEY` or an existing source-rendered `ASC_KEY_PATH`. Use `MEMOS_SIGNING_KEYCHAIN` to select a task keychain. No new hosted signing credentials are required.
+
+```sh
+scripts/release-cli.py
+```
+
+This builds the Release CLI for Apple silicon, signs it with hardened runtime and a secure timestamp, verifies the signature, creates the ZIP and checksum, and waits for Apple's notarization to return **Accepted**. A standalone executable cannot carry a stapled ticket; Gatekeeper retrieves its notarization record online. The private release directory contains the notarization result and logs. Nothing is published by default.
+
+For publication, start from clean main matching origin/main, choose a new version in `project.yml`, and run the same script with `--publish --notes FILE` instead. It creates the separate `cli-v<version>` tag and GitHub release only after notarization succeeds. App tags use `v<version>`; CLI tags do not trigger the app's Cloud workflow. Output is never overwritten. If a release fails after a tag or upload, inspect that state and finish the existing release deliberately rather than replacing artifacts.
+
+Download the published archive, compare `SHA256SUMS`, install its executable on the isolated test machine, and repeat the disposable library checks. Keep the app and CLI release evidence with the project records.

@@ -9,13 +9,11 @@ private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "ap
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model: AppModel
-    let textPad: TextPad
     private var panel: MemoPanel?
     private var watcher: LibraryWatcher?
     private var spotlight: SpotlightIndexer?
     private var startup: Task<Void, Never>?
     private var pendingMemoID: UUID?
-    let updater = Updater()
 
     /// The test host must not touch the real store or defaults, and must not hand over to a running app.
     private static let isTestHost = ProcessInfo.processInfo.environment.keys.contains { $0.hasPrefix("XCTest") }
@@ -23,7 +21,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     override init() {
         let store: LibraryStore
         let defaults = Self.isTestHost ? UserDefaults(suiteName: "tests-\(UUID().uuidString)")! : .standard
-        let testFolder = Self.isTestHost ? FileManager.default.temporaryDirectory.appending(path: "textpad-\(UUID().uuidString)") : nil
         do {
             if Self.isTestHost {
                 store = LibraryStore(fileURL: FileManager.default.temporaryDirectory.appending(path: "store-\(UUID().uuidString).json"))
@@ -39,7 +36,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             fatalError("memo store unavailable: \(error)")
         }
-        textPad = TextPad(memoModel: model, defaults: defaults, defaultFolder: testFolder, presentsWindow: !Self.isTestHost)
         super.init()
         if Self.isTestHost { KeyboardShortcuts.isEnabled = false }
         if !Self.isTestHost {
@@ -69,12 +65,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let panel = MemoPanel(content: MainView().environment(model), restoresFrame: !Self.isTestHost)
         panel.keys = { [model] in model.shortcuts.windowKeys }
         panel.perform = { [model] in model.perform($0) }
-        panel.onBecomeKey = { [textPad] in textPad.isActive = false }
         self.panel = panel
         model.attach(panel)
         if !Self.isTestHost,
-           !LoginItemSettings.isLoginLaunch(NSAppleEventManager.shared().currentAppleEvent),
-           !textPad.isVisible {
+           !LoginItemSettings.isLoginLaunch(NSAppleEventManager.shared().currentAppleEvent) {
             model.showWindow()
         }
         startup = Task {
@@ -85,17 +79,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !Self.isTestHost {
             KeyboardShortcuts.onKeyDown(for: .toggleWindow) { [model] in model.toggleWindow() }
             KeyboardShortcuts.onKeyDown(for: .newMemo) { [model] in Task { await model.newMemo() } }
-            textPad.installShortcut()
         }
-        updater.start()
     }
 
-    /// Open With sends files here; memos://memo/<id> opens a memo.
+    /// memos://memo/<id> opens a memo.
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
-            if url.isFileURL {
-                textPad.open(url)
-            } else if url.host() == "memo", let id = UUID(uuidString: url.lastPathComponent) {
+            if url.host() == "memo", let id = UUID(uuidString: url.lastPathComponent) {
                 openMemo(id)
             } else {
                 model.showWindow()
@@ -127,16 +117,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
-    func applicationDidResignActive(_ notification: Notification) {
-        model.applyActivationPolicy()
-    }
-
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard textPad.canTerminate() else { return .terminateCancel }
         Task {
             sender.reply(toApplicationShouldTerminate: await model.flush())
         }

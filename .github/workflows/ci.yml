@@ -38,8 +38,7 @@ jobs:
 
   app:
     name: App
-    # macOS 27 with Xcode 27, which is what the app is built and released with; the deployment target
-    # stays at 26, which the 27 SDK builds for as a matter of course.
+    # Public pull requests run only on hosted workers.
     runs-on: xcode-27
     timeout-minutes: 30
     steps:
@@ -54,22 +53,58 @@ jobs:
           "$XCODE/Contents/Developer/usr/bin/xcodebuild" -version
       - name: Install XcodeGen
         run: command -v xcodegen >/dev/null || brew install xcodegen
-      - run: xcodegen generate
-      # Suites that open a window run here and nowhere a person is working; xcodebuild hands the test
-      # runner the TEST_RUNNER_ variables without the prefix.
+      - name: Verify generated project
+        run: |
+          xcodegen generate
+          git diff --exit-code -- Memos.xcodeproj App/Info.plist App/Memos.entitlements CLI/Info.plist
+          test -z "$(git ls-files --others --exclude-standard Memos.xcodeproj App/Info.plist App/Memos.entitlements CLI/Info.plist)"
       - name: Build and test
-        env:
-          TEST_RUNNER_MEMOS_WINDOW_TESTS: 1
         run: |
           set -o pipefail
           xcodebuild \
             -project Memos.xcodeproj \
             -scheme Memos \
             -configuration Debug \
-            -destination 'platform=macOS' \
+            -destination 'platform=macOS' -parallel-testing-enabled NO \
+            -skip-testing:MemosTests/OverlayFocusTests \
             -derivedDataPath build \
-            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
             test | tee build.log | grep -E 'error:|warning: |Test .* (passed|failed)|\*\* '
       - name: Surface failures
         if: failure()
         run: grep -E '(^|[[:space:]])(error|failed):' build.log | sort -u | head -40 || true
+      - name: Native window tests
+        env:
+          TEST_RUNNER_MEMOS_WINDOW_TESTS: 1
+        run: |
+          xcodebuild -quiet -project Memos.xcodeproj -scheme Memos -configuration Debug \
+            -destination 'platform=macOS' -derivedDataPath build -parallel-testing-enabled NO \
+            -only-testing:MemosTests/OverlayFocusTests \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= test
+      - name: Test application interactions
+        timeout-minutes: 8
+        run: |
+          set -o pipefail
+          sudo /usr/sbin/DevToolsSecurity -enable
+          xcodebuild -project Memos.xcodeproj -scheme 'Memos UI Tests' -configuration Debug \
+            -destination 'platform=macOS' -derivedDataPath build-ui \
+            -resultBundlePath build-ui/Interactions.xcresult -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= test | tee -a build.log
+      - name: Build Release app
+        run: |
+          xcodebuild -quiet -project Memos.xcodeproj -scheme Memos -configuration Release \
+            -destination 'generic/platform=macOS' -derivedDataPath build-release \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= build
+      - name: Build separate CLI
+        run: |
+          xcodebuild -quiet -project Memos.xcodeproj -scheme MemosTool -configuration Release \
+            -destination 'generic/platform=macOS' -derivedDataPath build-cli CODE_SIGNING_ALLOWED=NO build
+          python3 scripts/verify-cli.py build-cli/Build/Products/Release/memos
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: native-test-results
+          path: |
+            build.log
+            build/Logs/Test/*.xcresult
+            build-ui/*.xcresult

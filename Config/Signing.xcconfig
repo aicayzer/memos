@@ -1,5 +1,8 @@
-// A checkout builds without a developer account. The optional local file is rendered from Infisical.
+// Contributor builds need no developer account. Distribution supplies signing settings.
 CODE_SIGNING_ALLOWED = NO
-CODE_SIGN_STYLE = Manual
+CODE_SIGN_STYLE = Automatic
 DEVELOPMENT_TEAM =
+MEMOS_DISTRIBUTION_SIGNING_STYLE = Automatic
+MEMOS_DISTRIBUTION_PROFILE =
 #include? "Local.xcconfig"
+#include? "Cloud.xcconfig"

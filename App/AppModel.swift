@@ -69,8 +69,7 @@ final class AppModel {
         }
     }
 
-    /// The Dock change waits for the app to go inactive; see `applyActivationPolicy`.
-    private(set) var policyPending = false
+    private(set) var activationPolicyError: String?
 
     /// 1 is the window color alone, 0 is glass alone.
     var windowOpacity: Double {
@@ -540,21 +539,15 @@ final class AppModel {
         if defaults.bool(forKey: Self.paneRoomKey) != sidePane { resizeWindow(forPane: sidePane) }
     }
 
-    /// Without a Dock icon the app is an accessory: no menu bar, though its key equivalents still work.
-    /// Changing the policy while active hands focus to another app and the system refuses to give it back,
-    /// so a change made in Settings waits until the app is inactive anyway.
     func applyActivationPolicy() {
         let policy: NSApplication.ActivationPolicy = showInDock ? .regular : .accessory
-        guard NSApp.activationPolicy() != policy else {
-            policyPending = false
-            return
-        }
-        if NSApp.isActive {
-            policyPending = true
-            return
-        }
-        NSApp.setActivationPolicy(policy)
-        policyPending = false
+        guard NSApp.activationPolicy() != policy else { activationPolicyError = nil; return }
+        let wasActive = NSApp.isActive
+        let applied = NSApp.setActivationPolicy(policy)
+        // Cancel the activation yield so changing Dock visibility does not dismiss Settings.
+        if applied && wasActive { NSApp.activate() }
+        activationPolicyError = applied || NSApp.activationPolicy() == policy
+            ? nil : "Could not update Dock visibility. Try changing the setting again."
     }
 
     /// Key without activating: the app in front keeps the menu bar, this panel takes the keyboard.

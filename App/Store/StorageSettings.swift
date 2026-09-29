@@ -65,40 +65,54 @@ struct StorageSettingsView: View {
     @State private var requestedMarkdown = false
 
     var body: some View {
-        Section {
-            Toggle("Store memos as Markdown files", isOn: Binding(
-                get: { model.storageStatus?.markdown ?? false },
-                set: { enabled in
-                    requestedMarkdown = enabled
-                    confirmingConversion = true
+        Group {
+            Section {
+                Picker("Keep memos", selection: Binding(
+                    get: { model.storageStatus?.markdown ?? false },
+                    set: { enabled in
+                        guard enabled != model.storageStatus?.markdown else { return }
+                        requestedMarkdown = enabled
+                        confirmingConversion = true
+                    }
+                )) {
+                    Text("Inside Memos").tag(false)
+                    Text("As Markdown files").tag(true)
                 }
-            ))
-            .disabled(model.convertingStorage || model.storageStatus == nil)
-            if model.convertingStorage {
-                ProgressView("Converting and verifying memos…")
-            }
-            if let status = model.storageStatus, status.markdown {
-                LabeledContent("Folder") {
-                    Text(status.location.path).textSelection(.enabled).lineLimit(2).truncationMode(.middle)
+                .disabled(model.convertingStorage || model.storageStatus == nil)
+                if model.convertingStorage {
+                    ProgressView("Converting and verifying memos…")
                 }
-                Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([status.location]) }
-            }
-            if let recovery = model.storageStatus?.recovery {
-                Button("Show Previous Storage") { NSWorkspace.shared.activateFileViewerSelecting([recovery]) }
-            }
-            if let error = model.storageError {
-                Text(error).foregroundStyle(.red).textSelection(.enabled)
-                if model.storageStatus?.markdown == true {
-                    Button("Locate Markdown Folder…") { Task { await model.locateMarkdownFolder() } }
+                if let status = model.storageStatus, status.markdown {
+                    LabeledContent("Folder") {
+                        Text(status.location.path).textSelection(.enabled).lineLimit(2).truncationMode(.middle)
+                    }
+                    Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([status.location]) }
                 }
+                if let error = model.storageError {
+                    Text(error).foregroundStyle(.red).textSelection(.enabled)
+                    if model.storageStatus?.markdown == true {
+                        Button("Locate Markdown Folder…") { Task { await model.locateMarkdownFolder() } }
+                    }
+                }
+                if let notice = model.storageNotice {
+                    Text(notice).foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Memo Storage")
+            } footer: {
+                Text("Applies to the whole library. Changing storage converts and verifies all memos and keeps the previous storage for recovery.")
             }
-            if let notice = model.storageNotice {
-                Text(notice).foregroundStyle(.secondary)
+            Section {
+                Button("Show Previous Storage") {
+                    guard let recovery = model.storageStatus?.recovery else { return }
+                    NSWorkspace.shared.activateFileViewerSelecting([recovery])
+                }
+                .disabled(model.storageStatus?.recovery == nil)
+            } header: {
+                Text("Recovery")
+            } footer: {
+                Text("Available after a storage conversion. This is a recovery copy, not an automatic backup.")
             }
-        } header: {
-            Text("Storage")
-        } footer: {
-            Text("Keep memos as Markdown files in a folder you choose.")
         }
         .confirmationDialog("Change memo storage?", isPresented: $confirmingConversion, titleVisibility: .visible) {
             Button(requestedMarkdown ? "Use Markdown Files…" : "Keep Memos Internally") {

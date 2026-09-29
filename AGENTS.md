@@ -16,7 +16,7 @@ This file governs every session that works in this repository.
 
 ## Layout
 
-- `project.yml` is the XcodeGen source; `Memos.xcodeproj` is generated and not committed. `scripts/release.sh` cuts a release as [RELEASING.md](RELEASING.md) describes.
+- `project.yml` is the XcodeGen source; `Memos.xcodeproj` and shared schemes are generated and committed for Xcode Cloud. CI verifies regeneration. App and standalone CLI delivery follow [RELEASING.md](RELEASING.md).
 - `Core/` holds the memo model and the store, compiled into the app and the command line tool alike; `App/` the rest of the app's Swift sources, with the icon under `App/Resources/`; `CLI/` the tool; `Tests/` the Swift Testing target.
 - `editor/` is the web editor (Vite, TypeScript, Milkdown), built into a single offline HTML file during the app build. [editor/BRIDGE.md](editor/BRIDGE.md) defines the message protocol between the two.
 
@@ -31,8 +31,8 @@ This file governs every session that works in this repository.
 ## Development builds
 
 - Debug builds use **Memos Dev**, a visible DEV label, and `App/Resources/AppIconDEV.icon`. Release builds retain the standard name and icon. Keep identity and icon configuration in `project.yml`.
-- Development builds default to normal window levels, including TextPad and Settings. The main window can still opt into Always on top in Settings.
-- Development builds have their own bundle identity, URL scheme, preferences, and store. Use disposable notes for UI checks. Development global shortcuts are Control-Option-Command-B (toggle), Control-Option-Command-M (new memo), and Control-Option-Command-Shift-B (TextPad).
+- Development builds default to normal window levels, including Settings. The main window can still opt into Always on top in Settings.
+- Development builds have their own bundle identity, URL scheme, preferences, and store. Use disposable notes for UI checks. Development global shortcuts are Control-Option-Command-B (toggle) and Control-Option-Command-M (new memo).
 - Do not replace or quit the installed app for testing. `scripts/screenshots.sh` prepares sample content; it is not the isolated development launcher.
 - The checkout builds without a signing team. For local signing, run `aic-infisical-run -- scripts/render-local-signing.sh`, then regenerate the project. The renderer writes ignored `Config/Local.xcconfig`; never commit signing identifiers or hand-edit generated configuration.
 - Keep the README short and user-facing. Development procedures belong here or in the linked technical documents.
@@ -40,3 +40,9 @@ This file governs every session that works in this repository.
 ## Store
 
 The store behind `MemoStore` is `LibraryStore`, selecting internal JSON or Markdown files through a committed storage manifest. Settings converts the whole library, verifies it, then switches the manifest atomically. App, CLI and App Intents use this same store and lock. Keep the protocol small, so another store can stand behind it, and do not add fields for sync, tags or folders.
+
+## Distribution
+
+The app ships through TestFlight and the App Store. The CLI is a separate signed, notarized download; never embed it in the app. Do not restore a direct-app updater, TextPad code, document registration, or transitional integration. Preserve existing library paths and bundle identities.
+
+Run local builds, packaging and interactive verification on an isolated development Mac, never an occupied workstation. Public pull requests use hosted CI only. Delegate independent work with clear file ownership and serialize GUI checks. A release is complete only after processing, internal tester availability and an installed smoke check.
