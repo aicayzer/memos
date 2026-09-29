@@ -2,23 +2,20 @@
 
 # Memos
 
+[![macOS 27+](https://img.shields.io/badge/macOS-27%2B-202020?logo=apple&logoColor=white)](#install)
+[![Swift](https://img.shields.io/badge/Swift-F05138?logo=swift&logoColor=white)](https://www.swift.org/)
+[![CI](https://github.com/aicayzer/memos/actions/workflows/ci.yml/badge.svg)](https://github.com/aicayzer/memos/actions/workflows/ci.yml)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 A small Mac app for notes that stay close at hand. Open a floating window, write something down, and get back to what you were doing.
 
 <img src="App/Resources/Screenshot.png" alt="Memos showing a trip plan and a reading list" width="960">
 
 ## Install
 
-Requires macOS 27 or later. Memos is distributed through TestFlight and the App Store. Updates come through the same channel.
+Requires macOS 27 or later. The current beta is available to invited testers through TestFlight as **Little Memos**. The installed app is named **Memos**. A public App Store release is planned.
 
-The optional [command-line tool](https://github.com/aicayzer/memos/releases) is a separate download for Apple silicon. Open Memos once, unzip the CLI release, then install its `memos` executable into a directory on your `PATH`:
-
-```sh
-mkdir -p "$HOME/.local/bin"
-install -m 755 memos "$HOME/.local/bin/memos"
-memos --help
-```
-
-The CLI reads and writes the same library as the app. It is not included in the App Store download. Add `$HOME/.local/bin` to your shell's `PATH` if needed.
+The optional command-line tool is being prepared as a separate signed download for Apple silicon. It reads and writes the same library as the app and is not included in the TestFlight build. See [release instructions](RELEASING.md) for packaging details.
 
 ## Make yourself at home
 
@@ -41,4 +38,4 @@ The CLI reads and writes the same library as the app. It is not included in the 
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE). Development guidance is in [AGENTS.md](AGENTS.md).
