@@ -59,13 +59,13 @@ struct SettingsView: View {
                     Menu {
                         ForEach(MenuBarIcon.allCases) { icon in
                             Button { model.menuBarIcon = icon } label: {
-                                icon.image
+                                menuIcon(icon)
                                     .foregroundStyle(.primary)
                                     .accessibilityLabel(icon.title)
                             }
                         }
                     } label: {
-                        model.menuBarIcon.image
+                        menuIcon(model.menuBarIcon)
                             .foregroundStyle(.primary)
                     }
                     .menuStyle(.button)
@@ -127,6 +127,26 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    @ViewBuilder private func menuIcon(_ icon: MenuBarIcon) -> some View {
+        if icon == .squiggle {
+            // Native Menu discards custom-image template tint, so resolve its pixels before bridging.
+            Image(nsImage: Self.menuMark(dark: colorScheme == .dark)).renderingMode(.original)
+        } else {
+            icon.image
+        }
+    }
+
+    private static func menuMark(dark: Bool) -> NSImage {
+        guard let source = NSImage(named: MenuBarIcon.asset) else { return NSImage() }
+        let result = NSImage(size: source.size)
+        result.lockFocus()
+        source.draw(in: NSRect(origin: .zero, size: source.size))
+        (dark ? NSColor.white : NSColor.black).setFill()
+        NSRect(origin: .zero, size: source.size).fill(using: .sourceIn)
+        result.unlockFocus()
+        return result
     }
 
     private var appearance: some View {
