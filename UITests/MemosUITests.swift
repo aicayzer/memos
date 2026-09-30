@@ -68,6 +68,44 @@ final class MemosUITests: XCTestCase {
         attach(app, name: "Memo preserved after Settings and Dock changes")
     }
 
+    func testBlankParagraphsSurviveMemoSwitchAndRelaunch() throws {
+        let fixture = try launchMemos()
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
+        app.typeText("Spacing example")
+        app.typeKey(.return, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
+        app.typeText("First section")
+        app.typeKey(.return, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
+        app.typeText("Last paragraph")
+        expectText("Last paragraph", in: editor)
+        let before = try XCTUnwrap(editor.value as? String)
+        attach(app, name: "Authored paragraph spacing")
+        app.typeKey("n", modifierFlags: .command)
+        app.typeText("Other disposable memo")
+        expectText("Other disposable memo", in: editor)
+        app.typeKey("p", modifierFlags: .command)
+        let search = app.textFields["Search memos…"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        app.typeText("Spacing example")
+        app.typeKey(.return, modifierFlags: [])
+        expectValue(before, in: editor)
+        attach(app, name: "Paragraph spacing after switching back")
+        let data = try Data(contentsOf: fixture.folder.appending(path: "store.json"))
+        let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let memos = try XCTUnwrap(saved["memos"] as? [[String: Any]])
+        XCTAssertTrue(memos.contains { ($0["markdown"] as? String)?.contains("<br />") == true },
+                      "The saved memo must retain authored spacer paragraphs.")
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(editor.waitForExistence(timeout: 15))
+        expectValue(before, in: editor)
+        attach(app, name: "Paragraph spacing after relaunch")
+    }
+
     func testDevelopmentGlobalShortcutsDoNotActivatePad() throws {
         let fixture = try launchMemos()
         let app = fixture.app

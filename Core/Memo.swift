@@ -56,6 +56,7 @@ struct Memo: Identifiable, Codable, Equatable, Sendable {
         var text = Substring(line.trimmingCharacters(in: .whitespaces))
         // Quotes and lists nest, as in `> - [ ] **Call**`; a heading's text is then plain.
         while let inner = withoutContainerMarker(text) { text = inner }
+        if ["<br />", "<br>", "<br >", "<br/>"].contains(String(text)) { return "" }
         if text.hasPrefix("```") || text.hasPrefix("~~~") { return "" }
         if text.first == "#" { text = withoutHeadingMarks(text) }
         if !text.isEmpty, text.allSatisfy({ "-*_".contains($0) }) { return "" }

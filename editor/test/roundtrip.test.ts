@@ -43,14 +43,15 @@ for (const [name, input, canonical] of variants) {
   })
 }
 
-test('an empty paragraph is left out rather than written as html', async () => {
+test('an empty paragraph survives saving and reopening', async () => {
   const out = await withEditor('a\n\nb\n', (editor) => {
     const view = editor.ctx.get(editorViewCtx)
     const paragraph = view.state.schema.nodes.paragraph!
     view.dispatch(view.state.tr.insert(3, paragraph.create()))
     return serialize(editor.ctx)
   })
-  expect(out).toBe('a\n\nb\n')
+  expect(out).toBe('a\n\n<br />\n\nb\n')
+  expect(await roundTrip(out)).toBe(out)
 })
 
 test('a memo that is only an empty paragraph is written as nothing', async () => {
@@ -90,3 +91,23 @@ test('an image without a width is written without one', async () => {
     '![](images/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png)\n'
   expect(await roundTrip(markdown)).toBe(markdown)
 })
+
+for (const markdown of [
+  '<br />\n\nText\n',
+  'Text\n\n<br />\n',
+  'Text\n\n<br />\n\n<br />\n',
+  '<br />\n\n<br />\n',
+  'One\n\n<br />\n\n<br />\n\nTwo\n',
+  '> One\n>\n> <br />\n>\n> Two\n',
+  '- One\n\n  <br />\n\n  Two\n',
+]) {
+  test(`spacer paragraphs are stable: ${JSON.stringify(markdown)}`, async () => {
+    expect(await roundTrip(markdown)).toBe(markdown)
+  })
+}
+
+for (const markdown of ['Before <br /> after\n', 'Before <span>literal</span> after\n']) {
+  test(`inline HTML remains literal through the parser: ${JSON.stringify(markdown)}`, async () => {
+    expect(await roundTrip(markdown)).toBe(markdown)
+  })
+}

@@ -50,4 +50,6 @@ A width rides in the alt text, as `![a picture|400](images/<hash>.png)`, so a re
 
 CommonMark plus strikethrough, task lists, bare URLs and images. Documents are written in one canonical form: `-` bullets, `*` emphasis, `**` strong, fenced code, `---` rules, `\` hard breaks, and the URL alone for a link whose text is that URL, where reading it back gives the same link. `fixtures/dialect.md` is the canonical form of every construct, and `test/roundtrip.test.ts` holds it byte for byte.
 
+Intentional empty paragraphs between blocks use `<br />` in Markdown. The editor reads these as empty paragraphs again, so switching memos preserves the spacing; a single empty document remains empty.
+
 Files whose loaded source differs from the visual editor's canonical serialization use a source textarea. Merely loading them still returns null from `markdown()`; actual edits preserve their metadata and unsupported syntax. Canonical memos retain the formatted editor.

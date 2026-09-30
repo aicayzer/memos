@@ -1,7 +1,11 @@
 import { editorViewCtx, serializerCtx } from '@milkdown/kit/core'
 import type { Ctx, MilkdownPlugin } from '@milkdown/kit/ctx'
 import type { Node as ProseNode } from '@milkdown/kit/prose/model'
-import { commonmark, remarkPreserveEmptyLinePlugin } from '@milkdown/kit/preset/commonmark'
+import {
+  commonmark,
+  paragraphSchema,
+  remarkPreserveEmptyLinePlugin,
+} from '@milkdown/kit/preset/commonmark'
 import {
   extendListItemSchemaForTask,
   strikethroughAttr,
@@ -14,7 +18,7 @@ import {
 import { $remark } from '@milkdown/kit/utils'
 import { autolinkInputRule } from './autolink'
 import { imageView } from './images'
-import type { Link, Parents, PhrasingContent } from 'mdast'
+import type { Link, Parents, PhrasingContent, Root, RootContent } from 'mdast'
 import { defaultHandlers, type Options as StringifyOptions } from 'mdast-util-to-markdown'
 import {
   gfmAutolinkLiteralFromMarkdown,
@@ -101,13 +105,46 @@ function remarkDialect(this: Processor) {
 
 export const remarkDialectPlugin = $remark('remarkDialect', () => remarkDialect)
 
-// Without it an empty paragraph is written as `<br />`, which the dialect forbids.
-const commonmarkWithoutEmptyLines = commonmark.filter(
+// Only standalone break paragraphs represent spacing. Inline HTML must remain literal on paste.
+function restoreSpacerParagraphs(node: Root | RootContent): void {
+  if (node.type === 'paragraph' && node.children.length === 1) {
+    const child = node.children[0]!
+    if (
+      child.type === 'html' &&
+      ['<br />', '<br>', '<br >', '<br/>'].includes(child.value.trim())
+    ) {
+      node.children = []
+      return
+    }
+  }
+  if ('children' in node) node.children.forEach(restoreSpacerParagraphs)
+}
+const spacerParagraphs = $remark('spacerParagraphs', () => () => restoreSpacerParagraphs)
+const commonmarkWithLiteralBreaks = commonmark.filter(
   (plugin) => !(remarkPreserveEmptyLinePlugin as MilkdownPlugin[]).includes(plugin),
 )
 
+// The preset drops the final empty paragraph, which makes trailing spacers shrink on each reload.
+const preserveSpacerParagraphs = paragraphSchema.extendSchema((base) => (ctx) => {
+  const schema = base(ctx)
+  return {
+    ...schema,
+    toMarkdown: {
+      ...schema.toMarkdown,
+      runner(state, node) {
+        if (node.content.size > 0) return schema.toMarkdown.runner(state, node)
+        state.openNode('paragraph')
+        state.addNode('html', undefined, '<br />')
+        state.closeNode()
+      },
+    },
+  }
+})
+
 export const dialect: MilkdownPlugin[] = [
-  commonmarkWithoutEmptyLines,
+  commonmarkWithLiteralBreaks,
+  spacerParagraphs,
+  preserveSpacerParagraphs,
   autolinkInputRule,
   extendListItemSchemaForTask,
   strikethroughAttr,
@@ -130,16 +167,13 @@ export const stringifyOptions: StringifyOptions = {
   rule: '-',
 }
 
-// Empty paragraphs are spacing, not content, so they are left out of the markdown.
-function withoutEmptyParagraphs(doc: ProseNode): ProseNode {
-  const blocks: ProseNode[] = []
-  doc.forEach((block) => {
-    if (block.type.name !== 'paragraph' || block.content.size > 0) blocks.push(block)
-  })
-  if (blocks.length === doc.childCount) return doc
-  return doc.type.create(doc.attrs, blocks.length > 0 ? blocks : [doc.child(0)])
-}
-
+// Milkdown writes intentional empty paragraphs as <br /> so Markdown readers preserve spacing.
 export function serialize(ctx: Ctx, doc: ProseNode = ctx.get(editorViewCtx).state.doc): string {
-  return ctx.get(serializerCtx)(withoutEmptyParagraphs(doc))
+  if (
+    doc.childCount === 1 &&
+    doc.firstChild?.type.name === 'paragraph' &&
+    doc.firstChild.content.size === 0
+  )
+    return ''
+  return ctx.get(serializerCtx)(doc)
 }
