@@ -1,7 +1,7 @@
 import { editorViewCtx, serializerCtx } from '@milkdown/kit/core'
 import type { Ctx, MilkdownPlugin } from '@milkdown/kit/ctx'
 import type { Node as ProseNode } from '@milkdown/kit/prose/model'
-import { commonmark, remarkPreserveEmptyLinePlugin } from '@milkdown/kit/preset/commonmark'
+import { commonmark, paragraphSchema } from '@milkdown/kit/preset/commonmark'
 import {
   extendListItemSchemaForTask,
   strikethroughAttr,
@@ -101,13 +101,26 @@ function remarkDialect(this: Processor) {
 
 export const remarkDialectPlugin = $remark('remarkDialect', () => remarkDialect)
 
-// Without it an empty paragraph is written as `<br />`, which the dialect forbids.
-const commonmarkWithoutEmptyLines = commonmark.filter(
-  (plugin) => !(remarkPreserveEmptyLinePlugin as MilkdownPlugin[]).includes(plugin),
-)
+// The preset drops the final empty paragraph, which makes trailing spacers shrink on each reload.
+const preserveSpacerParagraphs = paragraphSchema.extendSchema((base) => (ctx) => {
+  const schema = base(ctx)
+  return {
+    ...schema,
+    toMarkdown: {
+      ...schema.toMarkdown,
+      runner(state, node) {
+        if (node.content.size > 0) return schema.toMarkdown.runner(state, node)
+        state.openNode('paragraph')
+        state.addNode('html', undefined, '<br />')
+        state.closeNode()
+      },
+    },
+  }
+})
 
 export const dialect: MilkdownPlugin[] = [
-  commonmarkWithoutEmptyLines,
+  commonmark,
+  preserveSpacerParagraphs,
   autolinkInputRule,
   extendListItemSchemaForTask,
   strikethroughAttr,
@@ -130,16 +143,13 @@ export const stringifyOptions: StringifyOptions = {
   rule: '-',
 }
 
-// Empty paragraphs are spacing, not content, so they are left out of the markdown.
-function withoutEmptyParagraphs(doc: ProseNode): ProseNode {
-  const blocks: ProseNode[] = []
-  doc.forEach((block) => {
-    if (block.type.name !== 'paragraph' || block.content.size > 0) blocks.push(block)
-  })
-  if (blocks.length === doc.childCount) return doc
-  return doc.type.create(doc.attrs, blocks.length > 0 ? blocks : [doc.child(0)])
-}
-
+// Milkdown writes intentional empty paragraphs as <br /> so Markdown readers preserve spacing.
 export function serialize(ctx: Ctx, doc: ProseNode = ctx.get(editorViewCtx).state.doc): string {
-  return ctx.get(serializerCtx)(withoutEmptyParagraphs(doc))
+  if (
+    doc.childCount === 1 &&
+    doc.firstChild?.type.name === 'paragraph' &&
+    doc.firstChild.content.size === 0
+  )
+    return ''
+  return ctx.get(serializerCtx)(doc)
 }

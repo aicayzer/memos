@@ -68,6 +68,34 @@ final class MemosUITests: XCTestCase {
         attach(app, name: "Memo preserved after Settings and Dock changes")
     }
 
+    func testBlankParagraphsSurviveMemoSwitchAndRelaunch() throws {
+        let fixture = try launchMemos()
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
+        app.typeText("Spacing example\n\n1. Example\nAnother example\n\n\n- Another list\nMore items\n\n\nLast paragraph")
+        expectText("Last paragraph", in: editor)
+        let before = try XCTUnwrap(editor.value as? String)
+        attach(app, name: "Authored list spacing")
+        app.typeKey("n", modifierFlags: .command)
+        app.typeText("Other disposable memo")
+        expectText("Other disposable memo", in: editor)
+        app.typeKey("p", modifierFlags: .command)
+        let search = app.textFields["Search memos…"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        app.typeText("Spacing example")
+        app.typeKey(.return, modifierFlags: [])
+        expectValue(before, in: editor)
+        attach(app, name: "List spacing after switching back")
+        let saved = try String(contentsOf: fixture.folder.appending(path: "store.json"), encoding: .utf8)
+        XCTAssertTrue(saved.contains("<br />"), "The saved memo must retain authored spacer paragraphs.")
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(editor.waitForExistence(timeout: 15))
+        expectValue(before, in: editor)
+        attach(app, name: "List spacing after relaunch")
+    }
+
     func testDevelopmentGlobalShortcutsDoNotActivatePad() throws {
         let fixture = try launchMemos()
         let app = fixture.app

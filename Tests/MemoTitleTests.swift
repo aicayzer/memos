@@ -16,6 +16,13 @@ import Testing
         #expect(Memo.title(for: "Shopping\n\n- milk\n") == "Shopping")
     }
 
+    @Test func spacerParagraphsDoNotBecomeTitles() {
+        #expect(Memo.title(for: "<br />\n\nActual title\n") == "Actual title")
+        #expect(Memo.title(for: "> <br />\n>\n> Quoted title\n") == "Quoted title")
+        #expect(Memo.title(for: "<br />\n\n<br />\n") == Memo.untitled)
+        #expect(Memo.title(for: "`<br />`\n") == "<br />")
+    }
+
     @Test func headingMarksAreStripped() {
         #expect(Memo.title(for: "## Plan ##\nbody") == "Plan")
         #expect(Memo.title(for: "#Tight") == "Tight")

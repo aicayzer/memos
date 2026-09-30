@@ -537,3 +537,30 @@ test('loading another memo clears previous search highlights', async () =>
     editor.load('Another line.\n', 2)
     expect(getMatchHighlights(ctxOf(editor).get(editorViewCtx).state).find()).toHaveLength(0)
   }))
+
+test('authored spacing between list groups survives switching memos and reloading', async () => {
+  await withMemoEditor(
+    '1. Example\n2. Another example\n\n- Another list\n- More items\n\n- [ ] Todo\n',
+    (editor) => {
+      const view = ctxOf(editor).get(editorViewCtx)
+      const paragraph = view.state.schema.nodes.paragraph!
+      const positions: number[] = []
+      view.state.doc.forEach((_, offset, index) => {
+        if (index > 0) positions.push(offset)
+      })
+      const transaction = view.state.tr
+      for (const position of positions.reverse()) transaction.insert(position, paragraph.create())
+      view.dispatch(transaction)
+      const authored = view.state.doc.toJSON()
+      const saved = editor.markdown()!
+      expect(saved).toContain('<br />')
+      editor.load('A different memo.\n', 2)
+      editor.load(saved, 3)
+      expect(view.state.doc.toJSON()).toEqual(authored)
+      expect(editor.markdown()).toBeNull()
+      expect(editor.canonicalMarkdown()).toBe(saved)
+      editor.reload(saved, 3)
+      expect(view.state.doc.toJSON()).toEqual(authored)
+    },
+  )
+})

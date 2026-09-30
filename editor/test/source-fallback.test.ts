@@ -94,3 +94,33 @@ test('source find treats punctuation literally and wraps through matches', () =>
   expect(source.selectionStart).toBe(source.selectionEnd)
   expect(editor.markdown()).toBeNull()
 })
+
+test('real formatted parsing cannot drop inline breaks from source editing', async () => {
+  const { MemoEditor } = await import('../src/editor')
+  const root = document.createElement('div')
+  document.body.append(root)
+  const formattedRoot = document.createElement('div')
+  root.append(formattedRoot)
+  const formatted = await MemoEditor.mount(formattedRoot, {
+    changed() {},
+    stateChanged() {},
+    openLink() {},
+    copy() {},
+    pasteImage() {},
+  })
+  const editor = new SourceFallback(formatted, formattedRoot, root, () => {})
+  const original = 'Before <br /> after\n'
+  editor.load(original, 1)
+  expect(formattedRoot.hidden).toBe(true)
+  expect(editor.markdown()).toBeNull()
+  const source = root.querySelector('textarea')!
+  expect(source.value).toBe(original)
+  source.value += 'More\n'
+  source.dispatchEvent(new Event('input'))
+  expect(editor.markdown()).toBe(original + 'More\n')
+  editor.load('Other memo\n', 2)
+  editor.load(original + 'More\n', 3)
+  expect(source.value).toBe(original + 'More\n')
+  expect(editor.markdown()).toBeNull()
+  root.remove()
+})
