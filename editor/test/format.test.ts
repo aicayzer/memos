@@ -540,7 +540,7 @@ test('loading another memo clears previous search highlights', async () =>
 
 test('authored spacing between list groups survives switching memos and reloading', async () => {
   await withMemoEditor(
-    '1. Example\n2. Another example\n\n- Another list\n- More items\n\n- [ ] Todo\n',
+    '1. Example\n2. Another example\n\n- Another list\n- More items\n\n* [ ] Todo\n',
     (editor) => {
       const view = ctxOf(editor).get(editorViewCtx)
       const paragraph = view.state.schema.nodes.paragraph!
