@@ -551,6 +551,8 @@ test('authored spacing between list groups survives switching memos and reloadin
       const transaction = view.state.tr
       for (const position of positions.reverse()) transaction.insert(position, paragraph.create())
       view.dispatch(transaction)
+      expect(view.state.doc.childCount).toBe(5)
+      expect(view.state.doc.lastChild?.firstChild?.attrs.checked).toBe(false)
       const authored = view.state.doc.toJSON()
       const saved = editor.markdown()!
       expect(saved).toContain('<br />')
