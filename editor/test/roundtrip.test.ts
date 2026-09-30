@@ -105,3 +105,9 @@ for (const markdown of [
     expect(await roundTrip(markdown)).toBe(markdown)
   })
 }
+
+for (const markdown of ['Before <br /> after\n', 'Before <span>literal</span> after\n']) {
+  test(`inline HTML remains literal through the parser: ${JSON.stringify(markdown)}`, async () => {
+    expect(await roundTrip(markdown)).toBe(markdown)
+  })
+}

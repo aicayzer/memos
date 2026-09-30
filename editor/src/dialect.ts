@@ -1,7 +1,11 @@
 import { editorViewCtx, serializerCtx } from '@milkdown/kit/core'
 import type { Ctx, MilkdownPlugin } from '@milkdown/kit/ctx'
 import type { Node as ProseNode } from '@milkdown/kit/prose/model'
-import { commonmark, paragraphSchema } from '@milkdown/kit/preset/commonmark'
+import {
+  commonmark,
+  paragraphSchema,
+  remarkPreserveEmptyLinePlugin,
+} from '@milkdown/kit/preset/commonmark'
 import {
   extendListItemSchemaForTask,
   strikethroughAttr,
@@ -14,7 +18,7 @@ import {
 import { $remark } from '@milkdown/kit/utils'
 import { autolinkInputRule } from './autolink'
 import { imageView } from './images'
-import type { Link, Parents, PhrasingContent } from 'mdast'
+import type { Link, Parents, PhrasingContent, Root, RootContent } from 'mdast'
 import { defaultHandlers, type Options as StringifyOptions } from 'mdast-util-to-markdown'
 import {
   gfmAutolinkLiteralFromMarkdown,
@@ -101,6 +105,25 @@ function remarkDialect(this: Processor) {
 
 export const remarkDialectPlugin = $remark('remarkDialect', () => remarkDialect)
 
+// Only standalone break paragraphs represent spacing. Inline HTML must remain literal on paste.
+function restoreSpacerParagraphs(node: Root | RootContent): void {
+  if (node.type === 'paragraph' && node.children.length === 1) {
+    const child = node.children[0]!
+    if (
+      child.type === 'html' &&
+      ['<br />', '<br>', '<br >', '<br/>'].includes(child.value.trim())
+    ) {
+      node.children = []
+      return
+    }
+  }
+  if ('children' in node) node.children.forEach(restoreSpacerParagraphs)
+}
+const spacerParagraphs = $remark('spacerParagraphs', () => () => restoreSpacerParagraphs)
+const commonmarkWithLiteralBreaks = commonmark.filter(
+  (plugin) => !(remarkPreserveEmptyLinePlugin as MilkdownPlugin[]).includes(plugin),
+)
+
 // The preset drops the final empty paragraph, which makes trailing spacers shrink on each reload.
 const preserveSpacerParagraphs = paragraphSchema.extendSchema((base) => (ctx) => {
   const schema = base(ctx)
@@ -119,7 +142,8 @@ const preserveSpacerParagraphs = paragraphSchema.extendSchema((base) => (ctx) =>
 })
 
 export const dialect: MilkdownPlugin[] = [
-  commonmark,
+  commonmarkWithLiteralBreaks,
+  spacerParagraphs,
   preserveSpacerParagraphs,
   autolinkInputRule,
   extendListItemSchemaForTask,
