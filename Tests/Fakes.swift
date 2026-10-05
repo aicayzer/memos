@@ -2,6 +2,17 @@ import AppKit
 import Foundation
 @testable import Memos
 
+/// A fresh folder in the temporary directory; pair it with `discard` so a run leaves nothing behind.
+func temporaryFolder() throws -> URL {
+    let folder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    return folder
+}
+
+func discard(_ url: URL) {
+    try? FileManager.default.removeItem(at: url)
+}
+
 /// The editor without a window: what the app put on screen, and what the reader typed back.
 @MainActor
 final class FakeEditor: Editing {

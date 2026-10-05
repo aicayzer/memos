@@ -18,12 +18,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The test host must not touch the real store or defaults, and must not hand over to a running app.
     private static let isTestHost = ProcessInfo.processInfo.environment.keys.contains { $0.hasPrefix("XCTest") }
 
+    /// One fixed folder, cleared at launch and at exit: a host the test runner kills cannot pile up files.
+    private static let testHostFolder = FileManager.default.temporaryDirectory.appending(path: "memos-test-host")
+
     override init() {
         let store: LibraryStore
         let defaults = Self.isTestHost ? UserDefaults(suiteName: "tests-\(UUID().uuidString)")! : .standard
         do {
             if Self.isTestHost {
-                store = LibraryStore(fileURL: FileManager.default.temporaryDirectory.appending(path: "store-\(UUID().uuidString).json"))
+                try? FileManager.default.removeItem(at: Self.testHostFolder)
+                try FileManager.default.createDirectory(at: Self.testHostFolder, withIntermediateDirectories: true)
+                store = LibraryStore(fileURL: Self.testHostFolder.appending(path: "store.json"))
                 model = AppModel(
                     store: store, images: store,
                     defaults: defaults
@@ -119,6 +124,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        if Self.isTestHost { try? FileManager.default.removeItem(at: Self.testHostFolder) }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

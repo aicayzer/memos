@@ -45,16 +45,16 @@ import Testing
 }
 
 @Suite struct FolderImageStoreTests {
-    private func store() -> (FolderImageStore, URL) {
-        let folder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    private func store() throws -> (FolderImageStore, URL) {
+        let folder = try temporaryFolder()
         return (FolderImageStore(besideStoreAt: folder.appending(path: "store.json")), folder)
     }
 
     private let png = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x2A])
 
     @Test func theSameBytesAreKeptOnce() async throws {
-        let (images, folder) = store()
+        let (images, folder) = try store()
+        defer { discard(folder) }
         let first = try await images.save(png)
         let second = try await images.save(png)
         #expect(first.path == second.path)
@@ -64,13 +64,15 @@ import Testing
         #expect(first.path.hasSuffix(".png"))
     }
 
-    @Test func whatIsNotAnImageIsRefused() async {
-        let (images, _) = store()
+    @Test func whatIsNotAnImageIsRefused() async throws {
+        let (images, folder) = try store()
+        defer { discard(folder) }
         await #expect(throws: ImageStoreError.self) { try await images.save(Data("plain text".utf8)) }
     }
 
     @Test func anImageNoMemoRefersToGoes() async throws {
-        let (images, _) = store()
+        let (images, folder) = try store()
+        defer { discard(folder) }
         let kept = try await images.save(png)
         let dropped = try await images.save(Data([0xFF, 0xD8, 0xFF, 0xE0, 0x01]))
         await images.removeOrphans(keeping: [kept.path])
@@ -78,8 +80,9 @@ import Testing
         #expect(await images.url(for: dropped.path).map { FileManager.default.fileExists(atPath: $0.path) } == false)
     }
 
-    @Test func aPathFromSomewhereElseHasNoPlaceInTheFolder() async {
-        let (images, _) = store()
+    @Test func aPathFromSomewhereElseHasNoPlaceInTheFolder() async throws {
+        let (images, folder) = try store()
+        defer { discard(folder) }
         #expect(await images.url(for: "images/../store.json") == nil)
         #expect(await images.url(for: "/etc/passwd") == nil)
     }
