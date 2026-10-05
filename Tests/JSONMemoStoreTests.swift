@@ -3,13 +3,15 @@ import Testing
 @testable import Memos
 
 @Suite struct JSONMemoStoreTests {
-    private func makeStore() -> (JSONMemoStore, URL) {
-        let url = FileManager.default.temporaryDirectory.appending(path: "memos-\(UUID().uuidString).json")
-        return (JSONMemoStore(fileURL: url), url)
+    private func makeStore() throws -> (JSONMemoStore, URL) {
+        let folder = try temporaryFolder()
+        return (JSONMemoStore(fileURL: folder.appending(path: "memos.json")), folder)
     }
 
     @Test func createsListsAndReadsBack() async throws {
-        let (store, url) = makeStore()
+        let (store, folder) = try makeStore()
+        defer { discard(folder) }
+        let url = folder.appending(path: "memos.json")
         let first = try await store.create(markdown: "First\n")
         try await Task.sleep(for: .milliseconds(2))
         let second = try await store.create(markdown: "Second\n")
@@ -22,7 +24,8 @@ import Testing
     }
 
     @Test func updatingMovesAMemoToTheTop() async throws {
-        let (store, _) = makeStore()
+        let (store, folder) = try makeStore()
+        defer { discard(folder) }
         let first = try await store.create(markdown: "First\n")
         _ = try await store.create(markdown: "Second\n")
         // The file keeps milliseconds, so two writes in one would tie.
@@ -34,7 +37,9 @@ import Testing
     }
 
     @Test func favoriteSurvivesReopening() async throws {
-        let (store, url) = makeStore()
+        let (store, folder) = try makeStore()
+        defer { discard(folder) }
+        let url = folder.appending(path: "memos.json")
         let memo = try await store.create(markdown: "Keep\n")
         _ = try await store.setFavorite(memo.id, true)
         let reopened = JSONMemoStore(fileURL: url)
@@ -42,7 +47,8 @@ import Testing
     }
 
     @Test func favoritesSortFirst() async throws {
-        let (store, _) = makeStore()
+        let (store, folder) = try makeStore()
+        defer { discard(folder) }
         let old = try await store.create(markdown: "Old\n")
         _ = try await store.create(markdown: "New\n")
         _ = try await store.setFavorite(old.id, true)
@@ -51,7 +57,8 @@ import Testing
     }
 
     @Test func queryMatchesTitleAndBodyIgnoringCase() async throws {
-        let (store, _) = makeStore()
+        let (store, folder) = try makeStore()
+        defer { discard(folder) }
         let groceries = try await store.create(markdown: "Groceries\n\n- Milk\n")
         _ = try await store.create(markdown: "Plan\n\n- call the bank\n")
         let byTitle = try await store.list(matching: "grocer").map(\.id)
@@ -63,7 +70,8 @@ import Testing
     }
 
     @Test func deleteRemovesTheMemo() async throws {
-        let (store, _) = makeStore()
+        let (store, folder) = try makeStore()
+        defer { discard(folder) }
         let memo = try await store.create(markdown: "Gone\n")
         try await store.delete(memo.id)
         let listed = try await store.list(matching: nil)
@@ -71,7 +79,8 @@ import Testing
     }
 
     @Test func updatingAMissingMemoThrows() async throws {
-        let (store, _) = makeStore()
+        let (store, folder) = try makeStore()
+        defer { discard(folder) }
         await #expect(throws: MemoStoreError.self) {
             try await store.update(UUID(), markdown: "")
         }
@@ -80,14 +89,18 @@ import Testing
 
 @Suite struct JSONMemoStoreFileTests {
     @Test func aMissingFileStartsEmpty() async throws {
-        let url = FileManager.default.temporaryDirectory.appending(path: "missing-\(UUID().uuidString).json")
+        let folder = try temporaryFolder()
+        defer { discard(folder) }
+        let url = folder.appending(path: "memos.json")
         let store = JSONMemoStore(fileURL: url)
         let listed = try await store.list(matching: nil)
         #expect(listed.isEmpty)
     }
 
     @Test func datesWithoutFractionsStillRead() async throws {
-        let url = FileManager.default.temporaryDirectory.appending(path: "seconds-\(UUID().uuidString).json")
+        let folder = try temporaryFolder()
+        defer { discard(folder) }
+        let url = folder.appending(path: "memos.json")
         let json = """
         {"memos": [{"id": "6A3F2C8E-0000-4000-8000-000000000001", "markdown": "Old\\n", "favorite": false,
                     "createdAt": "2026-09-21T00:06:11Z", "updatedAt": "2026-09-21T00:06:11Z"}]}
@@ -98,7 +111,9 @@ import Testing
     }
 
     @Test func anUnreadableFileIsSetAsideNotOverwritten() async throws {
-        let url = FileManager.default.temporaryDirectory.appending(path: "broken-\(UUID().uuidString).json")
+        let folder = try temporaryFolder()
+        defer { discard(folder) }
+        let url = folder.appending(path: "memos.json")
         try Data("not json".utf8).write(to: url)
         let store = JSONMemoStore(fileURL: url)
         _ = try await store.create(markdown: "New\n")
@@ -113,7 +128,9 @@ import Testing
 @Suite struct JSONMemoStoreSharingTests {
     /// Two stores on one file stand in for the app and the command line tool.
     @Test func aChangeByOneIsSeenByTheOther() async throws {
-        let url = FileManager.default.temporaryDirectory.appending(path: "shared-\(UUID().uuidString).json")
+        let folder = try temporaryFolder()
+        defer { discard(folder) }
+        let url = folder.appending(path: "memos.json")
         let app = JSONMemoStore(fileURL: url)
         let tool = JSONMemoStore(fileURL: url)
         let first = try await app.create(markdown: "From the app\n")
@@ -125,7 +142,9 @@ import Testing
     }
 
     @Test func writesFromManyTasksAllLand() async throws {
-        let url = FileManager.default.temporaryDirectory.appending(path: "busy-\(UUID().uuidString).json")
+        let folder = try temporaryFolder()
+        defer { discard(folder) }
+        let url = folder.appending(path: "memos.json")
         try await withThrowingTaskGroup(of: Void.self) { group in
             for index in 0..<20 {
                 group.addTask {
@@ -140,7 +159,9 @@ import Testing
 
 @Suite struct JSONMemoStoreDateTests {
     @Test func whatIsHandedBackIsWhatTheFileHolds() async throws {
-        let url = FileManager.default.temporaryDirectory.appending(path: "dates-\(UUID().uuidString).json")
+        let folder = try temporaryFolder()
+        defer { discard(folder) }
+        let url = folder.appending(path: "memos.json")
         let store = JSONMemoStore(fileURL: url)
         let created = try await store.create(markdown: "Now\n")
         #expect(try await store.get(created.id) == created)
@@ -149,7 +170,9 @@ import Testing
     }
 
     @Test func tiesOrderTheSameWayEveryTime() async throws {
-        let url = FileManager.default.temporaryDirectory.appending(path: "ties-\(UUID().uuidString).json")
+        let folder = try temporaryFolder()
+        defer { discard(folder) }
+        let url = folder.appending(path: "memos.json")
         let store = JSONMemoStore(fileURL: url)
         for index in 0..<8 { _ = try await store.create(markdown: "Memo \(index)\n") }
         let first = try await store.list(matching: nil).map(\.id)
