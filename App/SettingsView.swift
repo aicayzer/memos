@@ -178,38 +178,36 @@ struct SettingsView: View {
                             .frame(width: 38, alignment: .trailing)
                     }
                 }
-                Picker("Tint", selection: Binding(
-                    get: { model.windowTint != nil },
-                    set: { tinted in
-                        // A tint starts as the window's own color, so the well opens on what is on screen.
-                        model.windowTint = tinted ? WindowBackdrop.baseColor(for: colorScheme) : nil
+                Toggle("Advanced", isOn: $model.advancedAppearance)
+                if model.advancedAppearance {
+                    Picker("Tint", selection: Binding(
+                        get: { model.windowTint != nil },
+                        set: { tinted in
+                            // A tint starts as the window's own color, so the well opens on what is on screen.
+                            model.windowTint = tinted ? WindowBackdrop.baseColor(for: colorScheme) : nil
+                        }
+                    )) {
+                        Text("None").tag(false)
+                        Text("Custom").tag(true)
                     }
-                )) {
-                    Text("None").tag(false)
-                    Text("Custom").tag(true)
-                }
-                .tint(.primary)
-                if let tint = model.windowTint {
-                    ColorPicker("Tint color", selection: Binding(
-                        get: { Color(nsColor: tint) },
-                        set: { if let picked = Self.stored($0) { model.windowTint = picked } }
-                    ), supportsOpacity: false)
+                    .tint(.primary)
+                    if let tint = model.windowTint {
+                        ColorPicker("Tint color", selection: Binding(
+                            get: { Color(nsColor: tint) },
+                            set: { if let picked = Self.stored($0) { model.windowTint = picked } }
+                        ), supportsOpacity: false)
+                    }
+                    Toggle("Blur", isOn: $model.windowBlur)
                 }
             } header: {
                 Text("Editor")
             } footer: {
                 HStack {
                     Spacer()
-                    Button("Reset Appearance") {
-                        model.textSize = AppModel.defaultTextSize
-                        model.standardControls = false
-                        model.windowOpacity = AppModel.defaultWindowOpacity
-                        model.windowTint = nil
-                    }
+                    Button("Reset Appearance") { model.resetAppearance() }
                     .buttonStyle(.bordered)
                     .tint(.primary)
-                    .disabled(model.textSize == AppModel.defaultTextSize && !model.standardControls
-                              && model.windowOpacity == AppModel.defaultWindowOpacity && model.windowTint == nil)
+                    .disabled(model.appearanceIsDefault)
                 }
             }
         }

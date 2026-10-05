@@ -65,6 +65,7 @@
 		AB5456E80E4656F9132F78B7 /* MemosApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA9B6EDD2C6EDBDDE2450573 /* MemosApp.swift */; };
 		AE762C526F51C012C319BA8E /* StoreChangeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551119FC8448D84284945CB /* StoreChangeTests.swift */; };
 		B5E24BF80A80E70ADC5D8457 /* SpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C8A003C5B2D4F590CFFA134 /* SpotlightIndexer.swift */; };
+		C4585781C6611811831A867F /* AppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05750D9C590C4B72C13E50A6 /* AppearanceTests.swift */; };
 		C5FA205EFDD709B35C5A109E /* SidePane.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA9C9F8E917B0816065D8A3 /* SidePane.swift */; };
 		C6ED2FAC0E485F2AD2188E03 /* FormatBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF4205A779A5AB50860003B7 /* FormatBar.swift */; };
 		CC748EC43BA5FD14FABA6604 /* HistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A173D37EC0A86D02131CA004 /* HistoryTests.swift */; };
@@ -102,6 +103,7 @@
 /* Begin PBXFileReference section */
 		01FE465AA3C193C095317832 /* LibraryStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStoreTests.swift; sourceTree = "<group>"; };
 		02CBC67E5B84E4E2D1F40D4C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		05750D9C590C4B72C13E50A6 /* AppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceTests.swift; sourceTree = "<group>"; };
 		06A4031ECE1ACEA9CC672288 /* FindBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindBar.swift; sourceTree = "<group>"; };
 		08C157E367F3348B8D4A6E9A /* StorageSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageSettings.swift; sourceTree = "<group>"; };
 		091FB88337733422096147C5 /* MemosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MemosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -278,6 +280,7 @@
 		6CD96575F22CA1917CC840A8 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				05750D9C590C4B72C13E50A6 /* AppearanceTests.swift */,
 				1CA8E50B55DA8FA70DF9F182 /* ColorsTests.swift */,
 				4967B82863FF5C8D7D97748C /* Fakes.swift */,
 				A173D37EC0A86D02131CA004 /* HistoryTests.swift */,
@@ -548,6 +551,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4585781C6611811831A867F /* AppearanceTests.swift in Sources */,
 				5FAD7EEB65EF90A092C2BAF5 /* ColorsTests.swift in Sources */,
 				8DFD09DC341C4A3E4E3BFD6E /* Fakes.swift in Sources */,
 				CC748EC43BA5FD14FABA6604 /* HistoryTests.swift in Sources */,

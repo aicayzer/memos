@@ -81,6 +81,33 @@ final class AppModel {
         didSet { defaults.set(windowTint?.hexString, forKey: Self.windowTintKey) }
     }
 
+    /// Whether the tint and blur below apply; off, the window looks as it does by default.
+    var advancedAppearance: Bool {
+        didSet { defaults.set(advancedAppearance, forKey: Self.advancedAppearanceKey) }
+    }
+
+    /// The glass under the window color; off lets the desktop show through unblurred.
+    var windowBlur: Bool {
+        didSet { defaults.set(windowBlur, forKey: Self.windowBlurKey) }
+    }
+
+    var backdropTint: NSColor? { advancedAppearance ? windowTint : nil }
+    var backdropBlur: Bool { !advancedAppearance || windowBlur }
+
+    var appearanceIsDefault: Bool {
+        textSize == Self.defaultTextSize && !standardControls && windowOpacity == Self.defaultWindowOpacity
+            && !advancedAppearance && windowTint == nil && windowBlur
+    }
+
+    func resetAppearance() {
+        textSize = Self.defaultTextSize
+        standardControls = false
+        windowOpacity = Self.defaultWindowOpacity
+        advancedAppearance = false
+        windowTint = nil
+        windowBlur = true
+    }
+
     var accent: Accent {
         didSet {
             defaults.set(accent.stored, forKey: Self.accentKey)
@@ -135,6 +162,8 @@ final class AppModel {
     private static let showInDockKey = "showInDock"
     private static let windowOpacityKey = "windowOpacity"
     private static let windowTintKey = "windowTint"
+    private static let advancedAppearanceKey = "advancedAppearance"
+    private static let windowBlurKey = "windowBlur"
     private static let accentKey = "accent"
     private static let textSizeKey = "textSize"
     private static let standardControlsKey = "standardControls"
@@ -164,7 +193,11 @@ final class AppModel {
         menuBarItem = defaults.bool(forKey: Self.menuBarItemKey)
         showInDock = defaults.object(forKey: Self.showInDockKey) as? Bool ?? true
         windowOpacity = defaults.object(forKey: Self.windowOpacityKey) as? Double ?? Self.defaultWindowOpacity
-        windowTint = defaults.string(forKey: Self.windowTintKey).flatMap(NSColor.init(hexString:))
+        let storedTint = defaults.string(forKey: Self.windowTintKey).flatMap(NSColor.init(hexString:))
+        windowTint = storedTint
+        // A tint chosen before the switch existed keeps applying.
+        advancedAppearance = defaults.object(forKey: Self.advancedAppearanceKey) as? Bool ?? (storedTint != nil)
+        windowBlur = defaults.object(forKey: Self.windowBlurKey) as? Bool ?? true
         accent = Accent(stored: defaults.string(forKey: Self.accentKey))
         standardControls = defaults.bool(forKey: Self.standardControlsKey)
         menuBarIcon = defaults.string(forKey: Self.menuBarIconKey).flatMap(MenuBarIcon.init(rawValue:)) ?? .squiggle

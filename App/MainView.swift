@@ -49,7 +49,7 @@ struct MainView: View {
         .ignoresSafeArea(edges: .top)
         .frame(minHeight: 240)
         // The backdrop fills the title bar too; a background alone stops at the safe area in a hosting view.
-        .background { WindowBackdrop(opacity: model.windowOpacity, tint: model.windowTint).ignoresSafeArea() }
+        .background { WindowBackdrop(opacity: model.windowOpacity, tint: model.backdropTint, blur: model.backdropBlur).ignoresSafeArea() }
         // Hidden, but the title is what accessibility and Mission Control call the window.
         .onChange(of: model.title, initial: true) { model.window?.title = model.title }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { note in
