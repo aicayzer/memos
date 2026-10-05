@@ -157,7 +157,7 @@ final class AppModel {
         #else
         floating = defaults.object(forKey: Self.floatingKey) as? Bool ?? true
         #endif
-        formatBarHidden = defaults.bool(forKey: Self.formatBarHiddenKey)
+        formatBarHidden = defaults.object(forKey: Self.formatBarHiddenKey) as? Bool ?? true
         let paneAtLaunch = defaults.bool(forKey: Self.sidePaneAtLaunchKey)
         sidePaneAtLaunch = paneAtLaunch
         sidePane = paneAtLaunch

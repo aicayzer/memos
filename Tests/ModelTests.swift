@@ -156,6 +156,20 @@ import Testing
         #expect(await images.held.isEmpty)
     }
 
+    @Test func theFormattingBarStartsHiddenUnlessTheReaderOpenedIt() {
+        let suite = "format-bar-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        func opened() -> AppModel {
+            AppModel(store: ChangeableStore([]), images: FakeImageStore(), defaults: defaults, editor: FakeEditor())
+        }
+        #expect(opened().formatBarHidden)
+        defaults.set(false, forKey: "formatBarHidden")
+        #expect(!opened().formatBarHidden)
+        defaults.set(true, forKey: "formatBarHidden")
+        #expect(opened().formatBarHidden)
+    }
+
     @Test func anEditReportedForAnEarlierMemoIsDropped() async {
         let editor = EditorController(images: FakeImageStore())
         var reported: [String] = []
