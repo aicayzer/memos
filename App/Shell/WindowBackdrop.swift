@@ -3,11 +3,12 @@ import SwiftUI
 struct WindowBackdrop: View {
     let opacity: Double
     let tint: NSColor?
+    let blur: Bool
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ZStack {
-            Glass()
+            if blur { Glass() }
             Color(nsColor: tint ?? Self.baseColor(for: colorScheme)).opacity(opacity)
         }
         .clipShape(.rect(cornerRadius: Chrome.cornerRadius))
