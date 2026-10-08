@@ -68,6 +68,8 @@ final class FakeEditor: Editing {
 
     var snapshotError: (any Error)?
     var duringRebind: (() -> Void)?
+    var beforeRefresh: (() -> Void)?
+    var afterRefresh: (() -> Void)?
     func snapshot() async throws -> String {
         if let snapshotError { throw snapshotError }
         return text
@@ -78,6 +80,15 @@ final class FakeEditor: Editing {
         generation += 1
         duringRebind?()
         return source
+    }
+    func refresh(_ markdown: String, documentID nextDocumentID: String, expecting source: String) async throws -> EditorRefresh {
+        beforeRefresh?()
+        let live = try await snapshot()
+        guard live == source else { return .edited(live) }
+        documentID = nextDocumentID
+        reload(markdown)
+        afterRefresh?()
+        return .applied
     }
     func table(_ command: String) {}
     func pasteAsPlainText(_ value: String) { type(text + value) }

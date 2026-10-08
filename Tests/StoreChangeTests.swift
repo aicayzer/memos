@@ -10,11 +10,35 @@ actor ChangeableStore: MemoStore {
     private var delayingCreate = false
     private var createContinuation: CheckedContinuation<Void, Never>?
     private var createStarted: CheckedContinuation<Void, Never>?
+    private var delayingRead = false
+    private var readContinuation: CheckedContinuation<Void, Never>?
+    private var readStarted: CheckedContinuation<Void, Never>?
 
     init(_ memos: [Memo]) { self.memos = memos }
 
     func list(matching query: String?) -> [Memo] { memos }
-    func get(_ id: Memo.ID) -> Memo? { memos.first { $0.id == id } }
+    func get(_ id: Memo.ID) async -> Memo? {
+        let captured = memos.first { $0.id == id }
+        if delayingRead {
+            delayingRead = false
+            await withCheckedContinuation { continuation in
+                readContinuation = continuation
+                readStarted?.resume()
+                readStarted = nil
+            }
+        }
+        return captured
+    }
+
+    func delayNextRead() { delayingRead = true }
+    func waitForRead() async {
+        guard readContinuation == nil else { return }
+        await withCheckedContinuation { readStarted = $0 }
+    }
+    func finishRead() {
+        readContinuation?.resume()
+        readContinuation = nil
+    }
 
     func create(markdown: String) async -> Memo {
         if delayingCreate {
@@ -178,6 +202,86 @@ actor ChangeableStore: MemoStore {
         #expect(editor.text == "Unreported edit\n")
         #expect(editor.reloaded.isEmpty)
         #expect(await store.get(memo.id)?.markdown == "Changed elsewhere\n")
+    }
+
+    @Test(arguments: [false, true])
+    func aDelayedExternalReadCannotOverwriteNewerTyping(_ reporting: Bool) async throws {
+        let (model, store, memo) = await model()
+        let editor = model.editor as! FakeEditor
+        await store.replace(memo.id, with: "Read before the new keystroke\n")
+        await store.delayNextRead()
+        model.storeChanged()
+        await store.waitForRead()
+        if reporting { editor.type("Newer typing\n") } else { editor.typeWithoutReporting("Newer typing\n") }
+        await store.finishRead()
+        await model.settle()
+        #expect(editor.text == "Newer typing\n")
+        #expect(model.current?.markdown == "Newer typing\n")
+        #expect(editor.reloaded.isEmpty)
+        #expect(await model.flush())
+        #expect(await store.get(memo.id)?.markdown == "Newer typing\n")
+    }
+
+    @Test func typingAtTheConditionalRefreshBoundaryWins() async throws {
+        let (model, store, memo) = await model()
+        let editor = model.editor as! FakeEditor
+        editor.beforeRefresh = {
+            editor.type("Earlier reported prefix\n")
+            editor.typeWithoutReporting("Typed after the read\n")
+        }
+        await store.replace(memo.id, with: "Changed elsewhere\n")
+        model.storeChanged()
+        await model.settle()
+        #expect(editor.text == "Typed after the read\n")
+        #expect(model.current?.markdown == editor.text)
+        #expect(editor.reloaded.isEmpty)
+    }
+
+    @Test func typingAfterAConditionalRefreshIsNotLostByModelAdoption() async throws {
+        let (model, store, memo) = await model()
+        let editor = model.editor as! FakeEditor
+        editor.afterRefresh = { editor.type("Typed after replacement\n") }
+        await store.replace(memo.id, with: "Changed elsewhere\n")
+        model.storeChanged()
+        await model.settle()
+        #expect(model.current?.markdown == "Typed after replacement\n")
+        #expect(editor.text == model.current?.markdown)
+        #expect(await store.get(memo.id)?.markdown == editor.text)
+    }
+
+    @Test func typingDuringAMissingMemoReadIsRecoveredWithoutSwitching() async throws {
+        let (model, store, memo) = await model()
+        let editor = model.editor as! FakeEditor
+        await store.delete(memo.id)
+        _ = await store.create(markdown: "Other memo\n")
+        await store.delayNextRead()
+        model.storeChanged()
+        await store.waitForRead()
+        editor.typeWithoutReporting("Deleted memo's newer typing\n")
+        await store.finishRead()
+        await model.settle()
+        #expect(model.current?.markdown == "Deleted memo's newer typing\n")
+        #expect(editor.text == model.current?.markdown)
+        #expect(editor.reloaded.isEmpty)
+        #expect(editor.documentID == model.current?.id.uuidString)
+    }
+
+    @Test func switchingMemosDuringAHeldReadWinsOverTheDelayedRefresh() async throws {
+        let (model, store, memo) = await model()
+        let editor = model.editor as! FakeEditor
+        let other = await store.create(markdown: "Opened while the read waits\n")
+        await store.replace(memo.id, with: "Older external read\n")
+        await store.delayNextRead()
+        model.storeChanged()
+        await store.waitForRead()
+        await model.open(other.id)
+        await store.finishRead()
+        await model.settle()
+        #expect(model.current?.id == other.id)
+        #expect(model.current?.markdown == other.markdown)
+        #expect(editor.text == other.markdown)
+        #expect(editor.documentID == other.id.uuidString)
+        #expect(editor.reloaded.isEmpty)
     }
 
     @Test(arguments: ChangeableStore.Recovery.allCases, [false, true])

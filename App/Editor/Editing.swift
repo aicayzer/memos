@@ -35,11 +35,18 @@ protocol Editing: AnyObject {
     func snapshot() async throws -> String
     /// Changes a recovered memo's identity while retaining the editor's latest source and caret.
     func rebind(to documentID: String) async throws -> String
+    /// Replaces external source only when the browser still holds the expected text.
+    func refresh(_ markdown: String, documentID: String, expecting source: String) async throws -> EditorRefresh
     func pasteAsPlainText(_ text: String)
     func table(_ command: String)
 
     /// The view the memo is drawn in.
     var contentView: NSView { get }
+}
+
+enum EditorRefresh {
+    case applied
+    case edited(String)
 }
 
 extension Editing {

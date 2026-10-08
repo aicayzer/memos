@@ -29,6 +29,7 @@ const retryableSnapshotCodes = new Set([
   'preservation',
 ])
 let generation = 0
+let changeSequence = 0
 const replies = new Map<
   string,
   { resolve(value: Record<string, string>): void; reject(error: Error): void }
@@ -129,7 +130,7 @@ const editor = await InkKitEditor.mount(
   root,
   {
     changed(markdown, generation) {
-      post({ type: 'changed', markdown, generation })
+      post({ type: 'changed', markdown, generation, sequence: ++changeSequence })
     },
     stateChanged(state) {
       post({ type: 'state', ...state, generation })
@@ -185,6 +186,35 @@ const facade = {
     })
     generation = nextGeneration
     return { ...snapshot, generation: nextGeneration, documentId }
+  },
+  refresh(
+    expectedGeneration: number,
+    nextGeneration: number,
+    expectedDocumentId: string,
+    documentId: string,
+    expectedSource: string,
+    text: string,
+  ) {
+    if (generation !== expectedGeneration) throw new Error('The memo changed')
+    let snapshot: ReturnType<InkKitEditor['snapshot']>
+    try {
+      snapshot = editor.snapshot(expectedGeneration)
+    } catch (error) {
+      if (!(error instanceof InkKitError) || !retryableSnapshotCodes.has(error.code)) throw error
+      return {
+        rejected: true,
+        snapshotError: error.code,
+        generation,
+        documentId: expectedDocumentId,
+        message: String(error),
+      }
+    }
+    if (snapshot.documentId !== expectedDocumentId) throw new Error('The memo changed')
+    if (snapshot.text !== expectedSource)
+      return { ...snapshot, applied: false, sequence: changeSequence }
+    editor.reloadDocument({ text, generation: nextGeneration, documentId, format: 'md' })
+    generation = nextGeneration
+    return { text, applied: true, generation: nextGeneration, documentId, sequence: changeSequence }
   },
   snapshot(expectedGeneration: number) {
     try {

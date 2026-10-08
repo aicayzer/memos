@@ -6,11 +6,13 @@ The app bootstrap consumes `@aicayzer/inkkit` and bundles its JavaScript and CSS
 
 `load(text, generation, documentId)` and `reload(text, generation, documentId)` pass Markdown documents to InkKit. `snapshot(expectedGeneration)` returns complete current source with `documentId`, `generation`, `revision`, `format`, and `dirty`. Unchanged text is a successful snapshot; readiness, composition, pending images, stale generations, and script failures throw. Native save, export, close, switching, and termination must stop when retrieval fails.
 
-`changed` carries Markdown and generation. Discard reports belonging to previous documents. Appearance and formatting changes do not reload source.
+`changed` carries Markdown, generation, and a monotonically increasing host sequence. Discard reports belonging to previous documents. Appearance and formatting changes do not reload source.
 
 Expected InkKit snapshot rejections return `snapshotError` and `message` to native code, which throws a typed retrieval error. This keeps a save or copy attempted during composition or an image import from becoming a global script failure; a later snapshot can succeed after the operation finishes. Genuine script failures still block snapshot-dependent actions.
 
 Recovery uses `rebind(expectedGeneration, nextGeneration, expectedDocumentId, documentId)` to snapshot and reload the latest source with its new identity in one JavaScript operation, retaining the caret. A preflight snapshot rejection reports that no document replacement occurred, so native code can retain the previous scope. Unknown script or response failures leave the bridge failed; snapshots throw and change callbacks cannot schedule writes until a successful load establishes a usable scope.
+
+External storage refresh uses `refresh(expectedGeneration, nextGeneration, expectedDocumentId, documentId, expectedSource, text)`. It compares the live source and conditionally reloads in one JavaScript operation. A changed source returns `applied: false` with the live text and retains its scope. An unchanged source returns `applied: true` in the new scope. Native code buffers change messages during this operation and uses the returned sequence to discard earlier prefixes while retaining later typing. Recoverable preflight rejection restores the previous scope and delivers buffered edits; unknown failures leave the bridge failed.
 
 ## Clipboard and images
 

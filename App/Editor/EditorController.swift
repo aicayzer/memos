@@ -56,6 +56,9 @@ final class EditorController: NSObject, Editing {
 
     @ObservationIgnored private var pendingMarkdown: String?
     @ObservationIgnored private var generation = 0
+    @ObservationIgnored private var refreshPreviousGeneration: Int?
+    @ObservationIgnored private var refreshChanges: [(text: String, generation: Int, sequence: Int)] = []
+    @ObservationIgnored private var lastChangeSequence = 0
     @ObservationIgnored private var loadTask: Task<Void, any Error>?
     @ObservationIgnored private var failure: (any Error)?
     @ObservationIgnored private var pageReady = false
@@ -118,6 +121,8 @@ final class EditorController: NSObject, Editing {
     func reload(_ markdown: String) { replace(markdown, keepingCaret: true) }
 
     private func replace(_ markdown: String, keepingCaret: Bool) {
+        refreshPreviousGeneration = nil
+        refreshChanges.removeAll()
         generation += 1
         pendingMarkdown = markdown
         isReady = false
@@ -253,6 +258,73 @@ final class EditorController: NSObject, Editing {
             if generation == nextGeneration, documentID == nextDocumentID {
                 failure = error
             }
+            throw error
+        }
+    }
+
+    func refresh(_ markdown: String, documentID nextDocumentID: String, expecting source: String) async throws -> EditorRefresh {
+        let previousGeneration = generation
+        let previousDocumentID = documentID
+        if let loadTask { try await loadTask.value }
+        guard previousGeneration == generation, previousDocumentID == documentID else { throw MemoEditorError.documentChanged }
+        if let failure { throw failure }
+        guard isReady else { throw MemoEditorError.notReady }
+        let nextGeneration = previousGeneration + 1
+        generation = nextGeneration
+        documentID = nextDocumentID
+        refreshPreviousGeneration = previousGeneration
+        refreshChanges.removeAll()
+        isReady = false
+        defer {
+            if generation == nextGeneration || generation == previousGeneration {
+                refreshPreviousGeneration = nil
+                refreshChanges.removeAll()
+            }
+        }
+        do {
+            let result = try await webView.evaluateJavaScript("window.editor.refresh(\(previousGeneration), \(nextGeneration), \(json(previousDocumentID)), \(json(nextDocumentID)), \(json(source)), \(json(markdown)))")
+            guard generation == nextGeneration, documentID == nextDocumentID else { throw MemoEditorError.documentChanged }
+            if let value = result as? [String: Any],
+               value["generation"] as? Int == previousGeneration,
+               value["documentId"] as? String == previousDocumentID {
+                if value["rejected"] as? Bool == true,
+                   let code = value["snapshotError"] as? String, retryableSnapshotCodes.contains(code),
+                   let message = value["message"] as? String {
+                    generation = previousGeneration
+                    documentID = previousDocumentID
+                    isReady = true
+                    if let newer = refreshChanges.filter({ $0.generation == previousGeneration && $0.sequence > lastChangeSequence }).max(by: { $0.sequence < $1.sequence }) {
+                        lastChangeSequence = newer.sequence
+                        onChanged(newer.text)
+                    }
+                    throw MemoEditorError.snapshotRejected(code: code, message: message)
+                }
+                if value["applied"] as? Bool == false, let live = value["text"] as? String,
+                   let sequence = value["sequence"] as? Int {
+                    generation = previousGeneration
+                    documentID = previousDocumentID
+                    isReady = true
+                    lastChangeSequence = max(lastChangeSequence, sequence)
+                    let newer = refreshChanges.filter { $0.generation == previousGeneration && $0.sequence > sequence }.max { $0.sequence < $1.sequence }
+                    if let newer { lastChangeSequence = max(lastChangeSequence, newer.sequence) }
+                    return .edited(newer?.text ?? live)
+                }
+            }
+            guard let value = result as? [String: Any], value["applied"] as? Bool == true,
+                  value["text"] as? String == markdown,
+                  value["documentId"] as? String == nextDocumentID,
+                  value["generation"] as? Int == nextGeneration,
+                  let sequence = value["sequence"] as? Int else { throw MemoEditorError.invalidResponse }
+            lastChangeSequence = max(lastChangeSequence, sequence)
+            isReady = true
+            loadTask = nil
+            if let newer = refreshChanges.filter({ $0.generation == nextGeneration && $0.sequence > sequence }).max(by: { $0.sequence < $1.sequence }) {
+                lastChangeSequence = max(lastChangeSequence, newer.sequence)
+                onChanged(newer.text)
+            }
+            return .applied
+        } catch {
+            if generation == nextGeneration, documentID == nextDocumentID { failure = error }
             throw error
         }
     }
@@ -408,6 +480,7 @@ final class EditorController: NSObject, Editing {
         case .ready:
             log.info("editor ready")
             pageReady = true
+            lastChangeSequence = 0
             isReady = true
             applyAccent()
             applyTextSize()
@@ -416,8 +489,20 @@ final class EditorController: NSObject, Editing {
                 self.pendingMarkdown = nil
                 applyDocument(pendingMarkdown, keepingCaret: false)
             }
-        case .changed(let markdown, let generation):
-            if generation == self.generation, failure == nil { onChanged(markdown) }
+        case .changed(let markdown, let generation, let sequence):
+            guard failure == nil else { return }
+            if let previous = refreshPreviousGeneration {
+                if (generation == self.generation || generation == previous), let sequence {
+                    refreshChanges.append((markdown, generation, sequence))
+                }
+                return
+            }
+            guard generation == self.generation else { return }
+            if let sequence {
+                guard sequence > lastChangeSequence else { return }
+                lastChangeSequence = sequence
+            }
+            onChanged(markdown)
         case .state(let state):
             if state != caret { caret = state }
         case .openLink(let href):

@@ -693,17 +693,21 @@ final class AppModel {
             // Flush against the loaded revision; a conflict keeps both versions before any reload.
             guard await flush() else { return }
             // A write that did not land keeps the text on screen; nothing is read over it.
-            guard !Task.isCancelled, current?.id == id, unsaved == nil else { return }
+            guard !Task.isCancelled, current?.id == id, unsaved == nil,
+                  let expectedSource = current?.markdown else { return }
             do {
                 let fresh = try await store.get(id)
-                guard !Task.isCancelled, current?.id == id else { return }
+                guard !Task.isCancelled, current?.id == id, unsaved == nil else { return }
                 guard let fresh else {
                     // Deleted elsewhere: the memo after it, or a new one.
-                    if let memo = try await store.list(matching: nil).first { show(memo) } else { show(try await store.create(markdown: "")) }
+                    let memo: Memo
+                    if let next = try await store.list(matching: nil).first { memo = next } else { memo = try await store.create(markdown: "") }
+                    guard !Task.isCancelled, current?.id == id, unsaved == nil else { return }
+                    try await refresh(memo, replacing: id, expecting: expectedSource, recording: true)
                     return
                 }
-                if fresh.markdown != current?.markdown {
-                    show(fresh, recording: false, keepingCaret: true)
+                if fresh.markdown != expectedSource {
+                    try await refresh(fresh, replacing: id, expecting: expectedSource, recording: false)
                 } else {
                     current?.favorite = fresh.favorite
                     current?.updatedAt = fresh.updatedAt
@@ -711,6 +715,23 @@ final class AppModel {
             } catch {
                 report(error)
             }
+        }
+    }
+
+    private func refresh(_ memo: Memo, replacing originalID: Memo.ID, expecting source: String, recording: Bool) async throws {
+        let result = try await editor.refresh(memo.markdown, documentID: memo.id.uuidString, expecting: source)
+        guard current?.id == originalID else { return }
+        switch result {
+        case .edited(let live):
+            changed(live)
+        case .applied:
+            let pending = unsaved
+            current = memo
+            savedMarkdown = memo.markdown
+            unsaved = nil
+            if recording { history.push(memo.id) }
+            defaults.set(memo.id.uuidString, forKey: Self.lastMemoKey)
+            if let pending { changed(pending) }
         }
     }
 

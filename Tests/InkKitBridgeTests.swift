@@ -5,6 +5,89 @@ import Testing
 @MainActor
 @Suite(.serialized, .opensWindows)
 struct InkKitBridgeTests {
+    @Test func conditionalRefreshRetainsTypingThatArrivesBeforeItsBrowserComparison() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "original"
+        editor.load("Original\n")
+        _ = try await editor.snapshot()
+        var reports: [String] = []
+        editor.onChanged = { reports.append($0) }
+        _ = try await editor.webView.evaluateJavaScript("""
+        window.originalRefresh = window.editor.refresh;
+        window.editor.refresh = (...args) => {
+          window.editor.pasteAsPlainText(' newer');
+          const reply = window.originalRefresh(...args);
+          webkit.messageHandlers.host.postMessage({type:'changed',markdown:'Older queued prefix',generation:args[0],sequence:reply.sequence});
+          return reply;
+        }; true
+        """)
+        let result = try await editor.refresh("External\n", documentID: "original", expecting: "Original\n")
+        guard case .edited(let live) = result else { Issue.record("The changed source must prevent replacement."); return }
+        #expect(live.contains("Original newer"))
+        #expect(editor.documentID == "original")
+        #expect(editor.isReady)
+        #expect(try await editor.snapshot() == live)
+        try await Task.sleep(for: .milliseconds(30))
+        #expect(!reports.contains("Older queued prefix"))
+        _ = try await editor.webView.evaluateJavaScript("window.editor.refresh = window.originalRefresh; true")
+        guard case .applied = try await editor.refresh("External\n", documentID: "next", expecting: live) else {
+            Issue.record("An unchanged source must accept the external replacement."); return
+        }
+        #expect(editor.documentID == "next")
+        #expect(try await editor.snapshot() == "External\n")
+        editor.receive(.changed("Old scope", generation: 1, sequence: 100))
+        #expect(!reports.contains("Old scope"))
+    }
+
+    @Test func rejectedConditionalRefreshKeepsTheOldScopeUsable() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "original"
+        editor.load("Original\n")
+        _ = try await editor.snapshot()
+        _ = try await editor.webView.evaluateJavaScript("document.querySelector('.ProseMirror').dispatchEvent(new CompositionEvent('compositionstart', {bubbles: true}))")
+        await #expect(throws: MemoEditorError.self) {
+            try await editor.refresh("External\n", documentID: "next", expecting: "Original\n")
+        }
+        #expect(editor.documentID == "original")
+        #expect(editor.isReady)
+        _ = try await editor.webView.evaluateJavaScript("document.querySelector('.ProseMirror').dispatchEvent(new CompositionEvent('compositionend', {bubbles: true}))")
+        #expect(try await editor.snapshot() == "Original\n")
+    }
+
+    @Test func aRejectedConditionalRefreshReportsTypingBufferedDuringEvaluation() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "original"
+        editor.load("Original\n")
+        _ = try await editor.snapshot()
+        var reports: [String] = []
+        editor.onChanged = { reports.append($0) }
+        _ = try await editor.webView.evaluateJavaScript("""
+        window.originalRefresh = window.editor.refresh;
+        window.editor.refresh = (...args) => {
+          window.editor.pasteAsPlainText(' typed');
+          document.querySelector('.ProseMirror').dispatchEvent(new CompositionEvent('compositionstart', {bubbles: true}));
+          return window.originalRefresh(...args);
+        }; true
+        """)
+        await #expect(throws: MemoEditorError.self) {
+            try await editor.refresh("External\n", documentID: "next", expecting: "Original\n")
+        }
+        #expect(editor.documentID == "original")
+        #expect(editor.isReady)
+        for _ in 0..<100 {
+            if reports.contains(where: { $0.contains("Original typed") }) { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(reports.contains(where: { $0.contains("Original typed") }))
+        _ = try await editor.webView.evaluateJavaScript("window.editor.refresh = window.originalRefresh; document.querySelector('.ProseMirror').dispatchEvent(new CompositionEvent('compositionend', {bubbles: true})); true")
+        let live = try await editor.snapshot()
+        #expect(live.contains("Original typed"))
+        guard case .applied = try await editor.refresh("External\n", documentID: "next", expecting: live) else {
+            Issue.record("The refresh must be retryable after composition finishes."); return
+        }
+        #expect(try await editor.snapshot() == "External\n")
+    }
+
     @Test func recoveryRebindKeepsFreshSourceAndRejectsThePreviousScope() async throws {
         let editor = EditorController(images: FakeImageStore())
         editor.documentID = "original"
