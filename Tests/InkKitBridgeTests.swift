@@ -5,6 +5,121 @@ import Testing
 @MainActor
 @Suite(.serialized, .opensWindows)
 struct InkKitBridgeTests {
+    @Test func recoveryRebindKeepsFreshSourceAndRejectsThePreviousScope() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "original"
+        editor.load("Original\n")
+        _ = try await editor.snapshot()
+        _ = try await editor.webView.evaluateJavaScript("window.editor.pasteAsPlainText(' fresh')")
+        let live = try await editor.rebind(to: "recovered")
+        #expect(live.contains("Original fresh"))
+        #expect(editor.documentID == "recovered")
+        #expect(editor.isReady)
+        #expect(try await editor.snapshot() == live)
+        var reported: [String] = []
+        editor.onChanged = { reported.append($0) }
+        editor.receive(.changed("stale", generation: 1))
+        #expect(reported.isEmpty)
+        editor.receive(.changed("current", generation: 2))
+        #expect(reported == ["current"])
+    }
+
+    @Test func rejectedRecoverySnapshotRetainsTheOriginalScope() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "original"
+        editor.load("Original\n")
+        _ = try await editor.snapshot()
+        _ = try await editor.webView.evaluateJavaScript("document.querySelector('.ProseMirror').dispatchEvent(new CompositionEvent('compositionstart', {bubbles: true}))")
+        await #expect(throws: (any Error).self) { try await editor.rebind(to: "recovered") }
+        #expect(editor.documentID == "original")
+        #expect(editor.isReady)
+        _ = try await editor.webView.evaluateJavaScript("document.querySelector('.ProseMirror').dispatchEvent(new CompositionEvent('compositionend', {bubbles: true}))")
+        #expect(try await editor.snapshot() == "Original\n")
+    }
+
+    @Test func pendingImageRecoveryRejectionLetsTheOriginalImportComplete() async throws {
+        let images = SuspendedImageStore()
+        let editor = EditorController(images: images)
+        editor.documentID = "original"
+        editor.load("Original\n")
+        _ = try await editor.snapshot()
+        _ = try await editor.webView.evaluateJavaScript("window.editor.pasteNative({text:'',generation:1,images:[{bytesBase64:'iVBORw0KGgo=',mimeType:'image/png'}]})")
+        for _ in 0..<200 {
+            if await images.isSaving { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        try #require(await images.isSaving)
+        await #expect(throws: MemoEditorError.self) { try await editor.rebind(to: "recovered") }
+        #expect(editor.documentID == "original")
+        #expect(editor.isReady)
+        await images.complete()
+        var live = ""
+        for _ in 0..<200 {
+            live = (try? await editor.snapshot()) ?? ""
+            if live.contains("images/") { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(live.contains("Original"))
+        #expect(live.contains("images/"))
+        #expect(try await editor.rebind(to: "recovered") == live)
+        #expect(editor.documentID == "recovered")
+    }
+
+    @Test func unknownRecoveryResponseFailsExplicitlyInsteadOfRestoringAnOldScope() async throws {
+        let images = FakeImageStore()
+        let editor = EditorController(images: images)
+        let store = ChangeableStore([])
+        let memo = await store.create(markdown: "Original\n")
+        let suite = "failed-recovery-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let model = AppModel(store: store, images: FakeImageStore(), defaults: defaults, editor: editor, presentError: { _ in })
+        await model.start()
+        _ = try await editor.snapshot()
+        _ = try await editor.webView.evaluateJavaScript("const rebind = window.editor.rebind; window.editor.rebind = (...args) => { rebind(...args); return {} }")
+        await #expect(throws: MemoEditorError.self) { try await editor.rebind(to: "recovered") }
+        #expect(!editor.isReady)
+        await #expect(throws: MemoEditorError.self) { try await editor.snapshot() }
+        editor.receive(.changed("Should not save against the original memo\n", generation: 2))
+        #expect(model.current?.id == memo.id)
+        #expect(model.current?.markdown == memo.markdown)
+        #expect(!(await model.flush()))
+        #expect(await store.get(memo.id)?.markdown == memo.markdown)
+        _ = try await editor.webView.evaluateJavaScript("window.rpcResponses = {}; window.editor.imageResponse = (id, value) => { window.rpcResponses.image = value }; window.editor.clipboardResponse = (id, value) => { window.rpcResponses.clipboard = value }")
+        await editor.imageRequest([
+            "requestId": "blocked-image", "action": "import", "documentId": "recovered", "generation": 2,
+            "bytesBase64": Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]).base64EncodedString(),
+        ])
+        let pasteboard = NSPasteboard(name: .init("failed-recovery-\(UUID().uuidString)"))
+        defer { pasteboard.releaseGlobally() }
+        pasteboard.setString("Previous clipboard", forType: .string)
+        editor.writeClipboard([
+            "requestId": "blocked-clipboard", "documentId": "recovered", "generation": 2,
+            "text": "Replacement", "html": "<p>Replacement</p>",
+        ], to: pasteboard)
+        #expect(await images.held.isEmpty)
+        #expect(pasteboard.string(forType: .string) == "Previous clipboard")
+        let replies = try #require(try await editor.webView.evaluateJavaScript("window.rpcResponses") as? [String: [String: String]])
+        #expect(replies["image"]?["error"] != nil)
+        #expect(replies["clipboard"]?["error"] != nil)
+    }
+
+    @Test func aNewerLoadWinsOverRecoveryInFlight() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "original"
+        editor.load("Original\n")
+        _ = try await editor.snapshot()
+        let recovering = Task { try await editor.rebind(to: "recovered") }
+        for _ in 0..<200 where editor.documentID == "original" { await Task.yield() }
+        try #require(editor.documentID == "recovered")
+        editor.documentID = "newer"
+        editor.load("Newer\n")
+        await #expect(throws: MemoEditorError.self) { try await recovering.value }
+        #expect(try await editor.snapshot() == "Newer\n")
+        #expect(editor.documentID == "newer")
+        #expect(editor.isReady)
+    }
+
     @Test func snapshotsIncludeUnchangedAndImmediatelyEditedSource() async throws {
         let editor = EditorController(images: FakeImageStore())
         editor.documentID = "fixture"

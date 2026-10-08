@@ -139,7 +139,7 @@ final class EditorController: NSObject, Editing {
                 self.isReady = true
                 if !keepingCaret { self.focus() }
             } catch {
-                if self.generation == expectedGeneration { self.failure = error }
+                if self.generation == expectedGeneration, self.documentID == expectedDocumentID { self.failure = error }
                 throw error
             }
         }
@@ -206,6 +206,45 @@ final class EditorController: NSObject, Editing {
         return text
     }
 
+    func rebind(to nextDocumentID: String) async throws -> String {
+        let previousGeneration = generation
+        let previousDocumentID = documentID
+        if let loadTask { try await loadTask.value }
+        guard previousGeneration == generation, previousDocumentID == documentID else { throw MemoEditorError.documentChanged }
+        if let failure { throw failure }
+        guard isReady else { throw MemoEditorError.notReady }
+        let nextGeneration = previousGeneration + 1
+        generation = nextGeneration
+        documentID = nextDocumentID
+        isReady = false
+        do {
+            let result = try await webView.evaluateJavaScript("window.editor.rebind(\(previousGeneration), \(nextGeneration), \(json(previousDocumentID)), \(json(nextDocumentID)))")
+            guard generation == nextGeneration, documentID == nextDocumentID else { throw MemoEditorError.documentChanged }
+            if let rejected = result as? [String: Any], rejected["rejected"] as? Bool == true,
+               rejected["generation"] as? Int == previousGeneration,
+               rejected["documentId"] as? String == previousDocumentID,
+               let message = rejected["message"] as? String {
+                generation = previousGeneration
+                documentID = previousDocumentID
+                isReady = true
+                throw MemoEditorError.script(message)
+            }
+            guard let value = result as? [String: Any],
+                  let text = value["text"] as? String,
+                  value["documentId"] as? String == nextDocumentID,
+                  value["generation"] as? Int == nextGeneration else { throw MemoEditorError.invalidResponse }
+            isReady = true
+            loadTask = nil
+            return text
+        } catch {
+            // Unknown script failures may have committed a new page scope; do not claim the old one.
+            if generation == nextGeneration, documentID == nextDocumentID {
+                failure = error
+            }
+            throw error
+        }
+    }
+
     func pasteCapturedClipboard(from pasteboard: NSPasteboard = .general) -> Bool {
         guard isReady else { return false }
         let expectedGeneration = generation
@@ -269,12 +308,13 @@ final class EditorController: NSObject, Editing {
         return true
     }
 
-    fileprivate func imageRequest(_ body: [String: Any]) async {
+    func imageRequest(_ body: [String: Any]) async {
         guard let requestID = body["requestId"] as? String,
               let expectedGeneration = body["generation"] as? Int,
               let capturedDocumentID = body["documentId"] as? String else { return }
         var response: [String: String] = [:]
         do {
+            if let failure { throw failure }
             guard generation == expectedGeneration, documentID == capturedDocumentID else { throw MemoEditorError.documentChanged }
             if body["action"] as? String == "import" {
                 guard let encoded = body["bytesBase64"] as? String, let captured = Data(base64Encoded: encoded) else {
@@ -290,21 +330,24 @@ final class EditorController: NSObject, Editing {
                 guard let type = ImageType(sniffing: data) else { throw MemoEditorError.invalidResponse }
                 response = ["bytesBase64": data.base64EncodedString(), "mimeType": type.mimeType]
             } else { throw MemoEditorError.invalidResponse }
+            if let failure { throw failure }
             guard generation == expectedGeneration, documentID == capturedDocumentID else { throw MemoEditorError.documentChanged }
         } catch { response = ["error": error.localizedDescription] }
         call("imageResponse", json(requestID), json(response))
     }
 
-    fileprivate func writeClipboard(_ body: [String: Any]) {
+    func writeClipboard(_ body: [String: Any], to pasteboard: NSPasteboard = .general) {
         guard let requestID = body["requestId"] as? String else { return }
         var response: [String: String] = [:]
         do {
+            if let failure { throw failure }
             guard let expectedGeneration = body["generation"] as? Int, expectedGeneration == generation,
                   body["documentId"] as? String == documentID,
                   let text = body["text"] as? String, let html = body["html"] as? String else { throw MemoEditorError.documentChanged }
             let item = try MemoClipboard.item(text: text, html: html, images: body["images"] as? [[String: String]] ?? [])
+            if let failure { throw failure }
             guard expectedGeneration == generation, body["documentId"] as? String == documentID else { throw MemoEditorError.documentChanged }
-            try MemoClipboard.write(item, to: .general)
+            try MemoClipboard.write(item, to: pasteboard)
         } catch { response = ["error": error.localizedDescription] }
         call("clipboardResponse", json(requestID), json(response))
     }
@@ -362,7 +405,7 @@ final class EditorController: NSObject, Editing {
                 applyDocument(pendingMarkdown, keepingCaret: false)
             }
         case .changed(let markdown, let generation):
-            if generation == self.generation { onChanged(markdown) }
+            if generation == self.generation, failure == nil { onChanged(markdown) }
         case .state(let state):
             if state != caret { caret = state }
         case .openLink(let href):

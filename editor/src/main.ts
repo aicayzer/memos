@@ -148,6 +148,34 @@ const facade = {
     generation = nextGeneration
     editor.reloadDocument({ text, generation, documentId, format: 'md' })
   },
+  rebind(
+    expectedGeneration: number,
+    nextGeneration: number,
+    expectedDocumentId: string,
+    documentId: string,
+  ) {
+    if (generation !== expectedGeneration) throw new Error('The memo changed')
+    let snapshot: ReturnType<InkKitEditor['snapshot']>
+    try {
+      snapshot = editor.snapshot(expectedGeneration)
+    } catch (error) {
+      return {
+        rejected: true,
+        generation,
+        documentId: expectedDocumentId,
+        message: String(error),
+      }
+    }
+    if (snapshot.documentId !== expectedDocumentId) throw new Error('The memo changed')
+    editor.reloadDocument({
+      text: snapshot.text,
+      generation: nextGeneration,
+      documentId,
+      format: 'md',
+    })
+    generation = nextGeneration
+    return { ...snapshot, generation: nextGeneration, documentId }
+  },
   snapshot: (expectedGeneration: number) => editor.snapshot(expectedGeneration),
   clipboard: () => editor.clipboardSnapshot(true),
   format: editor.format.bind(editor),

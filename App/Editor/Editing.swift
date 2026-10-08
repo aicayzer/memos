@@ -33,6 +33,8 @@ protocol Editing: AnyObject {
     func insertImages(_ references: [ImageReference], at point: CGPoint?)
     /// Complete current source. Retrieval failures must stop snapshot-dependent actions.
     func snapshot() async throws -> String
+    /// Changes a recovered memo's identity while retaining the editor's latest source and caret.
+    func rebind(to documentID: String) async throws -> String
     func pasteAsPlainText(_ text: String)
     func table(_ command: String)
 

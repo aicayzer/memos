@@ -33,6 +33,7 @@ final class FakeEditor: Editing {
     private(set) var text = ""
     private(set) var loaded: [String] = []
     private(set) var reloaded: [String] = []
+    private(set) var generation = 0
     private(set) var inserted: [ImageReference] = []
 
     /// An edit in the window, reported as the editor reports one.
@@ -44,11 +45,13 @@ final class FakeEditor: Editing {
     }
 
     func load(_ markdown: String) {
+        generation += 1
         text = markdown
         loaded.append(markdown)
     }
 
     func reload(_ markdown: String) {
+        generation += 1
         text = markdown
         reloaded.append(markdown)
     }
@@ -64,9 +67,17 @@ final class FakeEditor: Editing {
     }
 
     var snapshotError: (any Error)?
+    var duringRebind: (() -> Void)?
     func snapshot() async throws -> String {
         if let snapshotError { throw snapshotError }
         return text
+    }
+    func rebind(to nextDocumentID: String) async throws -> String {
+        let source = try await snapshot()
+        documentID = nextDocumentID
+        generation += 1
+        duringRebind?()
+        return source
     }
     func table(_ command: String) {}
     func pasteAsPlainText(_ value: String) { type(text + value) }

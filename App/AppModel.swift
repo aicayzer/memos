@@ -726,14 +726,7 @@ final class AppModel {
             do {
                 let recovered = try await store.create(markdown: markdown)
                 if current?.id == id {
-                    if let pending = unsaved {
-                        current = recovered
-                        current?.markdown = pending
-                        savedMarkdown = recovered.markdown
-                        defaults.set(recovered.id.uuidString, forKey: Self.lastMemoKey)
-                    } else {
-                        show(recovered, keepingCaret: true)
-                    }
+                    try await adoptRecovery(recovered, replacing: id)
                 }
                 storageNotice = "This memo changed elsewhere. Your edits are in a separate memo; the external version is unchanged."
                 return true
@@ -747,14 +740,12 @@ final class AppModel {
             do {
                 let recreated = try await store.create(markdown: markdown)
                 if current?.id == id {
-                    current = recreated
-                    savedMarkdown = recreated.markdown
+                    try await adoptRecovery(recreated, replacing: id)
                     storageNotice = "The original was deleted elsewhere. Your unsaved edits were recovered as a new memo."
-                    defaults.set(recreated.id.uuidString, forKey: Self.lastMemoKey)
                 }
                 return true
             } catch {
-                unsaved = markdown
+                if unsaved == nil { unsaved = markdown }
                 report(error)
                 return false
             }
@@ -763,6 +754,21 @@ final class AppModel {
             report(error)
             return false
         }
+    }
+
+    private func adoptRecovery(_ memo: Memo, replacing originalID: Memo.ID) async throws {
+        guard current?.id == originalID else { return }
+        let reported = unsaved
+        let live = try await editor.rebind(to: String(describing: memo.id))
+        guard current?.id == originalID else { return }
+        let latest = unsaved != reported ? unsaved ?? live : live
+        current = memo
+        savedMarkdown = memo.markdown
+        unsaved = nil
+        history.push(memo.id)
+        defaults.set(memo.id.uuidString, forKey: Self.lastMemoKey)
+        // Rebinding captures even edits whose change message has not reached the app yet.
+        changed(latest)
     }
 
     private func report(_ error: any Error) {
