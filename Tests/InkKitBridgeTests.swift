@@ -148,6 +148,19 @@ struct InkKitBridgeTests {
         #expect(editor.isReady)
     }
 
+    @Test(arguments: ["destroyed", "unknown"])
+    func aFatalPreflightRejectionCannotRestoreAReadyOriginalScope(_ code: String) async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "original"
+        editor.load("Original\n")
+        _ = try await editor.snapshot()
+        _ = try await editor.webView.evaluateJavaScript("window.editor.rebind = () => ({rejected:true,snapshotError:'\(code)',message:'Fatal fixture failure',generation:1,documentId:'original'}); true")
+        await #expect(throws: MemoEditorError.self) { try await editor.rebind(to: "recovered") }
+        #expect(!editor.isReady)
+        #expect(editor.documentID == "recovered")
+        await #expect(throws: MemoEditorError.self) { try await editor.snapshot() }
+    }
+
     @Test func snapshotsIncludeUnchangedAndImmediatelyEditedSource() async throws {
         let editor = EditorController(images: FakeImageStore())
         editor.documentID = "fixture"

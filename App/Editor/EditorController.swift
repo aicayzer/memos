@@ -4,6 +4,7 @@ import OSLog
 import WebKit
 
 private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "editor")
+private let retryableSnapshotCodes: Set<String> = ["not-ready", "stale-document", "composition", "operation-pending", "preservation"]
 
 /// The memo's text size, in points. The stylesheet's own default is Medium's.
 enum TextSize: Double, CaseIterable, Identifiable {
@@ -199,7 +200,7 @@ final class EditorController: NSObject, Editing {
         guard expectedGeneration == generation else { throw MemoEditorError.documentChanged }
         if let rejected = result as? [String: Any],
            let code = rejected["snapshotError"] as? String, let message = rejected["message"] as? String {
-            if ["not-ready", "stale-document", "composition", "operation-pending", "preservation"].contains(code) {
+            if retryableSnapshotCodes.contains(code) {
                 throw MemoEditorError.snapshotRejected(code: code, message: message)
             }
             let error = MemoEditorError.script(message)
@@ -231,6 +232,7 @@ final class EditorController: NSObject, Editing {
             let result = try await webView.evaluateJavaScript("window.editor.rebind(\(previousGeneration), \(nextGeneration), \(json(previousDocumentID)), \(json(nextDocumentID)))")
             guard generation == nextGeneration, documentID == nextDocumentID else { throw MemoEditorError.documentChanged }
             if let rejected = result as? [String: Any], rejected["rejected"] as? Bool == true,
+               let code = rejected["snapshotError"] as? String, retryableSnapshotCodes.contains(code),
                rejected["generation"] as? Int == previousGeneration,
                rejected["documentId"] as? String == previousDocumentID,
                let message = rejected["message"] as? String {

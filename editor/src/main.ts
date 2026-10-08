@@ -21,6 +21,13 @@ function post(message: Record<string, unknown>): void {
 
 const root = document.getElementById('editor')
 if (!root) throw new Error('editor root missing')
+const retryableSnapshotCodes = new Set([
+  'not-ready',
+  'stale-document',
+  'composition',
+  'operation-pending',
+  'preservation',
+])
 let generation = 0
 const replies = new Map<
   string,
@@ -160,8 +167,10 @@ const facade = {
     try {
       snapshot = editor.snapshot(expectedGeneration)
     } catch (error) {
+      if (!(error instanceof InkKitError) || !retryableSnapshotCodes.has(error.code)) throw error
       return {
         rejected: true,
+        snapshotError: error.code,
         generation,
         documentId: expectedDocumentId,
         message: String(error),
