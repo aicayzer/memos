@@ -127,12 +127,14 @@ final class EditorController: NSObject, Editing {
     private func applyDocument(_ markdown: String, keepingCaret: Bool) {
         pendingMarkdown = nil
         let expectedGeneration = generation
+        let expectedDocumentID = documentID
         let method = keepingCaret ? "reload" : "load"
         loadTask = Task { @MainActor [weak self] in
             guard let self else { throw MemoEditorError.unavailable }
             do {
-                _ = try await self.webView.evaluateJavaScript("window.editor.\(method)(\(json(markdown)), \(expectedGeneration), \(json(documentID)))")
-                guard self.generation == expectedGeneration else { throw MemoEditorError.documentChanged }
+                guard self.generation == expectedGeneration, self.documentID == expectedDocumentID else { throw MemoEditorError.documentChanged }
+                _ = try await self.webView.evaluateJavaScript("window.editor.\(method)(\(json(markdown)), \(expectedGeneration), \(json(expectedDocumentID)))")
+                guard self.generation == expectedGeneration, self.documentID == expectedDocumentID else { throw MemoEditorError.documentChanged }
                 self.failure = nil
                 self.isReady = true
                 if !keepingCaret { self.focus() }
@@ -204,9 +206,10 @@ final class EditorController: NSObject, Editing {
         return text
     }
 
-    private func pasteCapturedClipboard() -> Bool {
+    func pasteCapturedClipboard(from pasteboard: NSPasteboard = .general) -> Bool {
         guard isReady else { return false }
-        let pasteboard = NSPasteboard.general
+        let expectedGeneration = generation
+        let expectedDocumentID = documentID
         var capturedImages: [[String: String]] = []
         for item in pasteboard.pasteboardItems ?? [] {
             for type in [NSPasteboard.PasteboardType.png, .tiff] {
@@ -224,26 +227,21 @@ final class EditorController: NSObject, Editing {
             var attachments: [[String: String]] = []
             rich.enumerateAttribute(.attachment, in: NSRange(location: 0, length: rich.length)) { value, _, _ in
                 guard let attachment = value as? NSTextAttachment,
-                      let bytes = attachment.fileWrapper?.regularFileContents ?? attachment.contents,
-                      let type = ImageType(sniffing: bytes) else { return }
+                      let original = attachment.fileWrapper?.regularFileContents ?? attachment.contents,
+                      let image = MemoClipboard.supportedImage(original) else { return }
+                let bytes = image.bytes
+                let type = image.type
                 let encoded = bytes.base64EncodedString()
                 attachments.append(["bytesBase64": encoded, "mimeType": type.mimeType, "source": "data:\(type.mimeType);base64,\(encoded)"])
             }
-            if !attachments.isEmpty,
-               let encoded = try? rich.data(from: NSRange(location: 0, length: rich.length), documentAttributes: [.documentType: NSAttributedString.DocumentType.html]),
-               var generated = String(data: encoded, encoding: .utf8),
-               let expression = try? NSRegularExpression(pattern: "<img\\b[^>]*>", options: [.caseInsensitive]) {
-                let matches = expression.matches(in: generated, range: NSRange(location: 0, length: (generated as NSString).length))
-                if matches.count == attachments.count {
-                    for (index, match) in matches.enumerated().reversed() {
-                        generated = (generated as NSString).replacingCharacters(in: match.range, with: "<img src=\"\(attachments[index]["source"]!)\" alt=\"Image\">")
-                    }
-                    html = generated
-                    capturedImages = attachments
+            if !attachments.isEmpty {
+                capturedImages = attachments
+                if let supplied = html, let matched = try? MemoClipboard.replacingImageSources(in: supplied, attachments: attachments) {
+                    html = matched
                 }
-            } else if html == nil,
-                      let encoded = try? rich.data(from: NSRange(location: 0, length: rich.length), documentAttributes: [.documentType: NSAttributedString.DocumentType.html]) {
-                html = String(data: encoded, encoding: .utf8)
+            }
+            if html == nil, let generated = try? MemoClipboard.formattedHTML(from: rich) {
+                html = try? MemoClipboard.replacingImageSources(in: generated, attachments: attachments)
             }
         }
         let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
@@ -263,7 +261,11 @@ final class EditorController: NSObject, Editing {
             let generation: Int
             let images: [[String: String]]
         }
-        call("pasteNative", json(CapturedPaste(text: text, html: html, generation: generation, images: capturedImages)))
+        guard expectedGeneration == generation, expectedDocumentID == documentID else {
+            onWarning(MemoEditorError.documentChanged.localizedDescription)
+            return true
+        }
+        call("pasteNative", json(CapturedPaste(text: text, html: html, generation: expectedGeneration, images: capturedImages)))
         return true
     }
 
@@ -278,11 +280,8 @@ final class EditorController: NSObject, Editing {
                 guard let encoded = body["bytesBase64"] as? String, let captured = Data(base64Encoded: encoded) else {
                     throw MemoEditorError.invalidResponse
                 }
-                var data = captured
-                if ImageType(sniffing: data) == nil,
-                   let bitmap = NSImage(data: data)?.tiffRepresentation.flatMap({ NSBitmapImageRep(data: $0) }),
-                   let converted = bitmap.representation(using: .png, properties: [:]) { data = converted }
-                let reference = try await images.save(data).path
+                guard let image = MemoClipboard.supportedImage(captured) else { throw ImageStoreError.unsupported }
+                let reference = try await images.save(image.bytes).path
                 response = ["reference": reference]
             } else if body["action"] as? String == "export" {
                 guard let reference = body["reference"] as? String else { throw MemoEditorError.invalidResponse }
@@ -304,8 +303,8 @@ final class EditorController: NSObject, Editing {
                   body["documentId"] as? String == documentID,
                   let text = body["text"] as? String, let html = body["html"] as? String else { throw MemoEditorError.documentChanged }
             let item = try MemoClipboard.item(text: text, html: html, images: body["images"] as? [[String: String]] ?? [])
-            NSPasteboard.general.clearContents()
-            guard NSPasteboard.general.writeObjects([item]) else { throw MemoClipboardError.unavailable("Couldn’t write the clipboard. Your text is still open.") }
+            guard expectedGeneration == generation, body["documentId"] as? String == documentID else { throw MemoEditorError.documentChanged }
+            try MemoClipboard.write(item, to: .general)
         } catch { response = ["error": error.localizedDescription] }
         call("clipboardResponse", json(requestID), json(response))
     }
