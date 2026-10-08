@@ -1,5 +1,6 @@
 import {
   InkKitEditor,
+  InkKitError,
   type CapturedImage,
   type ClipboardOutput,
   type DocumentContext,
@@ -176,7 +177,15 @@ const facade = {
     generation = nextGeneration
     return { ...snapshot, generation: nextGeneration, documentId }
   },
-  snapshot: (expectedGeneration: number) => editor.snapshot(expectedGeneration),
+  snapshot(expectedGeneration: number) {
+    try {
+      return editor.snapshot(expectedGeneration)
+    } catch (error) {
+      // An expected rejection must not reach WKWebView's global script-error listener.
+      if (error instanceof InkKitError) return { snapshotError: error.code, message: error.message }
+      throw error
+    }
+  },
   clipboard: () => editor.clipboardSnapshot(true),
   format: editor.format.bind(editor),
   focus: editor.focus.bind(editor),

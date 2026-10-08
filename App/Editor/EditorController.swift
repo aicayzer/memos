@@ -197,6 +197,16 @@ final class EditorController: NSObject, Editing {
         guard isReady else { throw MemoEditorError.notReady }
         let result = try await webView.evaluateJavaScript("window.editor.snapshot(\(expectedGeneration))")
         guard expectedGeneration == generation else { throw MemoEditorError.documentChanged }
+        if let rejected = result as? [String: Any],
+           let code = rejected["snapshotError"] as? String, let message = rejected["message"] as? String {
+            if ["not-ready", "stale-document", "composition", "operation-pending", "preservation"].contains(code) {
+                throw MemoEditorError.snapshotRejected(code: code, message: message)
+            }
+            let error = MemoEditorError.script(message)
+            failure = error
+            isReady = false
+            throw error
+        }
         guard let value = result as? [String: Any],
               let text = value["text"] as? String,
               value["format"] as? String == "md",
@@ -426,12 +436,21 @@ final class EditorController: NSObject, Editing {
 enum MemoEditorError: LocalizedError {
     case notReady, unavailable, documentChanged, invalidResponse
     case script(String)
+    case snapshotRejected(code: String, message: String)
     var errorDescription: String? {
         switch self {
         case .notReady: "The editor is still loading. Try again in a moment."
         case .documentChanged: "Your memo changed. Try again."
         case .invalidResponse, .unavailable: "Couldn’t read your memo. Your text is still open."
         case .script: "The editor couldn’t complete that action. Your text is still open."
+        case .snapshotRejected(let code, _):
+            switch code {
+            case "composition": "Finish entering text before trying again."
+            case "operation-pending": "An image is still being added. Try again in a moment."
+            case "not-ready": "The editor is still loading. Try again in a moment."
+            case "stale-document": "Your memo changed. Try again."
+            default: "Couldn’t preserve your memo’s Markdown. Your text is still open."
+            }
         }
     }
 }

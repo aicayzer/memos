@@ -30,6 +30,12 @@ struct InkKitBridgeTests {
         editor.load("Original\n")
         _ = try await editor.snapshot()
         _ = try await editor.webView.evaluateJavaScript("document.querySelector('.ProseMirror').dispatchEvent(new CompositionEvent('compositionstart', {bubbles: true}))")
+        do {
+            _ = try await editor.snapshot()
+            Issue.record("Text composition must reject a snapshot.")
+        } catch MemoEditorError.snapshotRejected(let code, _) {
+            #expect(code == "composition")
+        }
         await #expect(throws: (any Error).self) { try await editor.rebind(to: "recovered") }
         #expect(editor.documentID == "original")
         #expect(editor.isReady)
@@ -65,7 +71,12 @@ struct InkKitBridgeTests {
         await #expect(throws: MemoEditorError.self) { try await editor.rebind(to: "recovered") }
         #expect(editor.documentID == "original")
         #expect(editor.isReady)
-        await #expect(throws: (any Error).self) { try await editor.snapshot() }
+        do {
+            _ = try await editor.snapshot()
+            Issue.record("A pending image import must reject a snapshot.")
+        } catch MemoEditorError.snapshotRejected(let code, _) {
+            #expect(code == "operation-pending")
+        }
         await images.complete()
         var live = ""
         var lastError = ""
@@ -75,6 +86,7 @@ struct InkKitBridgeTests {
             try await Task.sleep(for: .milliseconds(20))
         }
         let diagnostics = try await editor.webView.evaluateJavaScript("JSON.stringify(window.snapshotDiagnostics)") as? String ?? "No snapshot diagnostics"
+        #expect(try await editor.webView.evaluateJavaScript("window.snapshotDiagnostics.global.length") as? Int == 0, "Snapshot diagnostics: \(diagnostics)")
         #expect(live.contains("Original"), "Snapshot diagnostics: \(diagnostics), last error: \(lastError)")
         #expect(live.contains("images/"), "Snapshot diagnostics: \(diagnostics), last error: \(lastError)")
         #expect(try await editor.rebind(to: "recovered") == live)

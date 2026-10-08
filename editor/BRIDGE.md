@@ -8,6 +8,8 @@ The app bootstrap consumes `@aicayzer/inkkit` and bundles its JavaScript and CSS
 
 `changed` carries Markdown and generation. Discard reports belonging to previous documents. Appearance and formatting changes do not reload source.
 
+Expected InkKit snapshot rejections return `snapshotError` and `message` to native code, which throws a typed retrieval error. This keeps a save or copy attempted during composition or an image import from becoming a global script failure; a later snapshot can succeed after the operation finishes. Genuine script failures still block snapshot-dependent actions.
+
 Recovery uses `rebind(expectedGeneration, nextGeneration, expectedDocumentId, documentId)` to snapshot and reload the latest source with its new identity in one JavaScript operation, retaining the caret. A preflight snapshot rejection reports that no document replacement occurred, so native code can retain the previous scope. Unknown script or response failures leave the bridge failed; snapshots throw and change callbacks cannot schedule writes until a successful load establishes a usable scope.
 
 ## Clipboard and images
