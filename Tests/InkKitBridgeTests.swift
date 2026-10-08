@@ -38,12 +38,15 @@ struct InkKitBridgeTests {
     }
 
     @Test func pendingImageRecoveryRejectionLetsTheOriginalImportComplete() async throws {
-        let images = SuspendedImageStore()
+        let folder = try temporaryFolder()
+        defer { discard(folder) }
+        let images = SuspendedImageStore(backing: FolderImageStore(besideStoreAt: folder.appending(path: "store.json")))
+        let bytes = makePNG().base64EncodedString()
         let editor = EditorController(images: images)
         editor.documentID = "original"
         editor.load("Original\n")
         _ = try await editor.snapshot()
-        _ = try await editor.webView.evaluateJavaScript("window.editor.pasteNative({text:'',generation:1,images:[{bytesBase64:'iVBORw0KGgo=',mimeType:'image/png'}]})")
+        _ = try await editor.webView.evaluateJavaScript("window.editor.pasteNative({text:'',generation:1,images:[{bytesBase64:'\(bytes)',mimeType:'image/png'}]})")
         for _ in 0..<200 {
             if await images.isSaving { break }
             try await Task.sleep(for: .milliseconds(20))
@@ -76,7 +79,7 @@ struct InkKitBridgeTests {
         let model = AppModel(store: store, images: FakeImageStore(), defaults: defaults, editor: editor, presentError: { _ in })
         await model.start()
         _ = try await editor.snapshot()
-        _ = try await editor.webView.evaluateJavaScript("const rebind = window.editor.rebind; window.editor.rebind = (...args) => { rebind(...args); return {} }")
+        _ = try await editor.webView.evaluateJavaScript("const rebind = window.editor.rebind; window.editor.rebind = (...args) => { rebind(...args); return {} }; true")
         await #expect(throws: MemoEditorError.self) { try await editor.rebind(to: "recovered") }
         #expect(!editor.isReady)
         await #expect(throws: MemoEditorError.self) { try await editor.snapshot() }
@@ -85,7 +88,7 @@ struct InkKitBridgeTests {
         #expect(model.current?.markdown == memo.markdown)
         #expect(!(await model.flush()))
         #expect(await store.get(memo.id)?.markdown == memo.markdown)
-        _ = try await editor.webView.evaluateJavaScript("window.rpcResponses = {}; window.editor.imageResponse = (id, value) => { window.rpcResponses.image = value }; window.editor.clipboardResponse = (id, value) => { window.rpcResponses.clipboard = value }")
+        _ = try await editor.webView.evaluateJavaScript("window.rpcResponses = {}; window.editor.imageResponse = (id, value) => { window.rpcResponses.image = value }; window.editor.clipboardResponse = (id, value) => { window.rpcResponses.clipboard = value }; true")
         await editor.imageRequest([
             "requestId": "blocked-image", "action": "import", "documentId": "recovered", "generation": 2,
             "bytesBase64": Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]).base64EncodedString(),
@@ -357,15 +360,20 @@ struct InkKitBridgeTests {
 
 private actor SuspendedImageStore: ImageStore {
     private var continuation: CheckedContinuation<ImageReference, any Error>?
+    private var reference: ImageReference?
+    private let backing: (any ImageStore)?
+    init(backing: (any ImageStore)? = nil) { self.backing = backing }
     var isSaving: Bool { continuation != nil }
     func save(_ data: Data) async throws -> ImageReference {
-        try await withCheckedThrowingContinuation { continuation = $0 }
+        reference = try await backing?.save(data) ?? ImageReference(path: "images/" + String(repeating: "a", count: 64) + ".png")
+        return try await withCheckedThrowingContinuation { continuation = $0 }
     }
     func complete() {
-        continuation?.resume(returning: ImageReference(path: "images/" + String(repeating: "a", count: 64) + ".png"))
+        if let reference { continuation?.resume(returning: reference) }
         continuation = nil
+        reference = nil
     }
-    func url(for path: String) -> URL? { nil }
+    func url(for path: String) async -> URL? { await backing?.url(for: path) }
     func removeOrphans(keeping used: Set<String>) {}
 }
 
