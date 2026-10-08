@@ -46,6 +46,16 @@ struct InkKitBridgeTests {
         editor.documentID = "original"
         editor.load("Original\n")
         _ = try await editor.snapshot()
+        _ = try await editor.webView.evaluateJavaScript("""
+        window.snapshotDiagnostics = {expected: [], global: []};
+        window.originalSnapshot = window.editor.snapshot;
+        window.editor.snapshot = (...args) => {
+          try { return window.originalSnapshot(...args) }
+          catch (error) { window.snapshotDiagnostics.expected.push({code: error.code || '', message: String(error), stack: error.stack || ''}); throw error }
+        };
+        window.addEventListener('error', event => { window.snapshotDiagnostics.global.push({message: event.message || '', filename: event.filename || '', stack: event.error?.stack || ''}) });
+        true
+        """)
         _ = try await editor.webView.evaluateJavaScript("window.editor.pasteNative({text:'',generation:1,images:[{bytesBase64:'\(bytes)',mimeType:'image/png'}]})")
         for _ in 0..<200 {
             if await images.isSaving { break }
@@ -55,15 +65,18 @@ struct InkKitBridgeTests {
         await #expect(throws: MemoEditorError.self) { try await editor.rebind(to: "recovered") }
         #expect(editor.documentID == "original")
         #expect(editor.isReady)
+        await #expect(throws: (any Error).self) { try await editor.snapshot() }
         await images.complete()
         var live = ""
+        var lastError = ""
         for _ in 0..<200 {
-            live = (try? await editor.snapshot()) ?? ""
+            do { live = try await editor.snapshot() } catch { lastError = String(reflecting: error) }
             if live.contains("images/") { break }
             try await Task.sleep(for: .milliseconds(20))
         }
-        #expect(live.contains("Original"))
-        #expect(live.contains("images/"))
+        let diagnostics = try await editor.webView.evaluateJavaScript("JSON.stringify(window.snapshotDiagnostics)") as? String ?? "No snapshot diagnostics"
+        #expect(live.contains("Original"), "Snapshot diagnostics: \(diagnostics), last error: \(lastError)")
+        #expect(live.contains("images/"), "Snapshot diagnostics: \(diagnostics), last error: \(lastError)")
         #expect(try await editor.rebind(to: "recovered") == live)
         #expect(editor.documentID == "recovered")
     }
@@ -143,6 +156,48 @@ struct InkKitBridgeTests {
         #expect(warnings == 1)
         #expect(editor.isReady)
         #expect(try await editor.snapshot() == "Keep this memo\n")
+    }
+
+    @Test func aMissingStoredImageKeepsSnapshotsEditingAndPortableClipboardUsable() async throws {
+        let folder = try temporaryFolder()
+        defer { discard(folder) }
+        let images = FolderImageStore(besideStoreAt: folder.appending(path: "store.json"))
+        let reference = try await images.save(makePNG())
+        let file = try #require(await images.url(for: reference.path))
+        try FileManager.default.removeItem(at: file)
+        let editor = EditorController(images: images)
+        editor.documentID = "fixture"
+        editor.load("")
+        _ = try await editor.snapshot()
+        var warnings: [String] = []
+        editor.onWarning = { warnings.append($0) }
+        _ = try await editor.webView.evaluateJavaScript("window.assetEvents = []; document.addEventListener('error', event => { window.assetEvents.push({message: String(event.message || ''), target: event.target.tagName || '', filename: event.filename || ''}) }, true); true")
+        let source = "Before\n\n![Missing picture](\(reference.path))\n\nAfter\n"
+        editor.load(source)
+        _ = try? await editor.snapshot()
+        var observed = false
+        for _ in 0..<200 {
+            observed = (try await editor.webView.evaluateJavaScript("window.assetEvents.some(event => event.target === 'IMG')") as? Bool) == true
+            if observed { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let diagnostics = try await editor.webView.evaluateJavaScript("JSON.stringify(window.assetEvents)") as? String ?? "No asset diagnostics"
+        #expect(observed, "The missing reference must reach the native image loader: \(diagnostics)")
+        #expect(try await editor.snapshot() == source, "Image diagnostics: \(diagnostics)")
+        let clipboard = try #require(try await editor.webView.callAsyncJavaScript("return JSON.parse(JSON.stringify(await window.editor.clipboard()))", arguments: [:], in: nil, contentWorld: .page) as? [String: Any])
+        let text = try #require(clipboard["text"] as? String)
+        let html = try #require(clipboard["html"] as? String)
+        #expect(text.contains("Before") && text.contains("Missing picture") && text.contains("After"))
+        #expect(html.contains("Missing picture"))
+        #expect(!html.contains("memo-image:"))
+        for _ in 0..<200 {
+            if !warnings.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(!warnings.isEmpty)
+        _ = try await editor.webView.evaluateJavaScript("window.editor.pasteAsPlainText(' more')")
+        #expect(try await editor.snapshot().contains("After more"))
+        #expect(editor.isReady)
     }
 
     @Test func rapidLoadsKeepOnlyTheCurrentDocument() async throws {
