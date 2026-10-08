@@ -26,6 +26,8 @@ struct AppCommands: Commands {
             Button("Share…") { Task { await model.share() } }
         }
         CommandGroup(after: .pasteboard) {
+            Button("Paste as Plain Text") { model.pasteAsPlainText() }
+                .keyboardShortcut("v", modifiers: [.command, .option, .shift])
             Divider()
             item(.find)
         }
@@ -47,6 +49,21 @@ struct AppCommands: Commands {
             item(.bulletList)
             item(.orderedList)
             item(.taskList)
+            Divider()
+            Menu("Table") {
+                Button("Insert Table") { model.table("insert") }
+                Button("Add Row Before") { model.table("addRowBefore") }
+                Button("Add Row After") { model.table("addRowAfter") }
+                Button("Add Column Before") { model.table("addColumnBefore") }
+                Button("Add Column After") { model.table("addColumnAfter") }
+                Button("Delete Row") { model.table("deleteRow") }
+                Button("Delete Column") { model.table("deleteColumn") }
+                Button("Delete Table") { model.table("deleteTable") }
+                Button("Align Left") { model.table("alignLeft") }
+                Button("Align Center") { model.table("alignCenter") }
+                Button("Align Right") { model.table("alignRight") }
+                Button("Exit Table") { model.table("exit") }
+            }
         }
         // Replacing drops Show/Hide Toolbar, which would collapse the title bar the top row is drawn in.
         CommandGroup(replacing: .toolbar) {

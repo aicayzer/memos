@@ -57,7 +57,7 @@ enum Shortcut: String, CaseIterable, Identifiable {
         }
     }
 
-    /// The editor's defaults are Milkdown's, so nothing moves for anyone used to them.
+    /// The editor's defaults are InkKit's, so nothing moves for anyone used to them.
     var defaultKeys: [KeyCombo] {
         switch self {
         case .newMemo: [KeyCombo("n", [.command])]

@@ -19,6 +19,7 @@
 		1F34F0271FEE2681FC00CC14 /* JSONMemoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E560C423FC07DFDB29EC1878 /* JSONMemoStore.swift */; };
 		21B6E35585BBD41E970ABBCD /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B0563CDCB30A3EF9BD37792 /* MainView.swift */; };
 		231BD6770184C54FDD54ED30 /* AppCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DC15BDEEE2675CE6130F754 /* AppCommands.swift */; };
+		2A6A031C6FAEF0A0F4FBE4D7 /* InkKitBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14F9979DE063E737BB811744 /* InkKitBridgeTests.swift */; };
 		2E010403C0502A3E350C638F /* MemoTitleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCAE84AA6823EE4F3E8F2B1C /* MemoTitleTests.swift */; };
 		2E22CC7B47896431EB87E2C9 /* Overlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F22224F5D6D601AA05F118D /* Overlay.swift */; };
 		2E81B00444740180153A903E /* WindowBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9FDD1B0167BFFF1F4916F9 /* WindowBackdrop.swift */; };
@@ -57,6 +58,7 @@
 		908B23CEB7AC146457BB96FE /* StorageSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08C157E367F3348B8D4A6E9A /* StorageSettings.swift */; };
 		954DE2EDE37756D8A1624FA6 /* ImageSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99DE3FDE8424BB483007AFF2 /* ImageSchemeHandler.swift */; };
 		97FDC2843CE196FAA55B70F7 /* MemoLookupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E2284D64483232E354776B /* MemoLookupTests.swift */; };
+		9D13E5B1B340E08B10204980 /* MemoClipboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3D382FA7A99CF70E224EE1F /* MemoClipboard.swift */; };
 		9FCEE35530D2A1F05440E759 /* Memos.swift in Sources */ = {isa = PBXBuildFile; fileRef = 776CB9FF3A35F66C689EC57B /* Memos.swift */; };
 		A437E28A147F0397A73594E7 /* MemoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84F15876092AE4444B4305FC /* MemoStore.swift */; };
 		A826B1167A322FB8837D36BB /* MemoActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2990D3CABA01899FDCB3A7C6 /* MemoActions.swift */; };
@@ -109,6 +111,7 @@
 		091FB88337733422096147C5 /* MemosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MemosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0AC61AB0614ACAFCB6E9352C /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
 		10582A225A27966B99080601 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		14F9979DE063E737BB811744 /* InkKitBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkKitBridgeTests.swift; sourceTree = "<group>"; };
 		16F9AF4349EAE1C3D493E7D1 /* Editing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Editing.swift; sourceTree = "<group>"; };
 		1CA8E50B55DA8FA70DF9F182 /* ColorsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorsTests.swift; sourceTree = "<group>"; };
 		1FF8D88BF8B49B1CAC75DAC9 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
@@ -170,6 +173,7 @@
 		D565B361CE8DEEC210211DE4 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
 		D7970D35200D9E2932F36915 /* SpotlightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightTests.swift; sourceTree = "<group>"; };
 		DCAE84AA6823EE4F3E8F2B1C /* MemoTitleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoTitleTests.swift; sourceTree = "<group>"; };
+		E3D382FA7A99CF70E224EE1F /* MemoClipboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoClipboard.swift; sourceTree = "<group>"; };
 		E560C423FC07DFDB29EC1878 /* JSONMemoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONMemoStore.swift; sourceTree = "<group>"; };
 		E8DF8E3D5DA593A9DCD23C17 /* Controls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Controls.swift; sourceTree = "<group>"; };
 		EDA9C9F8E917B0816065D8A3 /* SidePane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidePane.swift; sourceTree = "<group>"; };
@@ -285,6 +289,7 @@
 				4967B82863FF5C8D7D97748C /* Fakes.swift */,
 				A173D37EC0A86D02131CA004 /* HistoryTests.swift */,
 				B4868C3588A4BF8D32BD9961 /* ImageStoreTests.swift */,
+				14F9979DE063E737BB811744 /* InkKitBridgeTests.swift */,
 				6A47E87DD4CEEC682450000C /* JSONMemoStoreTests.swift */,
 				01FE465AA3C193C095317832 /* LibraryStoreTests.swift */,
 				BF1087267435E098110F0398 /* LoginLaunchTests.swift */,
@@ -356,6 +361,7 @@
 				23EC7962F7BC8184D4BB0361 /* EditorView.swift */,
 				D4E67A904E658070FDBAD394 /* EditorWebView.swift */,
 				99DE3FDE8424BB483007AFF2 /* ImageSchemeHandler.swift */,
+				E3D382FA7A99CF70E224EE1F /* MemoClipboard.swift */,
 			);
 			path = Editor;
 			sourceTree = "<group>";
@@ -556,6 +562,7 @@
 				8DFD09DC341C4A3E4E3BFD6E /* Fakes.swift in Sources */,
 				CC748EC43BA5FD14FABA6604 /* HistoryTests.swift in Sources */,
 				61FD3E47E20485F875A5EE51 /* ImageStoreTests.swift in Sources */,
+				2A6A031C6FAEF0A0F4FBE4D7 /* InkKitBridgeTests.swift in Sources */,
 				1A29C57F265D4932D0CF7F3C /* JSONMemoStoreTests.swift in Sources */,
 				AAA34DDF7A3DA00088ABD277 /* LibraryStoreTests.swift in Sources */,
 				65B6FF767D80488C8BEC7C56 /* LoginLaunchTests.swift in Sources */,
@@ -623,6 +630,7 @@
 				D90FCB2AA012118C547929E9 /* MarkdownDocument.swift in Sources */,
 				66426A91768DF0A322A133C7 /* Memo.swift in Sources */,
 				A826B1167A322FB8837D36BB /* MemoActions.swift in Sources */,
+				9D13E5B1B340E08B10204980 /* MemoClipboard.swift in Sources */,
 				EF86744F5F0DEAB76A64549F /* MemoEntity.swift in Sources */,
 				7481DBCD79FD3E17158C91FE /* MemoGroups.swift in Sources */,
 				0B4EBA44A9A8741E9CC115DE /* MemoLookup.swift in Sources */,
@@ -770,7 +778,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -792,7 +800,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.4.1;
+				MARKETING_VERSION = 0.4.2;
 				MEMOS_APP_IDENTIFIER = me.cyzr.memos.dev;
 				MEMOS_DISPLAY_NAME = "Memos Dev";
 				MEMOS_URL_SCHEME = "memos-dev";
@@ -917,7 +925,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -933,7 +941,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.4.1;
+				MARKETING_VERSION = 0.4.2;
 				MEMOS_APP_IDENTIFIER = me.cyzr.memos;
 				MEMOS_DISPLAY_NAME = Memos;
 				MEMOS_URL_SCHEME = memos;

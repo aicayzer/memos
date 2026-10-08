@@ -137,6 +137,129 @@ final class MemosUITests: XCTestCase {
         attach(app, name: "Memos development global shortcuts")
     }
 
+    func testTableAndLiteralPasteSurviveSwitchAndRelaunch() throws {
+        let fixture = try launchMemos()
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15))
+        let previousClipboard = captureClipboard()
+        defer { restoreClipboard(previousClipboard) }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString("Name\tValue\nAlice\t42", forType: .string)
+        pasteboard.setString("<table><tr><th>Name</th><th>Value</th></tr><tr><td>Alice</td><td>42</td></tr></table>", forType: .html)
+        app.typeKey("v", modifierFlags: .command)
+        expectText("Alice", in: editor)
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.contains("| Alice") && $0.contains("42") }
+        app.typeKey("n", modifierFlags: .command)
+        pasteboard.clearContents()
+        pasteboard.setString("Literal fixture\n**literal**\nLast line", forType: .string)
+        app.typeKey("v", modifierFlags: [.command, .option, .shift])
+        expectText("**literal**", in: editor)
+        expectText("Last line", in: editor)
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.contains("\\*\\*literal\\*\\*") && $0.contains("Last line") }
+        let before = try XCTUnwrap(editor.value as? String)
+        app.typeKey("n", modifierFlags: .command)
+        app.typeText("Another fixture")
+        app.typeKey("p", modifierFlags: .command)
+        let search = app.textFields["Search memos…"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        app.typeText("Literal fixture")
+        app.typeKey(.return, modifierFlags: [])
+        expectValue(before, in: editor)
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(editor.waitForExistence(timeout: 15))
+        expectValue(before, in: editor)
+    }
+
+    func testMixedImagePasteRetainsHeadingAndExportsPortableAttachments() throws {
+        let fixture = try launchMemos()
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15))
+        let previousClipboard = captureClipboard()
+        defer { restoreClipboard(previousClipboard) }
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 1, pixelsHigh: 1, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        bitmap.setColor(.blue, atX: 0, y: 0)
+        let image = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString("Before Photo After", forType: .string)
+        pasteboard.setString("<h2>Before</h2><p><img src='data:image/png;base64,\(image.base64EncodedString())' alt='Photo'></p><p>After</p>", forType: .html)
+        let input = NSMutableAttributedString(string: "Before\n\u{FFFC}\nAfter")
+        let wrapper = FileWrapper(regularFileWithContents: image)
+        wrapper.preferredFilename = "fixture.png"
+        let attachment = NSTextAttachment(fileWrapper: wrapper)
+        input.replaceCharacters(in: NSRange(location: 7, length: 1), with: NSAttributedString(attachment: attachment))
+        pasteboard.setData(try input.data(from: NSRange(location: 0, length: input.length), documentAttributes: [.documentType: NSAttributedString.DocumentType.rtfd]), forType: .rtfd)
+        app.typeKey("v", modifierFlags: .command)
+        expectText("After", in: editor)
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.contains("## Before") && $0.contains("![Photo](images/") && $0.contains("After") }
+        app.typeKey("a", modifierFlags: .command)
+        app.typeKey("c", modifierFlags: .command)
+        let exported = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in pasteboard.data(forType: .rtfd) != nil }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [exported], timeout: 10), .completed)
+        let html = try XCTUnwrap(pasteboard.string(forType: .html))
+        XCTAssertTrue(html.contains("data:image/png;base64,"))
+        XCTAssertFalse(html.contains("memo-image:"))
+        let rich = try NSAttributedString(data: XCTUnwrap(pasteboard.data(forType: .rtfd)), options: [.documentType: NSAttributedString.DocumentType.rtfd], documentAttributes: nil)
+        XCTAssertTrue(rich.string.contains("Before"))
+        XCTAssertTrue(rich.string.contains("After"))
+        var attachments = 0
+        rich.enumerateAttribute(.attachment, in: NSRange(location: 0, length: rich.length)) { value, _, _ in
+            if value is NSTextAttachment { attachments += 1 }
+        }
+        XCTAssertEqual(attachments, 1)
+    }
+
+    func testNewMemoAcceptsImmediateTyping() throws {
+        let fixture = try launchMemos()
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15))
+        app.typeText("Spacing example")
+        app.typeKey(.return, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
+        app.typeText("First section")
+        app.typeKey(.return, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
+        app.typeText("Last paragraph")
+        expectText("Last paragraph", in: editor)
+        for index in 0..<5 {
+            app.typeKey("n", modifierFlags: .command)
+            let text = "Other disposable memo \(index) \(UUID().uuidString)"
+            app.typeText(text)
+            expectText(text, in: editor)
+        }
+    }
+
+    private func expectClipboard(_ matches: @escaping (String) -> Bool) {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            matches(NSPasteboard.general.string(forType: .string) ?? "")
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 10), .completed)
+    }
+
+    private func captureClipboard() -> [NSPasteboardItem] {
+        (NSPasteboard.general.pasteboardItems ?? []).map { original in
+            let item = NSPasteboardItem()
+            for type in original.types {
+                if let data = original.data(forType: type) { item.setData(data, forType: type) }
+            }
+            return item
+        }
+    }
+
+    private func restoreClipboard(_ items: [NSPasteboardItem]) {
+        NSPasteboard.general.clearContents()
+        if !items.isEmpty { NSPasteboard.general.writeObjects(items) }
+    }
+
     private struct Fixture {
         let app: XCUIApplication
         let folder: URL

@@ -1,55 +1,31 @@
-# Bridge
+# Offline editor bridge
 
-The app hosts the built `index.html`, copied into its `Resources/Editor/` by the app build, in a web view. The two sides talk through one message handler and one global object, both JSON.
+The app bootstrap consumes `@aicayzer/inkkit` and bundles its JavaScript and CSS into one offline HTML file. The native app owns document identity, generation, storage, appearance, and keyboard bindings. InkKit owns editing, preservation, tables, and clipboard conversion.
 
-## Editor to app
+## Documents and snapshots
 
-Posted with `window.webkit.messageHandlers.host.postMessage(message)`. Without a host (a browser during development) messages go to `console.debug`.
+`load(text, generation, documentId)` and `reload(text, generation, documentId)` pass Markdown documents to InkKit. `snapshot(expectedGeneration)` returns complete current source with `documentId`, `generation`, `revision`, `format`, and `dirty`. Unchanged text is a successful snapshot; readiness, composition, pending images, stale generations, and script failures throw. Native save, export, close, switching, and termination must stop when retrieval fails.
 
-| `type`       | Fields                                             | When                                                                                                                       |
-| ------------ | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `ready`      |                                                    | The editor is mounted and `window.editor` exists.                                                                          |
-| `changed`    | `markdown: string`, `generation: number`           | The document changed by an edit, debounced by 200ms. `generation` is the value given to the `load` the edit belongs to.    |
-| `state`      | `marks: Mark[]`, `block: Block`, `quoted: boolean` | The caret or document changed. `quoted` is true when one quote holds the whole selection; `block` is what sits inside it.  |
-| `openLink`   | `href: string`                                     | A link was ⌘-clicked. The app opens it; the page never navigates.                                                          |
-| `copy`       | `text: string`                                     | A code block's copy button was clicked. The app puts the text on the pasteboard.                                           |
-| `pasteImage` |                                                    | An image was pasted. The bytes are already on the pasteboard, which the app reads itself, and answers with `insertImages`. |
-| `error`      | `message: string`                                  | An uncaught error or rejection in the page. Posted by a script the app injects, so the page needs nothing for it.          |
+`changed` carries Markdown, generation, and a monotonically increasing host sequence. Discard reports belonging to previous documents. Appearance and formatting changes do not reload source.
 
-`Mark` is one of `bold`, `italic`, `strikethrough`, `code`, `link`.
+Expected InkKit snapshot rejections return `snapshotError` and `message` to native code, which throws a typed retrieval error. This keeps a save or copy attempted during composition or an image import from becoming a global script failure; a later snapshot can succeed after the operation finishes. Genuine script failures still block snapshot-dependent actions.
 
-`Block` is `{ type: 'paragraph' }`, `{ type: 'heading', level }`, `{ type: 'codeBlock' }`, `{ type: 'bulletList' }`, `{ type: 'orderedList' }` or `{ type: 'taskList' }`.
+Recovery uses `rebind(expectedGeneration, nextGeneration, expectedDocumentId, documentId)` to snapshot and reload the latest source with its new identity in one JavaScript operation, retaining the caret. A preflight snapshot rejection reports that no document replacement occurred, so native code can retain the previous scope. Unknown script or response failures leave the bridge failed; snapshots throw and change callbacks cannot schedule writes until a successful load establishes a usable scope.
 
-## App to editor
+External storage refresh uses `refresh(expectedGeneration, nextGeneration, expectedDocumentId, documentId, expectedSource, text)`. It compares the live source and conditionally reloads in one JavaScript operation. A changed source returns `applied: false` with the live text and retains its scope. An unchanged source returns `applied: true` in the new scope. Native code buffers change messages during this operation and uses the returned sequence to discard earlier prefixes while retaining later typing. Recoverable preflight rejection restores the previous scope and delivers buffered edits; unknown failures leave the bridge failed.
 
-Called with `evaluateJavaScript` on `window.editor`.
+## Clipboard and images
 
-| Call                           | Effect                                                                                                                                                                                                                           |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `load(markdown, generation)`   | Replace the document and put the caret at the end. Emits `state`, not `changed`; the loaded text's canonical form is the baseline later edits are measured against.                                                              |
-| `reload(markdown, generation)` | Replace the document of the memo already open, leaving the caret and the scroll where they are. For a change made to the store from outside. Emits `state`, not `changed`.                                                       |
-| `markdown()`                   | Return the document as markdown, or `null` while it is still what was loaded.                                                                                                                                                    |
-| `format(command, arg?)`        | Apply a formatting command at the selection, then focus the editor.                                                                                                                                                              |
-| `find(text)`                   | Select the next literal, case-insensitive match and wrap. An empty query clears search highlights and collapses the selection without editing or taking focus.                                                                   |
-| `focus()`                      | Focus the editor.                                                                                                                                                                                                                |
-| `insertPaths(paths, x, y)`     | Insert the paths, one paragraph each, at the point (from the page's top left), or at the caret when the point is off the page: in place of an empty top-level block, after the top-level block otherwise. The caret follows.     |
-| `insertImages(images, x, y)`   | Insert images the app has kept. Each is `{ path, alt }`, the path being `images/<hash>.<ext>`. With a point, they go in as blocks of their own where it lands, as `insertPaths` does; with `null, null`, at the caret.           |
-| `setAccent(color)`             | Set the accent color used for links, markers and the caret.                                                                                                                                                                      |
-| `setTextSize(px)`              | Set the memo's text size in pixels. Headings, code and list indents are in `rem`, so they scale with it.                                                                                                                         |
-| `setKeymap(keymap)`            | Bind keys to formatting: `keymap` maps a shortcut name (`bold`, `heading2`, `bulletList`, …) to ProseMirror key names (`Mod-b`, `Mod-Alt-2`). Replaces the previous bindings; the presets' own formatting keys are never active. |
+Ordinary copy exports readable text and semantic HTML. `clipboard()` asynchronously captures all content; await it before replacing the pasteboard. Copy as Markdown uses a fresh snapshot. `pasteAsPlainText(text)` inserts literal text.
 
-`command` is one of `heading` (with `arg` 1 to 3; the same level again turns the block back into a paragraph), `paragraph`, `bold`, `italic`, `strikethrough`, `code` (at a caret, what is typed next), `codeBlock` (with `arg` an optional language), `quote` (lifts out of the quote when already inside one), `bulletList`, `orderedList`, `taskList`, `link` (with `arg` the URL).
+Memos adapters request captured bytes through `imageRequest` and settle them through `imageResponse`; requests carry identity and generation. Native import owns storage and returns an opaque reference. The adapter must retain captured bytes until paste finishes and while the document or stored notes reference them; never sweep an import between saving its bytes and inserting its reference. Export returns base64 bytes and MIME type. InkKit preserves insertion positions and rejects late results. `writeClipboard` provides captured text, HTML, and portable image bytes. Memos writes one rich pasteboard item with ordered RTFD attachments and acknowledges success through `clipboardResponse`; image cut awaits this acknowledgement before deleting text. PadPad disables image management and preserves image syntax literally.
 
-## Images
+Native paste prefers supplied semantic HTML. When RTFD supplies the same number of ordered attachments as HTML image elements, it replaces only their transport URLs with captured image bytes, retaining alt text, titles, and surrounding content. RTF(D)-only paste imports Cocoa's styled body without its generated document headers. TIFF attachments are converted to PNG before storage. A document change during capture consumes the stale paste with a warning instead of replaying it into the new memo. Native clipboard-write failure restores the previous available representations.
 
-The page has no access to the disk. An image is served by the app on the `memo-image:` scheme, which the page's content security policy is the only source it allows: `images/<hash>.png` in the markdown is fetched as `memo-image://memo/images/<hash>.png`. An image whose URL is not one of the memo's own, such as one on the web, is never fetched; the memo shows its alt text instead.
+## Verification
 
-A width rides in the alt text, as `![a picture|400](images/<hash>.png)`, so a reader that knows nothing of it still shows the picture. The resize handle writes the number; the picture is never wider than the memo, whatever the number says.
+The manifest pins the published registry release `@aicayzer/inkkit@0.0.1`. Use `pnpm install --frozen-lockfile`, then run `pnpm format:check`, `pnpm typecheck`, `pnpm test`, and `pnpm build`. The lockfile records the registry archive's integrity. The resulting single HTML file includes the editor code and styles for offline use.
 
-## Markdown
+Consumer tests validate source preservation, stale snapshots, clipboard text and HTML, tables, and literal paste through the published package. Engine regression suites belong in InkKit. Native tests additionally exercise snapshot failures, external reloads, late image imports, and ordered RTFD attachments. Run native and interactive checks on an isolated development machine before release.
 
-CommonMark plus strikethrough, task lists, bare URLs and images. Documents are written in one canonical form: `-` bullets, `*` emphasis, `**` strong, fenced code, `---` rules, `\` hard breaks, and the URL alone for a link whose text is that URL, where reading it back gives the same link. `fixtures/dialect.md` is the canonical form of every construct, and `test/roundtrip.test.ts` holds it byte for byte.
-
-Intentional empty paragraphs between blocks use `<br />` in Markdown. The editor reads these as empty paragraphs again, so switching memos preserves the spacing; a single empty document remains empty.
-
-Files whose loaded source differs from the visual editor's canonical serialization use a source textarea. Merely loading them still returns null from `markdown()`; actual edits preserve their metadata and unsupported syntax. Canonical memos retain the formatted editor.
+The production `LibraryStore` deliberately retains image files rather than sweeping them from one process’s view. This protects pending imports, unsaved notes in other processes, and conversion snapshots.

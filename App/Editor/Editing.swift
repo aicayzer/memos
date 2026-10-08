@@ -7,14 +7,14 @@ protocol Editing: AnyObject {
     /// The marks and block under the caret, for the formatting bar.
     var caret: CaretState { get }
     var allowsFocus: Bool { get set }
+    var documentID: String { get set }
 
     var onChanged: (String) -> Void { get set }
     var onOpenLink: (URL) -> Void { get set }
     var onCopy: (String) -> Void { get set }
+    var onWarning: (String) -> Void { get set }
     /// Files dropped on the memo, and where they landed.
     var onDropFiles: ([URL], CGPoint) -> Void { get set }
-    /// An image was pasted; its bytes are on the pasteboard.
-    var onPasteImage: () -> Void { get set }
 
     var accentOverride: NSColor? { get set }
     var textSize: Double { get set }
@@ -31,11 +31,22 @@ protocol Editing: AnyObject {
     func insertPaths(_ paths: [String], at point: CGPoint)
     /// Inserts the images as blocks at a point in the view, or at the caret when there is none.
     func insertImages(_ references: [ImageReference], at point: CGPoint?)
-    /// The document as markdown, or nil while it is still what was loaded.
-    func markdown() async -> String?
+    /// Complete current source. Retrieval failures must stop snapshot-dependent actions.
+    func snapshot() async throws -> String
+    /// Changes a recovered memo's identity while retaining the editor's latest source and caret.
+    func rebind(to documentID: String) async throws -> String
+    /// Replaces external source only when the browser still holds the expected text.
+    func refresh(_ markdown: String, documentID: String, expecting source: String) async throws -> EditorRefresh
+    func pasteAsPlainText(_ text: String)
+    func table(_ command: String)
 
     /// The view the memo is drawn in.
     var contentView: NSView { get }
+}
+
+enum EditorRefresh {
+    case applied
+    case edited(String)
 }
 
 extension Editing {

@@ -18,12 +18,13 @@ func discard(_ url: URL) {
 final class FakeEditor: Editing {
     var caret = CaretState()
     var allowsFocus = true
+    var documentID = ""
     private(set) var focusCount = 0
     var onChanged: (String) -> Void = { _ in }
     var onOpenLink: (URL) -> Void = { _ in }
     var onCopy: (String) -> Void = { _ in }
+    var onWarning: (String) -> Void = { _ in }
     var onDropFiles: ([URL], CGPoint) -> Void = { _, _ in }
-    var onPasteImage: () -> Void = {}
     var accentOverride: NSColor?
     var textSize = TextSize.medium.points
     var keymap: [String: [String]] = [:]
@@ -32,25 +33,26 @@ final class FakeEditor: Editing {
     private(set) var text = ""
     private(set) var loaded: [String] = []
     private(set) var reloaded: [String] = []
+    private(set) var generation = 0
     private(set) var inserted: [ImageReference] = []
-    private var edited = false
 
     /// An edit in the window, reported as the editor reports one.
+    func typeWithoutReporting(_ markdown: String) { text = markdown }
+
     func type(_ markdown: String) {
         text = markdown
-        edited = true
         onChanged(markdown)
     }
 
     func load(_ markdown: String) {
+        generation += 1
         text = markdown
-        edited = false
         loaded.append(markdown)
     }
 
     func reload(_ markdown: String) {
+        generation += 1
         text = markdown
-        edited = false
         reloaded.append(markdown)
     }
 
@@ -64,7 +66,32 @@ final class FakeEditor: Editing {
         inserted.append(contentsOf: references)
     }
 
-    func markdown() async -> String? { edited ? text : nil }
+    var snapshotError: (any Error)?
+    var duringRebind: (() -> Void)?
+    var beforeRefresh: (() -> Void)?
+    var afterRefresh: (() -> Void)?
+    func snapshot() async throws -> String {
+        if let snapshotError { throw snapshotError }
+        return text
+    }
+    func rebind(to nextDocumentID: String) async throws -> String {
+        let source = try await snapshot()
+        documentID = nextDocumentID
+        generation += 1
+        duringRebind?()
+        return source
+    }
+    func refresh(_ markdown: String, documentID nextDocumentID: String, expecting source: String) async throws -> EditorRefresh {
+        beforeRefresh?()
+        let live = try await snapshot()
+        guard live == source else { return .edited(live) }
+        documentID = nextDocumentID
+        reload(markdown)
+        afterRefresh?()
+        return .applied
+    }
+    func table(_ command: String) {}
+    func pasteAsPlainText(_ value: String) { type(text + value) }
 }
 
 /// Images in memory, so a test needs no folder.

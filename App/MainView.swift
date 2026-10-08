@@ -52,10 +52,7 @@ struct MainView: View {
         .background { WindowBackdrop(opacity: model.windowOpacity, tint: model.backdropTint, blur: model.backdropBlur).ignoresSafeArea() }
         // Hidden, but the title is what accessibility and Mission Control call the window.
         .onChange(of: model.title, initial: true) { model.window?.title = model.title }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { note in
-            guard (note.object as? NSWindow) === model.window else { return }
-            Task { await model.flush() }
-        }
+
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { note in
             if (note.object as? NSWindow) === model.window { active = true }
         }
