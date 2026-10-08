@@ -82,6 +82,48 @@ import Testing
         #expect(editor.text == "Second\n")
     }
 
+    @Test func flushAndCopyReadEditsBeforeTheChangeMessageArrives() async throws {
+        let store = ChangeableStore([])
+        let memo = try await store.create(markdown: "Original\n")
+        let editor = FakeEditor()
+        let suite = "snapshot-tests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var copied: [String] = []
+        let model = AppModel(store: store, images: FakeImageStore(), defaults: defaults, editor: editor, presentError: { _ in }, copyText: { copied.append($0) })
+        await model.start()
+        editor.typeWithoutReporting("Fresh but unreported\n")
+        await model.copyAsMarkdown()
+        #expect(copied == ["Fresh but unreported\n"])
+        #expect(await model.flush())
+        #expect(await store.get(memo.id)?.markdown == "Fresh but unreported\n")
+    }
+
+    @Test func failedSnapshotStopsSaveSwitchAndClipboardReplacement() async throws {
+        let store = ChangeableStore([])
+        let first = try await store.create(markdown: "First\n")
+        let second = try await store.create(markdown: "Second\n")
+        let editor = FakeEditor()
+        let suite = "snapshot-tests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var copied: [String] = []
+        var errors = 0
+        let model = AppModel(store: store, images: FakeImageStore(), defaults: defaults, editor: editor, presentError: { _ in errors += 1 }, copyText: { copied.append($0) })
+        await model.start()
+        await model.open(first.id)
+        editor.typeWithoutReporting("Unsaved\n")
+        editor.snapshotError = MemoEditorError.notReady
+        #expect(!(await model.flush()))
+        await model.copyAsMarkdown()
+        await model.open(second.id)
+        #expect(model.current?.id == first.id)
+        #expect(editor.text == "Unsaved\n")
+        #expect(await store.get(first.id)?.markdown == "First\n")
+        #expect(copied.isEmpty)
+        #expect(errors == 3)
+    }
+
     @Test func quittingWritesWhatIsOnScreen() async throws {
         let (model, store, editor) = await model("A memo\n")
         let memo = try #require(model.current)

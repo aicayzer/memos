@@ -70,6 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let panel = MemoPanel(content: MainView().environment(model), restoresFrame: !Self.isTestHost)
         panel.keys = { [model] in model.shortcuts.windowKeys }
         panel.perform = { [model] in model.perform($0) }
+        panel.onRequestClose = { [model] in await model.flush() }
         self.panel = panel
         model.attach(panel)
         if !Self.isTestHost,

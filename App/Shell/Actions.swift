@@ -57,7 +57,7 @@ extension AppModel {
                 id: "copy", title: "Copy as Markdown", symbol: "doc.on.clipboard",
                 shortcut: shortcuts.label(.copyMarkdown), section: "Export"
             ) {
-                self.copyAsMarkdown()
+                Task { await self.copyAsMarkdown() }
             },
             PaletteItem(
                 id: "saveAs", title: "Save As…", symbol: "square.and.arrow.down",

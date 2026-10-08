@@ -18,7 +18,7 @@ This file governs every session that works in this repository.
 
 - `project.yml` is the XcodeGen source; `Memos.xcodeproj` and shared schemes are generated and committed for Xcode Cloud. CI verifies regeneration. App and standalone CLI delivery follow [RELEASING.md](RELEASING.md).
 - `Core/` holds the memo model and the store, compiled into the app and the command line tool alike; `App/` the rest of the app's Swift sources, with the icon under `App/Resources/`; `CLI/` the tool; `Tests/` the Swift Testing target.
-- `editor/` is the web editor (Vite, TypeScript, Milkdown), built into a single offline HTML file during the app build. [editor/BRIDGE.md](editor/BRIDGE.md) defines the message protocol between the two.
+- `editor/` is the Vite host bootstrap for `@aicayzer/inkkit`, built into a single offline HTML file during the app build. [editor/BRIDGE.md](editor/BRIDGE.md) defines the message protocol between the two.
 
 ## Commands
 
@@ -46,3 +46,7 @@ The store behind `MemoStore` is `LibraryStore`, selecting internal JSON or Markd
 The app ships through TestFlight and the App Store. The CLI is a separate signed, notarized download; never embed it in the app. Do not restore a direct-app updater, TextPad code, document registration, or transitional integration. Preserve existing library paths and bundle identities.
 
 Run local builds, packaging and interactive verification on an isolated development Mac, never an occupied workstation. Public pull requests use hosted CI only. Delegate independent work with clear file ownership and serialize GUI checks. A release is complete only after processing, internal tester availability and an installed smoke check.
+
+## Shared editor integration
+
+InkKit owns Markdown preservation, editable tables, clipboard conversion, and optional managed images. Keep native storage and document lifecycle in this app. Await a fresh, scoped snapshot before actions that depend on current text; script failures retain the document and clipboard. Consumer tests validate the package facade; engine regression tests belong in InkKit. See `editor/BRIDGE.md`.

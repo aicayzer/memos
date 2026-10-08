@@ -4,6 +4,18 @@ import WebKit
 /// The web view takes file drops itself: the page never sees a dropped file's path, and a file
 /// dropped on a memo should read as its path.
 final class EditorWebView: WKWebView {
+    var onPaste: () -> Bool = { false }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        if modifiers == .command, event.charactersIgnoringModifiers?.lowercased() == "v", onPaste() { return true }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    @objc func paste(_ sender: Any?) {
+        if !onPaste() { NSSound.beep() }
+    }
+
     var onDropFiles: ([URL], CGPoint) -> Void = { _, _ in }
 
     private static let readingOptions: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]

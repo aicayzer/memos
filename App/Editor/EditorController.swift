@@ -32,12 +32,13 @@ final class EditorController: NSObject, Editing {
     private(set) var caret = CaretState()
     private(set) var isReady = false
     var allowsFocus = true
+    var documentID = ""
 
     var onChanged: (String) -> Void = { _ in }
     var onOpenLink: (URL) -> Void = { _ in }
     var onCopy: (String) -> Void = { _ in }
+    var onWarning: (String) -> Void = { _ in }
     var onDropFiles: ([URL], CGPoint) -> Void = { _, _ in }
-    var onPasteImage: () -> Void = {}
     var accentOverride: NSColor? {
         didSet { applyAccent() }
     }
@@ -54,11 +55,17 @@ final class EditorController: NSObject, Editing {
 
     @ObservationIgnored private var pendingMarkdown: String?
     @ObservationIgnored private var generation = 0
+    @ObservationIgnored private var loadTask: Task<Void, any Error>?
+    @ObservationIgnored private var failure: (any Error)?
+    @ObservationIgnored private var pageReady = false
     @ObservationIgnored private var editorURL: URL?
     @ObservationIgnored private var appearanceObservation: NSKeyValueObservation?
     @ObservationIgnored private var imageHandler: ImageSchemeHandler?
 
+    @ObservationIgnored private let images: any ImageStore
+
     init(images: any ImageStore) {
+        self.images = images
         let configuration = WKWebViewConfiguration()
         configuration.preferences.isElementFullscreenEnabled = false
         let handler = ImageSchemeHandler(images: images)
@@ -66,6 +73,7 @@ final class EditorController: NSObject, Editing {
         imageHandler = handler
         webView = EditorWebView(frame: .zero, configuration: configuration)
         super.init()
+        webView.onPaste = { [weak self] in self?.pasteCapturedClipboard() ?? false }
         webView.onDropFiles = { [weak self] urls, point in self?.onDropFiles(urls, point) }
         #if DEBUG
         webView.isInspectable = true
@@ -104,25 +112,35 @@ final class EditorController: NSObject, Editing {
         webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
     }
 
-    func load(_ markdown: String) {
-        guard isReady else {
-            pendingMarkdown = markdown
-            return
-        }
-        // Edits report the generation they belong to, so a late report for the previous document is dropped.
+    func load(_ markdown: String) { replace(markdown, keepingCaret: false) }
+
+    func reload(_ markdown: String) { replace(markdown, keepingCaret: true) }
+
+    private func replace(_ markdown: String, keepingCaret: Bool) {
         generation += 1
-        call("load", json(markdown), String(generation))
-        focus()
+        pendingMarkdown = markdown
+        isReady = false
+        guard pageReady else { return }
+        applyDocument(markdown, keepingCaret: keepingCaret)
     }
 
-    /// The same memo, changed under the window: the text is replaced where the caret and the scroll are.
-    func reload(_ markdown: String) {
-        guard isReady else {
-            pendingMarkdown = markdown
-            return
+    private func applyDocument(_ markdown: String, keepingCaret: Bool) {
+        pendingMarkdown = nil
+        let expectedGeneration = generation
+        let method = keepingCaret ? "reload" : "load"
+        loadTask = Task { @MainActor [weak self] in
+            guard let self else { throw MemoEditorError.unavailable }
+            do {
+                _ = try await self.webView.evaluateJavaScript("window.editor.\(method)(\(json(markdown)), \(expectedGeneration), \(json(documentID)))")
+                guard self.generation == expectedGeneration else { throw MemoEditorError.documentChanged }
+                self.failure = nil
+                self.isReady = true
+                if !keepingCaret { self.focus() }
+            } catch {
+                if self.generation == expectedGeneration { self.failure = error }
+                throw error
+            }
         }
-        generation += 1
-        call("reload", json(markdown), String(generation))
     }
 
     func format(_ command: FormatCommand, argument: String?) {
@@ -154,11 +172,142 @@ final class EditorController: NSObject, Editing {
         call("insertImages", json(payload), point.map { String(Double($0.x)) } ?? "null", point.map { String(Double($0.y)) } ?? "null")
     }
 
-    /// The document as markdown, or nil while it is still what was loaded.
-    func markdown() async -> String? {
-        guard isReady else { return nil }
-        let result = try? await webView.evaluateJavaScript("window.editor.markdown()")
-        return result as? String
+    func table(_ command: String) {
+        guard isReady else { return }
+        call("table", json(command))
+    }
+
+    func pasteAsPlainText(_ text: String) {
+        guard isReady else { return }
+        call("pasteAsPlainText", json(text))
+    }
+
+    func snapshot() async throws -> String {
+        let expectedGeneration = generation
+        let deadline = ContinuousClock.now + .seconds(15)
+        while !pageReady, failure == nil, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+            guard expectedGeneration == generation else { throw MemoEditorError.documentChanged }
+        }
+        if let loadTask { try await loadTask.value }
+        guard expectedGeneration == generation else { throw MemoEditorError.documentChanged }
+        if let failure { throw failure }
+        guard isReady else { throw MemoEditorError.notReady }
+        let result = try await webView.evaluateJavaScript("window.editor.snapshot(\(expectedGeneration))")
+        guard expectedGeneration == generation else { throw MemoEditorError.documentChanged }
+        guard let value = result as? [String: Any],
+              let text = value["text"] as? String,
+              value["format"] as? String == "md",
+              value["revision"] is Int, value["dirty"] is Bool,
+              value["documentId"] as? String == documentID,
+              value["generation"] as? Int == expectedGeneration else { throw MemoEditorError.invalidResponse }
+        return text
+    }
+
+    private func pasteCapturedClipboard() -> Bool {
+        guard isReady else { return false }
+        let pasteboard = NSPasteboard.general
+        var capturedImages: [[String: String]] = []
+        for item in pasteboard.pasteboardItems ?? [] {
+            for type in [NSPasteboard.PasteboardType.png, .tiff] {
+                guard let data = item.data(forType: type) else { continue }
+                capturedImages.append(["bytesBase64": data.base64EncodedString(), "mimeType": type == .png ? "image/png" : "image/tiff"])
+                break
+            }
+        }
+        var text = pasteboard.string(forType: .string) ?? ""
+        var html = pasteboard.string(forType: .html)
+        let richData = pasteboard.data(forType: .rtfd) ?? pasteboard.data(forType: .rtf)
+        let richType: NSAttributedString.DocumentType = pasteboard.data(forType: .rtfd) == nil ? .rtf : .rtfd
+        if let richData, let rich = try? NSAttributedString(data: richData, options: [.documentType: richType], documentAttributes: nil) {
+            if text.isEmpty { text = rich.string.replacingOccurrences(of: "\u{FFFC}", with: "") }
+            var attachments: [[String: String]] = []
+            rich.enumerateAttribute(.attachment, in: NSRange(location: 0, length: rich.length)) { value, _, _ in
+                guard let attachment = value as? NSTextAttachment,
+                      let bytes = attachment.fileWrapper?.regularFileContents ?? attachment.contents,
+                      let type = ImageType(sniffing: bytes) else { return }
+                let encoded = bytes.base64EncodedString()
+                attachments.append(["bytesBase64": encoded, "mimeType": type.mimeType, "source": "data:\(type.mimeType);base64,\(encoded)"])
+            }
+            if !attachments.isEmpty,
+               let encoded = try? rich.data(from: NSRange(location: 0, length: rich.length), documentAttributes: [.documentType: NSAttributedString.DocumentType.html]),
+               var generated = String(data: encoded, encoding: .utf8),
+               let expression = try? NSRegularExpression(pattern: "<img\\b[^>]*>", options: [.caseInsensitive]) {
+                let matches = expression.matches(in: generated, range: NSRange(location: 0, length: (generated as NSString).length))
+                if matches.count == attachments.count {
+                    for (index, match) in matches.enumerated().reversed() {
+                        generated = (generated as NSString).replacingCharacters(in: match.range, with: "<img src=\"\(attachments[index]["source"]!)\" alt=\"Image\">")
+                    }
+                    html = generated
+                    capturedImages = attachments
+                }
+            } else if html == nil,
+                      let encoded = try? rich.data(from: NSRange(location: 0, length: rich.length), documentAttributes: [.documentType: NSAttributedString.DocumentType.html]) {
+                html = String(data: encoded, encoding: .utf8)
+            }
+        }
+        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        for url in urls {
+            guard let data = try? Data(contentsOf: url), let type = ImageType(sniffing: data) else { continue }
+            capturedImages.append(["bytesBase64": data.base64EncodedString(), "mimeType": type.mimeType, "filename": url.lastPathComponent])
+        }
+        if html != nil {
+            for index in capturedImages.indices where capturedImages[index]["source"] == nil {
+                capturedImages[index]["source"] = "native-unassociated:\(index)"
+            }
+        }
+        guard !text.isEmpty || html != nil || !capturedImages.isEmpty else { return false }
+        struct CapturedPaste: Encodable {
+            let text: String
+            let html: String?
+            let generation: Int
+            let images: [[String: String]]
+        }
+        call("pasteNative", json(CapturedPaste(text: text, html: html, generation: generation, images: capturedImages)))
+        return true
+    }
+
+    fileprivate func imageRequest(_ body: [String: Any]) async {
+        guard let requestID = body["requestId"] as? String,
+              let expectedGeneration = body["generation"] as? Int,
+              let capturedDocumentID = body["documentId"] as? String else { return }
+        var response: [String: String] = [:]
+        do {
+            guard generation == expectedGeneration, documentID == capturedDocumentID else { throw MemoEditorError.documentChanged }
+            if body["action"] as? String == "import" {
+                guard let encoded = body["bytesBase64"] as? String, let captured = Data(base64Encoded: encoded) else {
+                    throw MemoEditorError.invalidResponse
+                }
+                var data = captured
+                if ImageType(sniffing: data) == nil,
+                   let bitmap = NSImage(data: data)?.tiffRepresentation.flatMap({ NSBitmapImageRep(data: $0) }),
+                   let converted = bitmap.representation(using: .png, properties: [:]) { data = converted }
+                let reference = try await images.save(data).path
+                response = ["reference": reference]
+            } else if body["action"] as? String == "export" {
+                guard let reference = body["reference"] as? String else { throw MemoEditorError.invalidResponse }
+                guard let url = await images.url(for: reference) else { throw MemoEditorError.unavailable }
+                let data = try Data(contentsOf: url)
+                guard let type = ImageType(sniffing: data) else { throw MemoEditorError.invalidResponse }
+                response = ["bytesBase64": data.base64EncodedString(), "mimeType": type.mimeType]
+            } else { throw MemoEditorError.invalidResponse }
+            guard generation == expectedGeneration, documentID == capturedDocumentID else { throw MemoEditorError.documentChanged }
+        } catch { response = ["error": error.localizedDescription] }
+        call("imageResponse", json(requestID), json(response))
+    }
+
+    fileprivate func writeClipboard(_ body: [String: Any]) {
+        guard let requestID = body["requestId"] as? String else { return }
+        var response: [String: String] = [:]
+        do {
+            guard let expectedGeneration = body["generation"] as? Int, expectedGeneration == generation,
+                  body["documentId"] as? String == documentID,
+                  let text = body["text"] as? String, let html = body["html"] as? String else { throw MemoEditorError.documentChanged }
+            let item = try MemoClipboard.item(text: text, html: html, images: body["images"] as? [[String: String]] ?? [])
+            NSPasteboard.general.clearContents()
+            guard NSPasteboard.general.writeObjects([item]) else { throw MemoClipboardError.unavailable("Couldn’t write the clipboard. Your text is still open.") }
+        } catch { response = ["error": error.localizedDescription] }
+        call("clipboardResponse", json(requestID), json(response))
     }
 
     private func call(_ function: String, _ arguments: String...) {
@@ -204,13 +353,14 @@ final class EditorController: NSObject, Editing {
         switch message {
         case .ready:
             log.info("editor ready")
+            pageReady = true
             isReady = true
             applyAccent()
             applyTextSize()
             applyKeymap()
             if let pendingMarkdown {
                 self.pendingMarkdown = nil
-                load(pendingMarkdown)
+                applyDocument(pendingMarkdown, keepingCaret: false)
             }
         case .changed(let markdown, let generation):
             if generation == self.generation { onChanged(markdown) }
@@ -222,10 +372,24 @@ final class EditorController: NSObject, Editing {
             }
         case .copy(let text):
             onCopy(text)
-        case .pasteImage:
-            onPasteImage()
+        case .warning(let message):
+            onWarning(message)
         case .error(let message):
+            failure = MemoEditorError.script(message)
             log.error("editor script error: \(message, privacy: .public)")
+        }
+    }
+}
+
+enum MemoEditorError: LocalizedError {
+    case notReady, unavailable, documentChanged, invalidResponse
+    case script(String)
+    var errorDescription: String? {
+        switch self {
+        case .notReady: "The editor is still loading. Try again in a moment."
+        case .documentChanged: "Your memo changed. Try again."
+        case .invalidResponse, .unavailable: "Couldn’t read your memo. Your text is still open."
+        case .script: "The editor couldn’t complete that action. Your text is still open."
         }
     }
 }
@@ -238,6 +402,17 @@ private final class MessageProxy: NSObject, WKScriptMessageHandler {
     }
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.frameInfo.isMainFrame else { return }
+        if let body = message.body as? [String: Any] {
+            if body["type"] as? String == "imageRequest" {
+                Task { await target?.imageRequest(body) }
+                return
+            }
+            if body["type"] as? String == "writeClipboard" {
+                target?.writeClipboard(body)
+                return
+            }
+        }
         guard let parsed = EditorMessage(body: message.body) else {
             // The body may hold the memo, which does not belong in the log; its type says what went wrong.
             log.error("unreadable editor message of type \(String(describing: (message.body as? [String: Any])?["type"]), privacy: .public)")
@@ -256,11 +431,19 @@ extension EditorController: WKNavigationDelegate {
         decisionHandler(action.request.url == editorURL ? .allow : .cancel)
     }
 
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        pageReady = false
+        isReady = false
+        failure = MemoEditorError.unavailable
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         log.info("editor page loaded")
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
+        failure = error
+        isReady = false
         log.error("editor navigation failed: \(error.localizedDescription, privacy: .public)")
     }
 

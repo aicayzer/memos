@@ -32,6 +32,20 @@ final class MemoPanel: NSPanel {
     /// the event first, so a key it answers never reaches this.
     var keys: () -> [(key: KeyCombo, shortcut: Shortcut)] = { [] }
     var perform: (Shortcut) -> Void = { _ in }
+    var onRequestClose: () async -> Bool = { true }
+    private var closing = false
+
+    override func performClose(_ sender: Any?) {
+        guard !closing else { return }
+        closing = true
+        Task {
+            defer { closing = false }
+            guard await onRequestClose() else { return }
+            finishClose()
+        }
+    }
+
+    private func finishClose() { super.performClose(nil) }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if let pressed = KeyCombo(event: event), let match = keys().first(where: { $0.key == pressed }) {

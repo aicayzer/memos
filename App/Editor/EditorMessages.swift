@@ -31,7 +31,7 @@ enum EditorMessage: Sendable {
     case state(CaretState)
     case openLink(String)
     case copy(String)
-    case pasteImage
+    case warning(String)
     case error(String)
 
     init?(body: Any) {
@@ -52,8 +52,8 @@ enum EditorMessage: Sendable {
         case "copy":
             guard let text = dict["text"] as? String else { return nil }
             self = .copy(text)
-        case "pasteImage":
-            self = .pasteImage
+        case "editorWarning":
+            self = .warning(dict["message"] as? String ?? "")
         case "error":
             self = .error(dict["message"] as? String ?? "")
         default:

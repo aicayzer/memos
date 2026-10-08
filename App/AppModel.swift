@@ -169,12 +169,22 @@ final class AppModel {
     private static let standardControlsKey = "standardControls"
     private static let menuBarIconKey = "menuBarIcon"
 
+    @ObservationIgnored private let presentError: @MainActor (any Error) -> Void
+    @ObservationIgnored private let copyText: @MainActor (String) -> Void
+
     init(
         store: any MemoStore,
         images: any ImageStore,
         defaults: UserDefaults = .standard,
-        editor: (any Editing)? = nil
+        editor: (any Editing)? = nil,
+        presentError: @escaping @MainActor (any Error) -> Void = { error in
+            NSApp.activate()
+            NSApp.presentError(error)
+        },
+        copyText: @escaping @MainActor (String) -> Void = { AppModel.copy($0) }
     ) {
+        self.presentError = presentError
+        self.copyText = copyText
         self.store = store
         self.images = images
         let editor = editor ?? EditorController(images: images)
@@ -212,15 +222,13 @@ final class AppModel {
         }
         editor.onChanged = { [weak self] markdown in self?.changed(markdown) }
         editor.onOpenLink = { NSWorkspace.shared.open($0) }
-        editor.onCopy = { Self.copy($0) }
+        editor.onCopy = copyText
+        editor.onWarning = { [weak self] message in self?.report(MemoClipboardError.unavailable(message)) }
         editor.onDropFiles = { [weak self] urls, point in
             guard let self else { return }
             Task { await self.dropped(urls, at: point) }
         }
-        editor.onPasteImage = { [weak self] in
-            guard let self else { return }
-            Task { await self.pasteImage() }
-        }
+
     }
 
     /// Shared files wait here for the service that took them; a sandboxed app's temporary items are not purged
@@ -346,6 +354,7 @@ final class AppModel {
 
     /// Dropped images are kept and shown; anything else still reads as its path.
     private func dropped(_ urls: [URL], at point: CGPoint) async {
+        let documentID = current?.id
         var references: [ImageReference] = []
         var paths: [String] = []
         var refused = false
@@ -361,38 +370,13 @@ final class AppModel {
                 paths.append(path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path)
             }
         }
+        guard current?.id == documentID else { return }
         if refused { NSSound.beep() }
         if !references.isEmpty { editor.insertImages(references, at: point) }
         if !paths.isEmpty { editor.insertPaths(paths, at: point) }
     }
 
-    /// The editor says an image was pasted rather than sending its bytes; they are already on the
-    /// pasteboard, where the app can read them natively.
-    private func pasteImage() async {
-        let pasteboard = NSPasteboard.general
-        var images: [(Data, String)] = []
-        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-        for url in urls {
-            if let data = try? Data(contentsOf: url) { images.append((data, url.deletingPathExtension().lastPathComponent)) }
-        }
-        if images.isEmpty {
-            for type in [NSPasteboard.PasteboardType.png, .tiff] {
-                if let data = pasteboard.data(forType: type) {
-                    images.append((data, ""))
-                    break
-                }
-            }
-        }
-        var references: [ImageReference] = []
-        for (data, name) in images {
-            if let reference = await kept(data, called: name) { references.append(reference) }
-        }
-        guard !references.isEmpty else { return NSSound.beep() }
-        editor.insertImages(references, at: nil)
-    }
 
-    /// Keeps the bytes as they are when the store takes them, and as a PNG when it does not, so an image
-    /// from any app lands in one of the few types a memo holds.
     private func kept(_ data: Data, called name: String) async -> ImageReference? {
         var path: String?
         if let reference = try? await images.save(data) {
@@ -417,7 +401,7 @@ final class AppModel {
         case .browse: toggle(.browse)
         case .back: Task { await goBack() }
         case .forward: Task { await goForward() }
-        case .copyMarkdown: copyAsMarkdown()
+        case .copyMarkdown: Task { await copyAsMarkdown() }
         case .saveAs: Task { await saveAs() }
         case .find: toggle(.find)
         case .palette: toggle(.palette)
@@ -438,14 +422,26 @@ final class AppModel {
         }
     }
 
-    func copyAsMarkdown() {
+    func table(_ command: String) { editor.table(command) }
+
+    func pasteAsPlainText() {
+        guard let text = NSPasteboard.general.string(forType: .string) else { return }
+        editor.pasteAsPlainText(text)
+    }
+
+    func copyAsMarkdown() async {
         guard let current else { return }
-        Self.copy(current.markdown)
+        let id = current.id
+        do {
+            let text = try await editor.snapshot()
+            guard self.current?.id == id else { throw MemoEditorError.documentChanged }
+            copyText(text)
+        } catch { report(error) }
     }
 
     func saveAs() async {
         showWindowIfHidden()
-        await flush()
+        guard await flush() else { return }
         guard let current, let window else { return }
         // Sheets and pickers are ordinary windows: only an active app gets their keyboard.
         NSApp.activate()
@@ -480,7 +476,7 @@ final class AppModel {
     /// Shares the memo as a markdown file, from a picker hanging under the title.
     func share() async {
         showWindowIfHidden()
-        await flush()
+        guard await flush() else { return }
         guard let current, let contentView = window?.contentView else { return }
         do {
             // Its own folder, so the file carries the title as its name.
@@ -595,7 +591,10 @@ final class AppModel {
     /// When the app is the one in front, hiding it hands focus back to the previous app; otherwise the panel alone goes.
     func toggleWindow() {
         if let window, window.isKeyWindow, window.isVisible {
-            if NSApp.isActive { NSApp.hide(nil) } else { window.orderOut(nil) }
+            Task {
+                guard await flush() else { return }
+                if NSApp.isActive { NSApp.hide(nil) } else { window.orderOut(nil) }
+            }
         } else {
             showWindow()
         }
@@ -633,15 +632,25 @@ final class AppModel {
         saveTask?.cancel()
         await saveTask?.value
         saveTask = nil
-        if let current, let live = await editor.markdown(), live != current.markdown {
-            unsaved = live
-            self.current?.markdown = live
+        if let current {
+            do {
+                let live = try await editor.snapshot()
+                guard self.current?.id == current.id else { throw MemoEditorError.documentChanged }
+                if live != current.markdown {
+                    unsaved = live
+                    self.current?.markdown = live
+                }
+            } catch {
+                report(error)
+                return false
+            }
         }
         return await save()
     }
 
     private func show(_ memo: Memo, recording: Bool = true, keepingCaret: Bool = false) {
         current = memo
+        editor.documentID = String(describing: memo.id)
         savedMarkdown = memo.markdown
         unsaved = nil
         if recording { history.push(memo.id) }
@@ -759,8 +768,7 @@ final class AppModel {
     private func report(_ error: any Error) {
         log.error("\(error.localizedDescription, privacy: .public)")
         // An alert from an inactive app lands behind the app in front.
-        NSApp.activate()
-        NSApp.presentError(error)
+        presentError(error)
     }
 }
 
