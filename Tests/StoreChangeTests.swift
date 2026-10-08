@@ -47,7 +47,7 @@ actor ChangeableStore: MemoStore {
         let store = ChangeableStore([memo])
         let defaults = UserDefaults(suiteName: "store-change-tests")!
         defaults.removePersistentDomain(forName: "store-change-tests")
-        let model = AppModel(store: store, images: FakeImageStore(), defaults: defaults, editor: FakeEditor())
+        let model = AppModel(store: store, images: FakeImageStore(), defaults: defaults, editor: FakeEditor(), presentError: { _ in })
         await model.start()
         return (model, store, memo)
     }
@@ -72,7 +72,7 @@ actor ChangeableStore: MemoStore {
 
     @Test func anEditInFlightKeepsItsText() async throws {
         let (model, store, memo) = await model()
-        model.editor.onChanged("Typed here\n")
+        (model.editor as! FakeEditor).type("Typed here\n")
         await store.replace(memo.id, with: "Changed elsewhere\n")
         model.storeChanged()
         await model.settle()
@@ -82,7 +82,7 @@ actor ChangeableStore: MemoStore {
 
     @Test func aMemoDeletedUnderAnEditComesBackWithTheText() async throws {
         let (model, store, memo) = await model()
-        model.editor.onChanged("Typed here\n")
+        (model.editor as! FakeEditor).type("Typed here\n")
         await store.delete(memo.id)
         model.storeChanged()
         await model.settle()
@@ -121,5 +121,19 @@ actor ChangeableStore: MemoStore {
         #expect(await store.get(memo.id)?.markdown == "Typed here\n")
         #expect(model.current?.markdown == "Typed here\n")
         #expect(editor.reloaded.isEmpty)
+    }
+
+    @Test func aFailedSnapshotStopsAnExternalReload() async throws {
+        let (model, store, memo) = await model()
+        let editor = model.editor as! FakeEditor
+        editor.typeWithoutReporting("Unreported edit\n")
+        editor.snapshotError = MemoEditorError.unavailable
+        await store.replace(memo.id, with: "Changed elsewhere\n")
+        model.storeChanged()
+        await model.settle()
+        #expect(model.current?.markdown == memo.markdown)
+        #expect(editor.text == "Unreported edit\n")
+        #expect(editor.reloaded.isEmpty)
+        #expect(await store.get(memo.id)?.markdown == "Changed elsewhere\n")
     }
 }

@@ -8,43 +8,10 @@ importers:
 
   .:
     dependencies:
-      '@milkdown/kit':
-        specifier: ^7.22.1
-        version: 7.22.1(@codemirror/language@6.12.4)(@codemirror/state@6.7.5)(@codemirror/view@6.43.12)(typescript@7.0.2)
-      '@types/mdast':
-        specifier: ^4.0.4
-        version: 4.0.4
-      lowlight:
-        specifier: ^3.3.0
-        version: 3.3.0
-      mdast-util-gfm-autolink-literal:
-        specifier: ^2.0.1
-        version: 2.0.1
-      mdast-util-gfm-strikethrough:
-        specifier: ^2.0.0
-        version: 2.0.0
-      mdast-util-gfm-task-list-item:
-        specifier: ^2.0.0
-        version: 2.0.0
-      mdast-util-to-markdown:
-        specifier: ^2.1.2
-        version: 2.1.2
-      micromark-extension-gfm-autolink-literal:
-        specifier: ^2.1.0
-        version: 2.1.0
-      micromark-extension-gfm-strikethrough:
-        specifier: ^2.1.0
-        version: 2.1.0
-      micromark-extension-gfm-task-list-item:
-        specifier: ^2.1.0
-        version: 2.1.0
-      prosemirror-search:
-        specifier: ^1.1.1
-        version: 1.1.1
+      '@aicayzer/inkkit':
+        specifier: 0.0.1
+        version: 0.0.1(@codemirror/language@6.12.4)(@codemirror/state@6.7.5)(@codemirror/view@6.43.12)(typescript@7.0.2)
     devDependencies:
-      '@types/hast':
-        specifier: ^3.0.5
-        version: 3.0.5
       '@types/node':
         specifier: ^26.6.2
         version: 26.6.2
@@ -57,9 +24,6 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
-      unified:
-        specifier: ^11.0.5
-        version: 11.0.5
       vite:
         specifier: ^8.3.0
         version: 8.3.0(@types/node@26.6.2)
@@ -71,6 +35,10 @@ importers:
         version: 5.0.1(@types/node@26.6.2)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.2))
 
 packages:
+
+  '@aicayzer/inkkit@0.0.1':
+    resolution: {integrity: sha512-hi0tSouWXnVBOMucKU4z4MMxhFU0OYTu6FW5DakFhHpfqPzUX6aD3Eorsa3vn5Uhc52OyYdqwgViY17SzRdemQ==}
+    engines: {node: '>=22.14'}
 
   '@asamuzakjp/css-color@7.0.0':
     resolution: {integrity: sha512-IxddtGnnoidVSO6O/aiTueptbTThHvi2qGHu9/AWuD1J7i86Ox+jl+Y5SXcDH1RixzQlP2cjH/PjnlImZiAurQ==}
@@ -832,6 +800,9 @@ packages:
   mdast-util-to-markdown@2.1.2:
     resolution: {integrity: sha512-xj68wMTvGXVOKonmog6LwyJKrYXZPvlwabaryTjLh9LuvovB/KAH+kvi8Gjj+7rJjsFi23nkUxRQv1KqSroMqA==}
 
+  mdast-util-to-markdown@2.2.0:
+    resolution: {integrity: sha512-2Jn/ADrHFFyyniBMi0bncTbJqU78K3/TEYvzvwrWWzD9MYPUa/Gm4r3nOeKFQg/PDM5BsbDYdc8ackW4NTY6NA==}
+
   mdast-util-to-string@4.0.0:
     resolution: {integrity: sha512-0H44vDimn51F0YwvxSJSm0eCDOJTRlmN0R1yBh4HLj9wiV1Dn0QoXGbvFAWj2hSItVTlCmBF1hqKlIyUBVFLPg==}
 
@@ -1276,6 +1247,27 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
 snapshots:
+
+  '@aicayzer/inkkit@0.0.1(@codemirror/language@6.12.4)(@codemirror/state@6.7.5)(@codemirror/view@6.43.12)(typescript@7.0.2)':
+    dependencies:
+      '@milkdown/kit': 7.22.1(@codemirror/language@6.12.4)(@codemirror/state@6.7.5)(@codemirror/view@6.43.12)(typescript@7.0.2)
+      lowlight: 3.3.0
+      mdast-util-gfm-autolink-literal: 2.0.1
+      mdast-util-gfm-strikethrough: 2.0.0
+      mdast-util-gfm-table: 2.0.0
+      mdast-util-gfm-task-list-item: 2.0.0
+      mdast-util-to-markdown: 2.2.0
+      micromark-extension-gfm-autolink-literal: 2.1.0
+      micromark-extension-gfm-strikethrough: 2.1.0
+      micromark-extension-gfm-table: 2.1.2
+      micromark-extension-gfm-task-list-item: 2.1.0
+      prosemirror-search: 1.1.1
+    transitivePeerDependencies:
+      - '@codemirror/language'
+      - '@codemirror/state'
+      - '@codemirror/view'
+      - supports-color
+      - typescript
 
   '@asamuzakjp/css-color@7.0.0':
     dependencies:
@@ -2156,6 +2148,20 @@ snapshots:
       mdast-util-to-string: 4.0.0
       micromark-util-classify-character: 2.0.1
       micromark-util-decode-string: 2.0.1
+      unist-util-visit: 5.1.0
+      zwitch: 2.0.4
+
+  mdast-util-to-markdown@2.2.0:
+    dependencies:
+      '@types/mdast': 4.0.4
+      '@types/unist': 3.0.3
+      longest-streak: 3.1.0
+      mdast-util-phrasing: 4.1.0
+      mdast-util-to-string: 4.0.0
+      micromark-util-character: 2.1.1
+      micromark-util-classify-character: 2.0.1
+      micromark-util-decode-string: 2.0.1
+      micromark-util-html-tag-name: 2.0.1
       unist-util-visit: 5.1.0
       zwitch: 2.0.4
 

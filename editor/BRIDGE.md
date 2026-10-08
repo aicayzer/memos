@@ -16,8 +16,8 @@ Memos adapters request captured bytes through `imageRequest` and settle them thr
 
 ## Verification
 
-Install the exact InkKit release tarball in this isolated integration branch, then run editor type checking, consumer tests, and the offline build. Copied engine regression suites belong in InkKit. Native tests additionally exercise snapshot failure and clipboard interoperability. Keep tarball paths out of production manifests; use the registry version after publication.
+The manifest pins the published registry release `@aicayzer/inkkit@0.0.1`. Use `pnpm install --frozen-lockfile`, then run `pnpm format:check`, `pnpm typecheck`, `pnpm test`, and `pnpm build`. The lockfile records the registry archive's integrity. The resulting single HTML file includes the editor code and styles for offline use.
 
-These branches prepare the integration before npm publication. The manifest names `0.0.1`; regenerate and verify the registry lockfile after that version exists. Provisional verification installs the exact tarball only in disposable copies, leaving local tarball paths out of the eventual production lockfile.
+Consumer tests validate source preservation, stale snapshots, clipboard text and HTML, tables, and literal paste through the published package. Engine regression suites belong in InkKit. Native tests additionally exercise snapshot failures, external reloads, late image imports, and ordered RTFD attachments. Run native and interactive checks on an isolated development machine before release.
 
 The production `LibraryStore` deliberately retains image files rather than sweeping them from one process’s view. This protects pending imports, unsaved notes in other processes, and conversion snapshots.

@@ -691,7 +691,7 @@ final class AppModel {
             storeGeneration += 1
             guard let id = current?.id else { return }
             // Flush against the loaded revision; a conflict keeps both versions before any reload.
-            if unsaved != nil || saveTask != nil { await flush() }
+            guard await flush() else { return }
             // A write that did not land keeps the text on screen; nothing is read over it.
             guard !Task.isCancelled, current?.id == id, unsaved == nil else { return }
             do {
