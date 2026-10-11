@@ -3,11 +3,20 @@ import WebKit
 
 @MainActor
 final class MemoPrintRenderer: NSObject, WKNavigationDelegate {
-    private let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 612, height: 792))
+    private let view: WKWebView = {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        return WKWebView(frame: NSRect(x: 0, y: 0, width: 612, height: 792), configuration: configuration)
+    }()
+    // WebKit needs a window-backed drawing surface for complete native print output.
+    private let window = NSWindow(contentRect: NSRect(x: -10000, y: -10000, width: 612, height: 792), styleMask: [.borderless], backing: .buffered, defer: false)
+    private var printContinuation: CheckedContinuation<Bool, Never>?
     private var timeout: Task<Void, Never>?
     private var continuation: CheckedContinuation<Void, any Error>?
 
     func load(_ html: String) async throws {
+        window.isReleasedWhenClosed = false
+        window.contentView = view
         view.navigationDelegate = self
         try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
@@ -33,13 +42,31 @@ final class MemoPrintRenderer: NSObject, WKNavigationDelegate {
         return view.printOperation(with: info)
     }
 
-    func printDocument() {
+    func printDocument(in window: NSWindow) async -> Bool {
         let info = NSPrintInfo.shared.copy() as! NSPrintInfo
         let operation = printOperation(with: info)
         operation.showsPrintPanel = true
         operation.showsProgressPanel = true
-        // The synchronous panel keeps the frozen document alive through printing and PDF export.
-        operation.run()
+        return await run(operation, in: window)
+    }
+
+    func run(_ operation: NSPrintOperation, in presentingWindow: NSWindow? = nil) async -> Bool {
+        guard printContinuation == nil else { return false }
+        // WebKit computes print pages asynchronously; synchronous main-thread printing cannot await them.
+        operation.canSpawnSeparateThread = true
+        return await withCheckedContinuation { continuation in
+            printContinuation = continuation
+            operation.runModal(for: presentingWindow ?? window, delegate: self,
+                               didRun: #selector(printDidRun(_:success:contextInfo:)), contextInfo: nil)
+        }
+    }
+
+    @objc nonisolated private func printDidRun(_ operation: NSPrintOperation, success: Bool, contextInfo: UnsafeMutableRawPointer?) {
+        Task { @MainActor in
+            let continuation = self.printContinuation
+            self.printContinuation = nil
+            continuation?.resume(returning: success)
+        }
     }
 
     private func complete(_ error: (any Error)?) {

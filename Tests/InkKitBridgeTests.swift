@@ -56,6 +56,8 @@ struct InkKitBridgeTests {
         editor.load(source)
         _ = try await editor.snapshot()
         let value = try await editor.webView.callAsyncJavaScript("return await window.editor.printable(1)", arguments: [:], in: nil, contentWorld: .page) as? [String: Any]
+        #expect(value?["snapshotError"] == nil)
+        #expect(value?["message"] == nil)
         let html = try #require(value?["html"] as? String)
         #expect(html.contains("data:image/png;base64,"))
         let renderer = MemoPrintRenderer()
@@ -67,7 +69,8 @@ struct InkKitBridgeTests {
         let operation = renderer.printOperation(with: info)
         operation.showsPrintPanel = false
         operation.showsProgressPanel = false
-        #expect(operation.run())
+        #expect(await renderer.run(operation))
+        Attachment.record(try Data(contentsOf: file), named: "native-print.pdf")
         let pdf = try #require(PDFDocument(url: file))
         #expect(pdf.pageCount > 1)
         let text = try #require(pdf.string)

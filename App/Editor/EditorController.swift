@@ -215,11 +215,11 @@ final class EditorController: NSObject, Editing {
         guard current?["revision"] as? Int == revision,
               current?["documentId"] as? String == expectedDocumentID else { throw MemoEditorError.documentChanged }
         guard expectedGeneration == generation, expectedDocumentID == documentID,
-              webView.window != nil else { throw MemoEditorError.documentChanged }
+              let window = webView.window else { throw MemoEditorError.documentChanged }
         if let warnings = output["warnings"] as? [[String: Any]], !warnings.isEmpty {
             onWarning(warnings.compactMap { $0["message"] as? String }.joined(separator: "\n"))
         }
-        renderer.printDocument()
+        _ = await renderer.printDocument(in: window)
     }
 
     /// Inserts the paths as lines at a point in the view, and takes the keyboard, as typing there would.
