@@ -6,6 +6,8 @@ The app bootstrap consumes `@aicayzer/inkkit` and bundles its JavaScript and CSS
 
 `load(text, generation, documentId)` and `reload(text, generation, documentId)` pass Markdown documents to InkKit. `snapshot(expectedGeneration)` returns complete current source with `documentId`, `generation`, `revision`, `format`, and `dirty`. Unchanged text is a successful snapshot; readiness, composition, pending images, stale generations, and script failures throw. Native save, export, close, switching, and termination must stop when retrieval fails.
 
+`blurText(expectedGeneration)` releases focus only from the editor’s text surface in the current generation. Native reading selection submits this before resigning the editor’s responder. It leaves embedded controls and other responders focused; subsequent explicit focus remains ordered after it.
+
 `changed` carries Markdown, generation, and a monotonically increasing host sequence. Discard reports belonging to previous documents. Appearance and formatting changes do not reload source.
 
 Expected InkKit snapshot rejections return `snapshotError` and `message` to native code, which throws a typed retrieval error. This keeps a save or copy attempted during composition or an image import from becoming a global script failure; a later snapshot can succeed after the operation finishes. Genuine script failures still block snapshot-dependent actions.
@@ -18,13 +20,13 @@ External storage refresh uses `refresh(expectedGeneration, nextGeneration, expec
 
 Ordinary copy exports readable text and semantic HTML. `clipboard()` asynchronously captures all content; await it before replacing the pasteboard. Copy as Markdown uses a fresh snapshot. `pasteAsPlainText(text)` inserts literal text.
 
-Memos adapters request captured bytes through `imageRequest` and settle them through `imageResponse`; requests carry identity and generation. Native import owns storage and returns an opaque reference. The adapter must retain captured bytes until paste finishes and while the document or stored notes reference them; never sweep an import between saving its bytes and inserting its reference. Export returns base64 bytes and MIME type. InkKit preserves insertion positions and rejects late results. `writeClipboard` provides captured text, HTML, and portable image bytes. Memos writes one rich pasteboard item with ordered RTFD attachments and acknowledges success through `clipboardResponse`; image cut awaits this acknowledgement before deleting text. PadPad disables image management and preserves image syntax literally.
+Memos adapters request captured bytes through `imageRequest` and settle them through `imageResponse`; requests carry identity and generation. Native import owns storage and returns an opaque reference. The adapter must retain captured bytes until paste finishes and while the document or stored notes reference them; never sweep an import between saving its bytes and inserting its reference. Export returns base64 bytes and MIME type. InkKit preserves insertion positions and rejects late results. `writeClipboard` provides captured text, HTML, and portable image bytes. Memos writes one rich pasteboard item with ordered RTFD attachments and acknowledges success through `clipboardResponse`; image cut awaits this acknowledgement before deleting text.
 
 Native paste prefers supplied semantic HTML. When RTFD supplies the same number of ordered attachments as HTML image elements, it replaces only their transport URLs with captured image bytes, retaining alt text, titles, and surrounding content. RTF(D)-only paste imports Cocoa's styled body without its generated document headers. TIFF attachments are converted to PNG before storage. A document change during capture consumes the stale paste with a warning instead of replaying it into the new memo. Native clipboard-write failure restores the previous available representations.
 
 ## Verification
 
-The manifest pins the published registry release `@aicayzer/inkkit@0.0.1`. Use `pnpm install --frozen-lockfile`, then run `pnpm format:check`, `pnpm typecheck`, `pnpm test`, and `pnpm build`. The lockfile records the registry archive's integrity. The resulting single HTML file includes the editor code and styles for offline use.
+The manifest pins an exact published InkKit registry release. Use `pnpm install --frozen-lockfile`, then run `pnpm format:check`, `pnpm typecheck`, `pnpm test`, and `pnpm build`. The lockfile records the registry archive's integrity. The resulting single HTML file includes the editor code and styles for offline use.
 
 Consumer tests validate source preservation, stale snapshots, clipboard text and HTML, tables, and literal paste through the published package. Engine regression suites belong in InkKit. Native tests additionally exercise snapshot failures, external reloads, late image imports, and ordered RTFD attachments. Run native and interactive checks on an isolated development machine before release.
 
@@ -32,7 +34,7 @@ The production `LibraryStore` deliberately retains image files rather than sweep
 
 ## Editing commands and printing
 
-The host pins InkKit 0.0.11. `commandState` messages carry `documentId`, `generation`, editing `mode`, `caret`, and the public `commands` maps. Ignore messages for another scope. Menu availability follows these maps; source mode shares the same document and undo history.
+`commandState` messages carry `documentId`, `generation`, editing `mode`, `caret`, and the public `commands` maps. Ignore messages for another scope. Menu availability follows these maps; source mode shares the same document and undo history.
 
 `find(text, generation)`, `replace(search, replacement, generation)`, `replaceAll(search, replacement, generation)`, `setEditingMode(mode, generation)`, `undo(generation)` and `redo(generation)` call the public facade. Search and replacement are literal. Reload retains mode; loading another memo resets history.
 

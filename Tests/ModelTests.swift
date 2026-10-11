@@ -15,6 +15,16 @@ import Testing
         return (model, store, editor)
     }
 
+    @Test func browseSelectionsAndNavigationDoNotRestoreTheOutgoingEditor() async {
+        let (model, _, _) = await model("Existing memo")
+        let rows = await model.browseItems("")
+        #expect(!rows.isEmpty)
+        #expect(rows.allSatisfy { !$0.restoresEditor })
+        let destinations = model.paletteItems.filter { ["new", "duplicate", "delete", "back", "forward"].contains($0.id) }
+        #expect(destinations.count == 5)
+        #expect(destinations.allSatisfy { !$0.restoresEditor })
+    }
+
     @Test func selectionReadsAndNewMemoComposes() async throws {
         let (model, _, editor) = await model("Existing memo")
         let existing = try #require(model.current?.id)

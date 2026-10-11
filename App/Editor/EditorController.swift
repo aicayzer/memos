@@ -165,6 +165,14 @@ final class EditorController: NSObject, Editing {
         }
     }
 
+    func releaseFocus() {
+        wantsFocus = false
+        if pageReady { call("blurText", String(generation)) }
+        guard let window = webView.window, let responder = window.firstResponder as? NSView,
+              responder === webView || responder.isDescendant(of: webView) else { return }
+        window.makeFirstResponder(nil)
+    }
+
     func focus() {
         guard allowsFocus, webView.window?.isKeyWindow == true else { return }
         guard isReady else { wantsFocus = true; return }

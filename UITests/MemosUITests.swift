@@ -4,6 +4,46 @@ import XCTest
 
 @MainActor
 final class MemosUITests: XCTestCase {
+    func testExistingMemoSelectionReadsUntilClickAndNewMemoComposes() throws {
+        let fixture = try launchMemos()
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
+        let first = "First reading memo"
+        app.typeText(first)
+        expectText(first, in: editor)
+        app.typeKey("n", modifierFlags: .command)
+        app.typeText("Second reading memo")
+        expectText("Second reading memo", in: editor)
+        app.typeKey(".", modifierFlags: .command)
+        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", first)).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5), app.debugDescription)
+        row.click()
+        expectText(first, in: editor)
+        let before = editor.value as? String
+        app.typeKey("q", modifierFlags: [])
+        XCTAssertEqual(editor.value as? String, before)
+        editor.click()
+        app.typeKey(.downArrow, modifierFlags: .command)
+        app.typeText(" after click")
+        expectText("after click", in: editor)
+        row.click()
+        let afterClick = editor.value as? String
+        app.typeKey("q", modifierFlags: [])
+        XCTAssertEqual(editor.value as? String, afterClick)
+        app.typeKey("p", modifierFlags: .command)
+        let search = app.textFields["Search memos…"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5), app.debugDescription)
+        app.typeText(first)
+        app.typeKey(.return, modifierFlags: [])
+        app.typeKey("q", modifierFlags: [])
+        XCTAssertEqual(editor.value as? String, afterClick)
+        attach(app, name: "Existing memo selections remain in reading")
+        app.typeKey("n", modifierFlags: .command)
+        app.typeText("New memo composes immediately")
+        expectText("New memo composes immediately", in: editor)
+    }
+
     func testEditingSearchSettingsAndDockPreserveMemo() throws {
         let fixture = try launchMemos()
         let app = fixture.app
@@ -26,6 +66,7 @@ final class MemosUITests: XCTestCase {
         expectValue(first, in: search)
         app.typeKey(.return, modifierFlags: [])
         expectText(first, in: editor)
+        editor.click()
         app.typeKey(.downArrow, modifierFlags: .command)
         app.typeText(" Continued after search.")
         expectText("Continued after search.", in: editor)

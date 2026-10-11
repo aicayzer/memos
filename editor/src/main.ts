@@ -242,6 +242,14 @@ const facade = {
   clipboard: () => editor.clipboardSnapshot(true),
   format: editor.format.bind(editor),
   focus: editor.focus.bind(editor),
+  blurText(expected: number) {
+    if (expected !== generation) return
+    const active = document.activeElement
+    // Native responder resignation does not clear WebKit's retained DOM text focus.
+    if (active instanceof HTMLElement && active.matches('.ProseMirror, .inkkit-plain')) {
+      active.blur()
+    }
+  },
   find: (text: string, expected: number) => command(() => editor.find(text, expected)),
   replace: (search: string, replacement: string, expected: number) =>
     command(() => editor.replace(search, replacement, expected)),
