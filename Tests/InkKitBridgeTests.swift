@@ -5,6 +5,47 @@ import Testing
 @MainActor
 @Suite(.serialized, .opensWindows)
 struct InkKitBridgeTests {
+    @Test func sourceReplacementSharesHistoryAndRetainsScopeAcrossExternalReload() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "source"
+        let original = "__Bold__\r\n\r\n<!-- private -->\r\n"
+        editor.load(original)
+        _ = try await editor.snapshot()
+        _ = try await editor.webView.evaluateJavaScript("window.editor.setEditingMode('source', 1); window.editor.replace('private', '$& literal', 1)")
+        #expect(try await editor.snapshot() == original.replacingOccurrences(of: "private", with: "$& literal"))
+        _ = try await editor.webView.evaluateJavaScript("window.editor.setEditingMode('formatted', 1); window.editor.undo(1)")
+        #expect(try await editor.snapshot() == original)
+        editor.reload("External\n")
+        #expect(try await editor.snapshot() == "External\n")
+        let rejected = try await editor.webView.evaluateJavaScript("window.editor.replaceAll('External', 'Wrong', 1)") as? [String: Any]
+        #expect(rejected?["commandError"] as? String == "stale-document")
+        #expect(try await editor.snapshot() == "External\n")
+        let staleTable = try await editor.webView.evaluateJavaScript("window.editor.table('insert', null, 1)") as? [String: Any]
+        #expect(staleTable?["commandError"] as? String == "stale-document")
+        editor.table("insert")
+        editor.documentID = "next"
+        editor.load("Next\n")
+        _ = try await editor.snapshot()
+        let state = try await editor.webView.evaluateJavaScript("window.editor.undo(3)") as? Bool
+        #expect(state == false)
+    }
+
+    @Test func portablePrintKeepsCommentsPrivateAndRejectsMissingImages() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "print"
+        editor.load("# Heading\n\n**Body**\n\n<!-- private -->")
+        _ = try await editor.snapshot()
+        let value = try await editor.webView.callAsyncJavaScript("return await window.editor.printable(1)", arguments: [:], in: nil, contentWorld: .page) as? [String: Any]
+        let html = try #require(value?["html"] as? String)
+        #expect(html.contains("<strong>Body</strong>"))
+        #expect(!html.contains("private"))
+        editor.load("![Missing](images/\(String(repeating: "a", count: 64)).png)")
+        let source = try await editor.snapshot()
+        let failure = try await editor.webView.callAsyncJavaScript("return await window.editor.printable(2)", arguments: [:], in: nil, contentWorld: .page) as? [String: Any]
+        #expect(failure?["snapshotError"] as? String == "image-unavailable")
+        #expect(try await editor.snapshot() == source)
+    }
+
     @Test func conditionalRefreshRetainsTypingThatArrivesBeforeItsBrowserComparison() async throws {
         let editor = EditorController(images: FakeImageStore())
         editor.documentID = "original"

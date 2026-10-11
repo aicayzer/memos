@@ -132,6 +132,9 @@ const editor = await InkKitEditor.mount(
     changed(markdown, generation) {
       post({ type: 'changed', markdown, generation, sequence: ++changeSequence })
     },
+    commandStateChanged(state) {
+      post({ type: 'commandState', ...state })
+    },
     stateChanged(state) {
       post({ type: 'state', ...state, generation })
     },
@@ -148,6 +151,15 @@ const editor = await InkKitEditor.mount(
   },
   { images },
 )
+function command<T>(operation: () => T): T | { commandError: string; message: string } {
+  try {
+    return operation()
+  } catch (error) {
+    // Expected command guards must not poison the native document through a global script error.
+    if (error instanceof InkKitError) return { commandError: error.code, message: error.message }
+    throw error
+  }
+}
 const facade = {
   load(text: string, nextGeneration: number, documentId = String(nextGeneration)) {
     generation = nextGeneration
@@ -228,7 +240,30 @@ const facade = {
   clipboard: () => editor.clipboardSnapshot(true),
   format: editor.format.bind(editor),
   focus: editor.focus.bind(editor),
-  find: editor.find.bind(editor),
+  find: (text: string, expected: number) => command(() => editor.find(text, expected)),
+  replace: (search: string, replacement: string, expected: number) =>
+    command(() => editor.replace(search, replacement, expected)),
+  replaceAll: (search: string, replacement: string, expected: number) =>
+    command(() => editor.replaceAll(search, replacement, expected)),
+  setEditingMode: (mode: 'source' | 'formatted', expected: number) =>
+    command(() => editor.setEditingMode(mode, expected)),
+  undo: (expected: number) => command(() => editor.undo(expected)),
+  redo: (expected: number) => command(() => editor.redo(expected)),
+  async printable(expected: number) {
+    try {
+      const output = await editor.printableSnapshot(expected)
+      return {
+        documentId: output.documentId,
+        generation: output.generation,
+        revision: output.revision,
+        html: output.html,
+        warnings: output.warnings,
+      }
+    } catch (error) {
+      if (error instanceof InkKitError) return { snapshotError: error.code, message: error.message }
+      throw error
+    }
+  },
   insertText: editor.insertText.bind(editor),
   keyDown: editor.keyDown.bind(editor),
   insertPaths: editor.insertPaths.bind(editor),
@@ -243,7 +278,15 @@ const facade = {
       y ?? undefined,
     ),
   pasteAsPlainText: editor.pasteAsPlainText.bind(editor),
-  table: editor.table.bind(editor),
+  table: (
+    name: Parameters<InkKitEditor['table']>[0],
+    options?: Parameters<InkKitEditor['table']>[1],
+    expected = generation,
+  ) =>
+    command(() => {
+      editor.commandState(expected)
+      return editor.table(name, options ?? undefined)
+    }),
   pasteNative: (payload: {
     text: string
     html?: string

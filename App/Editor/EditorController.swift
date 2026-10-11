@@ -66,6 +66,8 @@ final class EditorController: NSObject, Editing {
     @ObservationIgnored private var appearanceObservation: NSKeyValueObservation?
     @ObservationIgnored private var imageHandler: ImageSchemeHandler?
 
+    @ObservationIgnored private var printRenderer: MemoPrintRenderer?
+
     @ObservationIgnored private let images: any ImageStore
 
     init(images: any ImageStore) {
@@ -126,6 +128,7 @@ final class EditorController: NSObject, Editing {
         generation += 1
         pendingMarkdown = markdown
         isReady = false
+        caret = CaretState()
         guard pageReady else { return }
         applyDocument(markdown, keepingCaret: keepingCaret)
     }
@@ -152,6 +155,7 @@ final class EditorController: NSObject, Editing {
     }
 
     func format(_ command: FormatCommand, argument: String?) {
+        guard caret.formats[command.rawValue] == true else { return }
         if let argument {
             call("format", json(command.rawValue), json(argument))
         } else {
@@ -165,7 +169,58 @@ final class EditorController: NSObject, Editing {
         call("focus")
     }
 
-    func find(_ text: String) { call("find", json(text)) }
+    func find(_ text: String) { guardedCall("find", json(text), String(generation)) }
+    func setSourceMode(_ source: Bool) { guardedCall("setEditingMode", json(source ? "source" : "formatted"), String(generation)) }
+    func undo() { guardedCall("undo", String(generation)) }
+    func redo() { guardedCall("redo", String(generation)) }
+    func replace(_ search: String, with replacement: String, all: Bool) {
+        guardedCall(all ? "replaceAll" : "replace", json(search), json(replacement), String(generation))
+    }
+
+    private func guardedCall(_ function: String, _ arguments: String...) {
+        guard isReady else { return }
+        let expectedGeneration = generation
+        let expectedDocumentID = documentID
+        Task { @MainActor in
+            do {
+                guard expectedGeneration == generation, expectedDocumentID == documentID, isReady else { return }
+                let result = try await webView.evaluateJavaScript("window.editor.\(function)(\(arguments.joined(separator: ", ")))")
+                guard expectedGeneration == generation, expectedDocumentID == documentID else { return }
+                if let rejection = result as? [String: Any], let message = rejection["message"] as? String {
+                    onWarning(message)
+                }
+            } catch {
+                guard expectedGeneration == generation, expectedDocumentID == documentID else { return }
+                onWarning(error.localizedDescription)
+            }
+        }
+    }
+
+    func printDocument() async throws {
+        guard printRenderer == nil else { return }
+        let renderer = MemoPrintRenderer()
+        printRenderer = renderer
+        defer { printRenderer = nil }
+        let expectedGeneration = generation
+        let expectedDocumentID = documentID
+        _ = try await snapshot()
+        let result = try await webView.callAsyncJavaScript("return await window.editor.printable(expected)", arguments: ["expected": expectedGeneration], in: nil, contentWorld: .page)
+        guard expectedGeneration == generation, expectedDocumentID == documentID else { throw MemoEditorError.documentChanged }
+        guard let output = result as? [String: Any] else { throw MemoEditorError.invalidResponse }
+        if let message = output["message"] as? String { throw MemoEditorError.script(message) }
+        guard output["generation"] as? Int == expectedGeneration, output["documentId"] as? String == expectedDocumentID,
+              let revision = output["revision"] as? Int, let html = output["html"] as? String else { throw MemoEditorError.invalidResponse }
+        try await renderer.load(html)
+        let current = try await webView.evaluateJavaScript("window.editor.snapshot(\(expectedGeneration))") as? [String: Any]
+        guard current?["revision"] as? Int == revision,
+              current?["documentId"] as? String == expectedDocumentID else { throw MemoEditorError.documentChanged }
+        guard expectedGeneration == generation, expectedDocumentID == documentID,
+              webView.window != nil else { throw MemoEditorError.documentChanged }
+        if let warnings = output["warnings"] as? [[String: Any]], !warnings.isEmpty {
+            onWarning(warnings.compactMap { $0["message"] as? String }.joined(separator: "\n"))
+        }
+        renderer.printDocument()
+    }
 
     /// Inserts the paths as lines at a point in the view, and takes the keyboard, as typing there would.
     func insertPaths(_ paths: [String], at point: CGPoint) {
@@ -182,7 +237,12 @@ final class EditorController: NSObject, Editing {
 
     func table(_ command: String) {
         guard isReady else { return }
-        call("table", json(command))
+        guardedCall("table", json(command), "null", String(generation))
+    }
+
+    func sortTable(order: String, numeric: Bool) {
+        guard caret.tables["sortRows"] == true else { return }
+        guardedCall("table", json("sortRows"), json(["order": order, "comparison": numeric ? "number" : "text"]), String(generation))
     }
 
     func pasteAsPlainText(_ text: String) {
@@ -504,6 +564,13 @@ final class EditorController: NSObject, Editing {
             }
             onChanged(markdown)
         case .state(let state):
+            var updated = caret
+            updated.marks = state.marks
+            updated.block = state.block
+            updated.quoted = state.quoted
+            if updated != caret { caret = updated }
+        case .commandState(let state, let documentID, let generation):
+            guard generation == self.generation, documentID == self.documentID else { return }
             if state != caret { caret = state }
         case .openLink(let href):
             if let url = URL(string: href), let scheme = url.scheme, ["http", "https", "mailto"].contains(scheme) {

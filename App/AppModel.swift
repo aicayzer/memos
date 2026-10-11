@@ -32,6 +32,7 @@ final class AppModel {
         }
     }
     var findText = ""
+    var replacementText = ""
     var storageStatus: StorageStatus?
     var convertingStorage = false
     var storageError: String?
@@ -423,6 +424,17 @@ final class AppModel {
     }
 
     func table(_ command: String) { editor.table(command) }
+
+    func printMemo() {
+        Task {
+            do { try await editor.printDocument() }
+            catch { editor.onWarning(error.localizedDescription) }
+        }
+    }
+
+    func replaceFound(all: Bool) {
+        editor.replace(findText, with: replacementText, all: all)
+    }
 
     func pasteAsPlainText() {
         guard let text = NSPasteboard.general.string(forType: .string) else { return }

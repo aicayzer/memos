@@ -39,6 +39,12 @@ protocol Editing: AnyObject {
     func refresh(_ markdown: String, documentID: String, expecting source: String) async throws -> EditorRefresh
     func pasteAsPlainText(_ text: String)
     func table(_ command: String)
+    func sortTable(order: String, numeric: Bool)
+    func setSourceMode(_ source: Bool)
+    func undo()
+    func redo()
+    func replace(_ search: String, with replacement: String, all: Bool)
+    func printDocument() async throws
 
     /// The view the memo is drawn in.
     var contentView: NSView { get }

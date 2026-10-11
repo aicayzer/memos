@@ -20,17 +20,18 @@ struct FormatBar: View {
                 }
             } label: {
                 Image(nsImage: Self.headingGlyph(active: caret.block.isHeading, size: chrome.iconSize))
-            }
+            }.disabled(caret.formats["heading"] != true)
 
             menu("Text Style", active: !caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough])) {
-                Toggle("Bold", isOn: toggle(caret.marks.contains(.bold)) { editor.format(.bold) })
-                Toggle("Italic", isOn: toggle(caret.marks.contains(.italic)) { editor.format(.italic) })
-                Toggle("Strikethrough", isOn: toggle(caret.marks.contains(.strikethrough)) { editor.format(.strikethrough) })
+                Toggle("Bold", isOn: toggle(caret.marks.contains(.bold)) { editor.format(.bold) }).disabled(caret.formats["bold"] != true)
+                Toggle("Italic", isOn: toggle(caret.marks.contains(.italic)) { editor.format(.italic) }).disabled(caret.formats["italic"] != true)
+                Toggle("Strikethrough", isOn: toggle(caret.marks.contains(.strikethrough)) { editor.format(.strikethrough) }).disabled(caret.formats["strikethrough"] != true)
             } label: {
                 Image(nsImage: Self.styleGlyph(
                     active: !caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough]), size: chrome.iconSize
                 ))
             }
+            .disabled(caret.formats["bold"] != true && caret.formats["italic"] != true && caret.formats["strikethrough"] != true)
 
             button("link", "Link", size: chrome.iconSize - 1, active: caret.marks.contains(.link)) {
                 if caret.marks.contains(.link) {
@@ -40,6 +41,7 @@ struct FormatBar: View {
                     linkPopover = true
                 }
             }
+            .disabled(caret.formats["link"] != true)
             .popover(isPresented: $linkPopover, arrowEdge: .top) {
                 TextField("https://", text: $linkURL)
                     .textFieldStyle(.roundedBorder)
@@ -53,26 +55,27 @@ struct FormatBar: View {
             }
             button("chevron.left.forwardslash.chevron.right", "Inline Code", size: chrome.iconSize - 2, active: caret.marks.contains(.code)) {
                 editor.format(.code)
-            }
+            }.disabled(caret.formats["code"] != true)
 
             divider
 
             button("curlybraces", "Code Block", size: chrome.iconSize - 1, active: caret.block == .codeBlock) {
                 editor.format(.codeBlock)
-            }
-            button("text.quote", "Quote", active: caret.quoted) { editor.format(.quote) }
+            }.disabled(caret.formats["codeBlock"] != true)
+            button("text.quote", "Quote", active: caret.quoted) { editor.format(.quote) }.disabled(caret.formats["quote"] != true)
 
             divider
 
             menu("List", active: caret.block.isList) {
-                Toggle("Bulleted List", isOn: toggle(caret.block == .bulletList) { editor.format(.bulletList) })
-                Toggle("Numbered List", isOn: toggle(caret.block == .orderedList) { editor.format(.orderedList) })
-                Toggle("Task List", isOn: toggle(caret.block == .taskList) { editor.format(.taskList) })
+                Toggle("Bulleted List", isOn: toggle(caret.block == .bulletList) { editor.format(.bulletList) }).disabled(caret.formats["bulletList"] != true)
+                Toggle("Numbered List", isOn: toggle(caret.block == .orderedList) { editor.format(.orderedList) }).disabled(caret.formats["orderedList"] != true)
+                Toggle("Task List", isOn: toggle(caret.block == .taskList) { editor.format(.taskList) }).disabled(caret.formats["taskList"] != true)
             } label: {
                 // The list glyphs read smaller than the rest at the same point size.
                 Image(systemName: listSymbol).font(.system(size: chrome.iconSize + 2, weight: .medium))
             }
         }
+        .disabled(caret.sourceMode || caret.formats.values.allSatisfy { !$0 })
         .menuStyle(.button)
         .menuIndicator(.visible)
         .buttonStyle(.borderless)
