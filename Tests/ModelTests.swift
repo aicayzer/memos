@@ -15,6 +15,17 @@ import Testing
         return (model, store, editor)
     }
 
+    @Test func selectionReadsAndNewMemoComposes() async throws {
+        let (model, _, editor) = await model("Existing memo")
+        let existing = try #require(model.current?.id)
+        let before = editor.focusCount
+        await model.open(existing)
+        #expect(editor.focusCount == before)
+        await model.newMemo()
+        #expect(model.current?.id != existing)
+        #expect(editor.focusCount == before + 1)
+    }
+
     @Test func overlaysOwnFocusUntilDismissed() async {
         let (model, _, editor) = await model("Keep this memo")
         for overlay in [Overlay.palette, .browse, .find] {

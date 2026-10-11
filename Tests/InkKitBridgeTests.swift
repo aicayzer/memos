@@ -6,6 +6,77 @@ import PDFKit
 @MainActor
 @Suite(.serialized, .opensWindows)
 struct InkKitBridgeTests {
+    private final class ReadingPanel: NSPanel {
+        override var canBecomeKey: Bool { true }
+        override var canBecomeMain: Bool { false }
+    }
+
+    @Test func loadingMemoLeavesSearchFocusedAndComposeExplicitlyFocuses() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        let window = ReadingPanel(contentRect: NSRect(x: 100, y: 100, width: 500, height: 600),
+                              styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        defer { window.orderOut(nil); window.contentView = nil; window.close() }
+        let content = NSView(frame: window.contentLayoutRect)
+        window.contentView = content
+        editor.webView.frame = NSRect(x: 0, y: 0, width: 500, height: 500)
+        content.addSubview(editor.webView)
+        let search = NSTextField(frame: NSRect(x: 20, y: 520, width: 250, height: 28))
+        content.addSubview(search)
+        window.makeKeyAndOrderFront(nil)
+        #expect(window.isKeyWindow)
+        #expect(window.makeFirstResponder(search))
+        editor.documentID = "reading"
+        editor.load("# Read without a caret\n\nMemo body")
+        _ = try await editor.snapshot()
+        #expect(window.firstResponder === search.currentEditor())
+        let readingFocus = try await editor.webView.evaluateJavaScript(
+            "document.activeElement?.matches('.ProseMirror, .inkkit-plain') === true"
+        ) as? Bool
+        #expect(readingFocus == false)
+
+        let other = ReadingPanel(contentRect: NSRect(x: 650, y: 100, width: 250, height: 200),
+                                 styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
+        other.isReleasedWhenClosed = false
+        defer { other.orderOut(nil); other.close() }
+        other.makeKeyAndOrderFront(nil)
+        #expect(other.isKeyWindow)
+        #expect(!window.isKeyWindow)
+        editor.documentID = "background-reading"
+        editor.load("Background update")
+        _ = try await editor.snapshot()
+        #expect(other.isKeyWindow)
+        #expect(!window.isKeyWindow)
+        window.makeKeyAndOrderFront(nil)
+        #expect(window.isKeyWindow)
+
+        editor.documentID = "compose"
+        editor.load("")
+        editor.focus()
+        _ = try await editor.snapshot()
+        let composeFocus = try await editor.webView.evaluateJavaScript(
+            "document.activeElement?.matches('.ProseMirror, .inkkit-plain') === true"
+        ) as? Bool
+        #expect(composeFocus == true)
+        let outline = try await editor.webView.evaluateJavaScript(
+            "getComputedStyle(document.querySelector('.ProseMirror')).outlineWidth"
+        ) as? String
+        #expect(outline == "0px")
+        editor.reload("Edited memo")
+        _ = try await editor.snapshot()
+        let reloadFocus = try await editor.webView.evaluateJavaScript(
+            "document.activeElement?.matches('.ProseMirror, .inkkit-plain') === true"
+        ) as? Bool
+        #expect(reloadFocus == true)
+        editor.documentID = "another-reading"
+        editor.load("Another memo")
+        _ = try await editor.snapshot()
+        let nextFocus = try await editor.webView.evaluateJavaScript(
+            "document.activeElement?.matches('.ProseMirror, .inkkit-plain') === true"
+        ) as? Bool
+        #expect(nextFocus == false)
+    }
+
     @Test func hostLayoutRetainsTextSizePaddingAndViewportHitArea() async throws {
         let editor = EditorController(images: FakeImageStore())
         editor.webView.frame = NSRect(x: 0, y: 0, width: 500, height: 600)

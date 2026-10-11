@@ -260,7 +260,7 @@ final class AppModel {
 
     func open(_ id: Memo.ID, recording: Bool = true) async {
         showWindowIfHidden()
-        guard id != current?.id else { editor.focus(); return }
+        guard id != current?.id else { return }
         guard !convertingStorage, await flush() else { return }
         do {
             guard let memo = try await store.get(id) else { return }
@@ -275,6 +275,7 @@ final class AppModel {
         guard !convertingStorage, await flush() else { return }
         do {
             show(try await store.create(markdown: ""))
+            editor.focus()
         } catch {
             report(error)
         }
@@ -286,6 +287,7 @@ final class AppModel {
         guard !convertingStorage, await flush() else { return }
         do {
             show(try await store.create(markdown: current.markdown))
+            editor.focus()
         } catch {
             report(error)
         }
