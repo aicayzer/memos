@@ -124,7 +124,7 @@ final class EditorController: NSObject, Editing {
     func reload(_ markdown: String) { replace(markdown, keepingCaret: true) }
 
     private func replace(_ markdown: String, keepingCaret: Bool) {
-        wantsFocus = false
+        if !keepingCaret { wantsFocus = false }
         refreshPreviousGeneration = nil
         refreshChanges.removeAll()
         generation += 1

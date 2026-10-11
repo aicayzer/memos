@@ -53,6 +53,7 @@ struct InkKitBridgeTests {
         editor.documentID = "compose"
         editor.load("")
         editor.focus()
+        editor.reload("")
         _ = try await editor.snapshot()
         let composeFocus = try await editor.webView.evaluateJavaScript(
             "document.activeElement?.matches('.ProseMirror, .inkkit-plain') === true"
