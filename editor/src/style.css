@@ -31,6 +31,13 @@ body {
 
 /* The page scrolls inside #editor so the fade under the formatting bar stays put. */
 #editor {
+  /* Preserve the memo layout through InkKit's public theme tokens. */
+  --inkkit-font-size: 1rem;
+  --inkkit-line-height: 1.55;
+  --inkkit-min-height: 100vh;
+  --inkkit-padding-top: 8px;
+  --inkkit-padding-inline: 24px;
+  --inkkit-padding-bottom: 96px;
   height: 100%;
   overflow-y: auto;
   -webkit-mask-image: linear-gradient(
@@ -41,10 +48,7 @@ body {
 }
 
 .ProseMirror {
-  /* The viewport, not the wrapper Milkdown adds, so a click below the text still places the caret. */
-  min-height: 100vh;
   box-sizing: border-box;
-  padding: 8px 24px 96px;
   outline: none;
   white-space: pre-wrap;
   word-wrap: break-word;
