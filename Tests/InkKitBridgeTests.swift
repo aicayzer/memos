@@ -15,7 +15,6 @@ struct InkKitBridgeTests {
         for size in [15, 21] {
             let value = try await editor.webView.callAsyncJavaScript("""
             window.editor.setTextSize(size);
-            await new Promise(resolve => requestAnimationFrame(resolve));
             const editable = document.querySelector('.ProseMirror');
             const style = getComputedStyle(editable);
             const rect = editable.getBoundingClientRect();
