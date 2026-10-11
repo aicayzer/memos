@@ -18,6 +18,10 @@ struct CaretState: Equatable, Sendable {
     var block: Block = .paragraph
     /// Inside a quote at any depth; `block` is what sits inside it.
     var quoted = false
+    var sourceMode = false
+    var commands: [String: Bool] = [:]
+    var formats: [String: Bool] = [:]
+    var tables: [String: Bool] = [:]
 }
 
 enum FormatCommand: String, Sendable {
@@ -29,6 +33,7 @@ enum EditorMessage: Sendable {
     case ready
     case changed(String, generation: Int, sequence: Int? = nil)
     case state(CaretState)
+    case commandState(CaretState, documentID: String, generation: Int)
     case openLink(String)
     case copy(String)
     case warning(String)
@@ -46,6 +51,16 @@ enum EditorMessage: Sendable {
             let marks = (dict["marks"] as? [String] ?? []).compactMap(Mark.init(rawValue:))
             guard let block = Block(dict["block"]) else { return nil }
             self = .state(CaretState(marks: Set(marks), block: block, quoted: dict["quoted"] as? Bool ?? false))
+        case "commandState":
+            guard let documentID = dict["documentId"] as? String, let generation = dict["generation"] as? Int,
+                  let commands = dict["commands"] as? [String: Any], let caret = dict["caret"] as? [String: Any],
+                  let block = Block(caret["block"]) else { return nil }
+            var state = CaretState(marks: Set((caret["marks"] as? [String] ?? []).compactMap(Mark.init(rawValue:))), block: block, quoted: caret["quoted"] as? Bool ?? false)
+            state.sourceMode = dict["mode"] as? String == "source"
+            state.commands = commands.compactMapValues { $0 as? Bool }
+            state.formats = commands["format"] as? [String: Bool] ?? [:]
+            state.tables = commands["table"] as? [String: Bool] ?? [:]
+            self = .commandState(state, documentID: documentID, generation: generation)
         case "openLink":
             guard let href = dict["href"] as? String else { return nil }
             self = .openLink(href)

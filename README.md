@@ -20,11 +20,13 @@ The optional command-line tool is being prepared as a separate signed download f
 ## Make yourself at home
 
 - Write formatted notes with Markdown shortcuts, images, editable tables, and checklists.
+- Switch to Markdown source from View, or move and sort table rows from Format.
+- Find and replace text in the current memo.
 - Paste formatted content, or use Paste as Plain Text to keep Markdown characters literal.
 - Copy formatted notes into other apps, or use Copy as Markdown for their source.
 - Search your memos, keep favorites, and find them in Spotlight.
 - Keep notes inside Memos or as Markdown files in a folder you choose.
-- Save or share a note as a Markdown file.
+- Save or share a note as a Markdown file, or use File > Print to print or save a PDF.
 - Adjust the window, appearance, and shortcuts in Settings.
 
 ## A few shortcuts

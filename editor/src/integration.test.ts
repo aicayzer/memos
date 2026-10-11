@@ -15,7 +15,7 @@ describe('packed editor consumer', () => {
     })
   })
   afterEach(async () => {
-    await editor.destroy()
+    await editor?.destroy()
     root.remove()
   })
 
@@ -62,5 +62,39 @@ describe('packed editor consumer', () => {
     editor.loadDocument({ documentId: 'markdown', generation: 2, format: 'md', text: '' })
     editor.pasteAsPlainText('**literal**')
     expect(editor.snapshot().text).toContain('\\*\\*literal\\*\\*')
+  })
+  it('shares exact source, replacement and history across mode changes and reloads', () => {
+    const text = '__Bold__\r\n\r\n<!-- hidden -->\r\n\r\nOdd [[target|label]]\r\n'
+    editor.loadDocument({ documentId: 'switch', generation: 7, format: 'md', text })
+    expect(editor.setEditingMode('source', 7)).toBe(true)
+    expect(editor.snapshot(7).text).toBe(text)
+    expect(editor.replace('hidden', '$& literal', 7)).toBe(true)
+    expect(editor.snapshot(7).text).toContain('<!-- $& literal -->')
+    editor.setEditingMode('formatted', 7)
+    expect(editor.undo(7)).toBe(true)
+    expect(editor.snapshot(7).text).toBe(text)
+    expect(editor.redo(7)).toBe(true)
+    editor.reloadDocument({ documentId: 'switch', generation: 8, format: 'md', text })
+    expect(() => editor.replaceAll('Odd', 'Changed', 7)).toThrow()
+    expect(editor.snapshot(8).text).toBe(text)
+    editor.loadDocument({ documentId: 'next', generation: 9, format: 'md', text: 'Next' })
+    expect(editor.commandState(9).commands.undo).toBe(false)
+  })
+
+  it('reports applicable command availability and exports the complete print document', async () => {
+    editor.loadDocument({
+      documentId: 'print',
+      generation: 1,
+      format: 'md',
+      text: '# Title\n\n**Body**\n\n<!-- private -->',
+    })
+    editor.setEditingMode('source', 1)
+    expect(editor.commandState(1).commands.format.bold).toBe(false)
+    const printable = await editor.printableSnapshot(1)
+    expect(printable).toMatchObject({ documentId: 'print', generation: 1 })
+    expect(printable.html).toContain('<strong>Body</strong>')
+    expect(printable.html).not.toContain('private')
+    await expect(editor.printableSnapshot(0)).rejects.toThrow()
+    expect(editor.snapshot(1).text).toContain('<!-- private -->')
   })
 })

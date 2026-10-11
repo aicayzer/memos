@@ -91,6 +91,12 @@ final class FakeEditor: Editing {
         return .applied
     }
     func table(_ command: String) {}
+    func sortTable(order: String, numeric: Bool) {}
+    func setSourceMode(_ source: Bool) { caret.sourceMode = source }
+    func undo() {}
+    func redo() {}
+    func replace(_ search: String, with replacement: String, all: Bool) {}
+    func printDocument() async throws {}
     func pasteAsPlainText(_ value: String) { type(text + value) }
 }
 

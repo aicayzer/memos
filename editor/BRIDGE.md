@@ -29,3 +29,11 @@ The manifest pins the published registry release `@aicayzer/inkkit@0.0.1`. Use `
 Consumer tests validate source preservation, stale snapshots, clipboard text and HTML, tables, and literal paste through the published package. Engine regression suites belong in InkKit. Native tests additionally exercise snapshot failures, external reloads, late image imports, and ordered RTFD attachments. Run native and interactive checks on an isolated development machine before release.
 
 The production `LibraryStore` deliberately retains image files rather than sweeping them from one process’s view. This protects pending imports, unsaved notes in other processes, and conversion snapshots.
+
+## Editing commands and printing
+
+The host pins InkKit 0.0.11. `commandState` messages carry `documentId`, `generation`, editing `mode`, `caret`, and the public `commands` maps. Ignore messages for another scope. Menu availability follows these maps; source mode shares the same document and undo history.
+
+`find(text, generation)`, `replace(search, replacement, generation)`, `replaceAll(search, replacement, generation)`, `setEditingMode(mode, generation)`, `undo(generation)` and `redo(generation)` call the public facade. Search and replacement are literal. Reload retains mode; loading another memo resets history.
+
+`printable(generation)` awaits `printableSnapshot` and returns scoped `html`, `revision` and `warnings`, or `snapshotError` and `message`. HTML is a complete frozen portable document, with images embedded. Native printing awaits a fresh source snapshot, validates the print scope, loads HTML in a separate retained web view, waits for fonts and image decoding, then rechecks the live revision before presenting the standard Print panel with its PDF option. Failures do not print partial content or alter the memo.
