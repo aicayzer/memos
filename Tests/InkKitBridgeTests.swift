@@ -30,6 +30,18 @@ struct InkKitBridgeTests {
         #expect(state == false)
     }
 
+    @Test func invalidNumericSortingRetainsTheMemoAndRemainsRecoverable() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "table"
+        let source = "| Value |\n| --- |\n| Oops |\n| 12 |\n"
+        editor.load(source)
+        _ = try await editor.snapshot()
+        _ = try await editor.webView.evaluateJavaScript("window.editor.find('Oops', 1)")
+        let rejected = try await editor.webView.evaluateJavaScript("window.editor.table('sortRows', {column: 0, comparison: 'number'}, 1)") as? [String: Any]
+        #expect(rejected?["commandError"] as? String == "invalid-argument")
+        #expect(try await editor.snapshot() == source)
+    }
+
     @Test func portablePrintKeepsCommentsPrivateAndRejectsMissingImages() async throws {
         let editor = EditorController(images: FakeImageStore())
         editor.documentID = "print"

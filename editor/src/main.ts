@@ -157,6 +157,8 @@ function command<T>(operation: () => T): T | { commandError: string; message: st
   } catch (error) {
     // Expected command guards must not poison the native document through a global script error.
     if (error instanceof InkKitError) return { commandError: error.code, message: error.message }
+    if (error instanceof RangeError)
+      return { commandError: 'invalid-argument', message: error.message }
     throw error
   }
 }
