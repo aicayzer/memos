@@ -27,11 +27,15 @@ final class MemoPrintRenderer: NSObject, WKNavigationDelegate {
         """, arguments: [:], in: nil, contentWorld: .page)
     }
 
-    func printDocument() {
-        let info = NSPrintInfo.shared.copy() as! NSPrintInfo
+    func printOperation(with info: NSPrintInfo) -> NSPrintOperation {
         info.horizontalPagination = .fit
         info.isHorizontallyCentered = false
-        let operation = view.printOperation(with: info)
+        return view.printOperation(with: info)
+    }
+
+    func printDocument() {
+        let info = NSPrintInfo.shared.copy() as! NSPrintInfo
+        let operation = printOperation(with: info)
         operation.showsPrintPanel = true
         operation.showsProgressPanel = true
         // The synchronous panel keeps the frozen document alive through printing and PDF export.

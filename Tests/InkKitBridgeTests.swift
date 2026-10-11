@@ -1,5 +1,6 @@
 import AppKit
 import Testing
+import PDFKit
 @testable import Memos
 
 @MainActor
@@ -28,6 +29,54 @@ struct InkKitBridgeTests {
         _ = try await editor.snapshot()
         let state = try await editor.webView.evaluateJavaScript("window.editor.undo(3)") as? Bool
         #expect(state == false)
+    }
+
+    @Test func anInactiveEditorWindowDoesNotOwnSettingsFieldHistory() throws {
+        let memoWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
+        let settingsWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
+        let editorView = NSTextView()
+        let field = NSTextView()
+        memoWindow.contentView = editorView
+        settingsWindow.contentView = field
+        #expect(memoWindow.makeFirstResponder(editorView))
+        #expect(settingsWindow.makeFirstResponder(field))
+        #expect(AppCommands.ownsEditorHistory(editorView, in: memoWindow))
+        #expect(!AppCommands.ownsEditorHistory(editorView, in: settingsWindow))
+        #expect(!AppCommands.ownsEditorHistory(editorView, in: nil))
+    }
+
+    @Test func nativePrintOperationSavesTheCompleteFrozenDocumentAsPDF() async throws {
+        let folder = try temporaryFolder()
+        defer { discard(folder) }
+        let images = FolderImageStore(besideStoreAt: folder.appending(path: "store.json"))
+        let reference = try await images.save(makePNG())
+        let editor = EditorController(images: images)
+        editor.documentID = "native-print"
+        let source = "# Printed heading\n\n**Body text**\n\n| Name | Value |\n| --- | --- |\n| Table cell | 42 |\n\n![Local](\(reference.path))\n\n<!-- private-comment -->\n\n" + Array(repeating: "A complete paragraph with readable content.", count: 80).joined(separator: "\n\n") + "\n\nLast printed paragraph."
+        editor.load(source)
+        _ = try await editor.snapshot()
+        let value = try await editor.webView.callAsyncJavaScript("return await window.editor.printable(1)", arguments: [:], in: nil, contentWorld: .page) as? [String: Any]
+        let html = try #require(value?["html"] as? String)
+        #expect(html.contains("data:image/png;base64,"))
+        let renderer = MemoPrintRenderer()
+        try await renderer.load(html)
+        let file = folder.appending(path: "print.pdf")
+        let info = NSPrintInfo.shared.copy() as! NSPrintInfo
+        info.jobDisposition = .save
+        info.dictionary()[NSPrintInfo.AttributeKey.jobSavingURL] = file
+        let operation = renderer.printOperation(with: info)
+        operation.showsPrintPanel = false
+        operation.showsProgressPanel = false
+        #expect(operation.run())
+        let pdf = try #require(PDFDocument(url: file))
+        #expect(pdf.pageCount > 1)
+        let text = try #require(pdf.string)
+        #expect(text.contains("Printed heading"))
+        #expect(text.contains("Body text"))
+        #expect(text.contains("Table cell"))
+        #expect(text.contains("Last printed paragraph."))
+        #expect(!text.contains("private-comment"))
+        #expect(try await editor.snapshot() == source)
     }
 
     @Test func invalidNumericSortingRetainsTheMemoAndRemainsRecoverable() async throws {
