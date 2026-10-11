@@ -6,6 +6,40 @@ import PDFKit
 @MainActor
 @Suite(.serialized, .opensWindows)
 struct InkKitBridgeTests {
+    @Test func hostLayoutRetainsTextSizePaddingAndViewportHitArea() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.webView.frame = NSRect(x: 0, y: 0, width: 500, height: 600)
+        editor.documentID = "layout"
+        editor.load("# Short heading\n\nShort `code` memo\n")
+        _ = try await editor.snapshot()
+        for size in [15, 21] {
+            let value = try await editor.webView.callAsyncJavaScript("""
+            window.editor.setTextSize(size);
+            const editable = document.querySelector('.ProseMirror');
+            const style = getComputedStyle(editable);
+            const rect = editable.getBoundingClientRect();
+            const hit = document.elementFromPoint(250, 450);
+            return {font: parseFloat(style.fontSize), line: parseFloat(style.lineHeight),
+              top: parseFloat(style.paddingTop), inline: parseFloat(style.paddingLeft),
+              bottom: parseFloat(style.paddingBottom), height: rect.height,
+              heading: parseFloat(getComputedStyle(editable.querySelector('h1')).fontSize),
+              code: parseFloat(getComputedStyle(editable.querySelector('code')).fontSize),
+              spacing: parseFloat(getComputedStyle(editable.querySelector('p')).marginBottom),
+              editableHit: hit === editable || editable.contains(hit)};
+            """, arguments: ["size": size], in: nil, contentWorld: .page) as? [String: Any]
+            #expect(value?["font"] as? Double == Double(size))
+            #expect(abs((value?["line"] as? Double ?? 0) - Double(size) * 1.55) < 0.01)
+            #expect(abs((value?["heading"] as? Double ?? 0) - Double(size) * 1.733) < 0.01)
+            #expect(abs((value?["code"] as? Double ?? 0) - Double(size) * 0.88) < 0.01)
+            #expect(abs((value?["spacing"] as? Double ?? 0) - Double(size) * 0.667) < 0.01)
+            #expect(value?["top"] as? Double == 8)
+            #expect(value?["inline"] as? Double == 24)
+            #expect(value?["bottom"] as? Double == 96)
+            #expect((value?["height"] as? Double ?? 0) >= 600)
+            #expect(value?["editableHit"] as? Bool == true)
+        }
+    }
+
     @Test func sourceReplacementSharesHistoryAndRetainsScopeAcrossExternalReload() async throws {
         let editor = EditorController(images: FakeImageStore())
         editor.documentID = "source"
