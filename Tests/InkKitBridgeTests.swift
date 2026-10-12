@@ -213,6 +213,8 @@ struct InkKitBridgeTests {
         #expect(try await editor.snapshot() == "External\n")
         let rejected = try await editor.webView.evaluateJavaScript("window.editor.replaceAll('External', 'Wrong', 1)") as? [String: Any]
         #expect(rejected?["commandError"] as? String == "stale-document")
+        let stalePaste = try await editor.webView.evaluateJavaScript("window.editor.pasteAsPlainText('Wrong', 1)") as? [String: Any]
+        #expect(stalePaste?["commandError"] as? String == "stale-document")
         #expect(try await editor.snapshot() == "External\n")
         let staleTable = try await editor.webView.evaluateJavaScript("window.editor.table('insert', null, 1)") as? [String: Any]
         #expect(staleTable?["commandError"] as? String == "stale-document")
@@ -233,9 +235,9 @@ struct InkKitBridgeTests {
         settingsWindow.contentView = field
         #expect(memoWindow.makeFirstResponder(editorView))
         #expect(settingsWindow.makeFirstResponder(field))
-        #expect(AppCommands.ownsEditorHistory(editorView, in: memoWindow))
-        #expect(!AppCommands.ownsEditorHistory(editorView, in: settingsWindow))
-        #expect(!AppCommands.ownsEditorHistory(editorView, in: nil))
+        #expect(editorView.ownsFirstResponder(in: memoWindow))
+        #expect(!editorView.ownsFirstResponder(in: settingsWindow))
+        #expect(!editorView.ownsFirstResponder(in: nil))
     }
 
     @Test func nativePrintOperationSavesTheCompleteFrozenDocumentAsPDF() async throws {

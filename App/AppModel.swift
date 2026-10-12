@@ -442,6 +442,10 @@ final class AppModel {
     }
 
     func pasteAsPlainText() {
+        guard editor.contentView.ownsFirstResponder(in: NSApp.keyWindow) else {
+            NSApp.sendAction(#selector(NSTextView.pasteAsPlainText(_:)), to: nil, from: nil)
+            return
+        }
         guard let text = NSPasteboard.general.string(forType: .string) else { return }
         editor.pasteAsPlainText(text)
     }

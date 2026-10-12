@@ -72,6 +72,7 @@
 		C5FA205EFDD709B35C5A109E /* SidePane.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA9C9F8E917B0816065D8A3 /* SidePane.swift */; };
 		C6ED2FAC0E485F2AD2188E03 /* FormatBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF4205A779A5AB50860003B7 /* FormatBar.swift */; };
 		CC748EC43BA5FD14FABA6604 /* HistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A173D37EC0A86D02131CA004 /* HistoryTests.swift */; };
+		CF5D647B1A75DFC75184F0EC /* PasteRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44656B1C04E0FE952B982163 /* PasteRoutingTests.swift */; };
 		D17B73536D9BDBE0B628B5F4 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AC61AB0614ACAFCB6E9352C /* LibraryStore.swift */; };
 		D3D2B8E5019407C28C778990 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17F1BFBDF4CADB0E2D55DD2 /* AppDelegate.swift */; };
 		D42346F4E760F67DD344F70D /* ImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C185894181BD202E13069EE3 /* ImageStore.swift */; };
@@ -132,6 +133,7 @@
 		3946CB52E8848F6024E48147 /* OpensWindows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpensWindows.swift; sourceTree = "<group>"; };
 		3D4E9CD2E15E0E85C52B7900 /* Memos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Memos.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4316BBA76AAFFA21B400BF0E /* MemosTool */ = {isa = PBXFileReference; includeInIndex = 0; path = MemosTool; sourceTree = BUILT_PRODUCTS_DIR; };
+		44656B1C04E0FE952B982163 /* PasteRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteRoutingTests.swift; sourceTree = "<group>"; };
 		4545934A2DD7120C49903FCB /* MemoEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoEntity.swift; sourceTree = "<group>"; };
 		4967B82863FF5C8D7D97748C /* Fakes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Fakes.swift; sourceTree = "<group>"; };
 		4F22224F5D6D601AA05F118D /* Overlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Overlay.swift; sourceTree = "<group>"; };
@@ -304,6 +306,7 @@
 				D565B361CE8DEEC210211DE4 /* ModelTests.swift */,
 				3946CB52E8848F6024E48147 /* OpensWindows.swift */,
 				534A1ED8BFE4A629AAE5BB9D /* OverlayFocusTests.swift */,
+				44656B1C04E0FE952B982163 /* PasteRoutingTests.swift */,
 				2E9B9255280795EB7565DB71 /* ShortcutTests.swift */,
 				D7970D35200D9E2932F36915 /* SpotlightTests.swift */,
 				7551119FC8448D84284945CB /* StoreChangeTests.swift */,
@@ -579,6 +582,7 @@
 				8C5249E9578BDBC0B8365639 /* ModelTests.swift in Sources */,
 				4EBB05925A0BA5F5AE2ABC7F /* OpensWindows.swift in Sources */,
 				6C87ECE7E920D9FD05A51B59 /* OverlayFocusTests.swift in Sources */,
+				CF5D647B1A75DFC75184F0EC /* PasteRoutingTests.swift in Sources */,
 				411771A8E826DD1B9EAFBF6E /* ShortcutTests.swift in Sources */,
 				39ABE4C20FF2B7C72665348F /* SpotlightTests.swift in Sources */,
 				AE762C526F51C012C319BA8E /* StoreChangeTests.swift in Sources */,
@@ -808,7 +812,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.4.5;
+				MARKETING_VERSION = 0.4.6;
 				MEMOS_APP_IDENTIFIER = me.cyzr.memos.dev;
 				MEMOS_DISPLAY_NAME = "Memos Dev";
 				MEMOS_URL_SCHEME = "memos-dev";
@@ -949,7 +953,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.4.5;
+				MARKETING_VERSION = 0.4.6;
 				MEMOS_APP_IDENTIFIER = me.cyzr.memos;
 				MEMOS_DISPLAY_NAME = Memos;
 				MEMOS_URL_SCHEME = memos;

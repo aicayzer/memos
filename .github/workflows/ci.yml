@@ -81,6 +81,14 @@ jobs:
             -destination 'platform=macOS' -derivedDataPath build -parallel-testing-enabled NO \
             -only-testing:MemosTests/OverlayFocusTests -only-testing:MemosTests/InkKitBridgeTests \
             CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= test
+      - name: Native paste routing tests
+        env:
+          TEST_RUNNER_MEMOS_WINDOW_TESTS: 1
+        run: |
+          xcodebuild -quiet -project Memos.xcodeproj -scheme Memos -configuration Debug \
+            -destination 'platform=macOS' -derivedDataPath build -parallel-testing-enabled NO \
+            -only-testing:MemosTests/PasteRoutingTests \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= test
       - name: Test application interactions
         timeout-minutes: 8
         run: |

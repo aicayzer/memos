@@ -20,7 +20,7 @@ protocol Editing: AnyObject {
     var textSize: Double { get set }
     var keymap: [String: [String]] { get set }
 
-    /// Shows the markdown, with the caret at the end: another memo, or this one again.
+    /// Shows a memo for reading without taking keyboard focus.
     func load(_ markdown: String)
     /// Shows the markdown of the memo already open, keeping the caret and the scroll where they are.
     func reload(_ markdown: String)
@@ -59,5 +59,13 @@ enum EditorRefresh {
 extension Editing {
     func format(_ command: FormatCommand) {
         format(command, argument: nil)
+    }
+}
+
+extension NSView {
+    func ownsFirstResponder(in keyWindow: NSWindow?) -> Bool {
+        guard let keyWindow, window === keyWindow,
+              let responder = keyWindow.firstResponder as? NSView else { return false }
+        return responder === self || responder.isDescendant(of: self)
     }
 }

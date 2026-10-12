@@ -80,7 +80,7 @@ final class EditorController: NSObject, Editing {
         imageHandler = handler
         webView = EditorWebView(frame: .zero, configuration: configuration)
         super.init()
-        webView.onPaste = { [weak self] in self?.pasteCapturedClipboard() ?? false }
+        webView.onPaste = { [weak self] in self?.pasteCapturedClipboard(requiringFocus: true) ?? false }
         webView.onDropFiles = { [weak self] urls, point in self?.onDropFiles(urls, point) }
         #if DEBUG
         webView.isInspectable = true
@@ -189,13 +189,21 @@ final class EditorController: NSObject, Editing {
         guardedCall(all ? "replaceAll" : "replace", json(search), json(replacement), String(generation))
     }
 
-    private func guardedCall(_ function: String, _ arguments: String...) {
+    private func guardedCall(_ function: String, _ arguments: String..., requiringFocus: Bool = false) {
         guard isReady else { return }
         let expectedGeneration = generation
         let expectedDocumentID = documentID
-        Task { @MainActor in
+        let expectedWindow = NSApp.keyWindow
+        let expectedResponder = expectedWindow?.firstResponder
+        Task { @MainActor [weak self, weak expectedWindow, weak expectedResponder] in
+            guard let self else { return }
             do {
                 guard expectedGeneration == generation, expectedDocumentID == documentID, isReady else { return }
+                if requiringFocus {
+                    guard let expectedWindow, let expectedResponder,
+                          expectedWindow === NSApp.keyWindow, expectedWindow.firstResponder === expectedResponder,
+                          webView.ownsFirstResponder(in: expectedWindow) else { return }
+                }
                 let result = try await webView.evaluateJavaScript("window.editor.\(function)(\(arguments.joined(separator: ", ")))")
                 guard expectedGeneration == generation, expectedDocumentID == documentID else { return }
                 if let rejection = result as? [String: Any], let message = rejection["message"] as? String {
@@ -258,8 +266,7 @@ final class EditorController: NSObject, Editing {
     }
 
     func pasteAsPlainText(_ text: String) {
-        guard isReady else { return }
-        call("pasteAsPlainText", json(text))
+        guardedCall("pasteAsPlainText", json(text), String(generation), requiringFocus: true)
     }
 
     func snapshot() async throws -> String {
@@ -401,8 +408,9 @@ final class EditorController: NSObject, Editing {
         }
     }
 
-    func pasteCapturedClipboard(from pasteboard: NSPasteboard = .general) -> Bool {
+    func pasteCapturedClipboard(from pasteboard: NSPasteboard = .general, requiringFocus: Bool = false) -> Bool {
         guard isReady else { return false }
+        if requiringFocus, !webView.ownsFirstResponder(in: NSApp.keyWindow) { return false }
         let expectedGeneration = generation
         let expectedDocumentID = documentID
         var capturedImages: [[String: String]] = []
@@ -460,7 +468,7 @@ final class EditorController: NSObject, Editing {
             onWarning(MemoEditorError.documentChanged.localizedDescription)
             return true
         }
-        call("pasteNative", json(CapturedPaste(text: text, html: html, generation: expectedGeneration, images: capturedImages)))
+        guardedCall("pasteNative", json(CapturedPaste(text: text, html: html, generation: expectedGeneration, images: capturedImages)), requiringFocus: requiringFocus)
         return true
     }
 
