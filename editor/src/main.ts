@@ -287,7 +287,11 @@ const facade = {
       x ?? undefined,
       y ?? undefined,
     ),
-  pasteAsPlainText: editor.pasteAsPlainText.bind(editor),
+  pasteAsPlainText: (text: string, expected = generation) =>
+    command(() => {
+      editor.commandState(expected)
+      editor.pasteAsPlainText(text)
+    }),
   table: (
     name: Parameters<InkKitEditor['table']>[0],
     options?: Parameters<InkKitEditor['table']>[1],

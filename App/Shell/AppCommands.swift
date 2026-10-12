@@ -5,14 +5,9 @@ struct AppCommands: Commands {
     @Bindable var model: AppModel
 
     private var editorOwnsHistory: Bool {
-        Self.ownsEditorHistory(model.editor.contentView, in: NSApp.keyWindow)
+        model.editor.contentView.ownsFirstResponder(in: NSApp.keyWindow)
     }
 
-    static func ownsEditorHistory(_ editorView: NSView, in keyWindow: NSWindow?) -> Bool {
-        guard let keyWindow, editorView.window === keyWindow,
-              let responder = keyWindow.firstResponder as? NSView else { return false }
-        return responder === editorView || responder.isDescendant(of: editorView)
-    }
     private var canUndo: Bool { editorOwnsHistory ? model.editor.caret.commands["undo"] == true : NSApp.keyWindow?.firstResponder?.undoManager?.canUndo == true }
     private var canRedo: Bool { editorOwnsHistory ? model.editor.caret.commands["redo"] == true : NSApp.keyWindow?.firstResponder?.undoManager?.canRedo == true }
 

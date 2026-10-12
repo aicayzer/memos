@@ -7,12 +7,15 @@ final class EditorWebView: WKWebView {
     var onPaste: () -> Bool = { false }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Key equivalents traverse every subview, including editors that do not own the keyboard.
+        guard ownsFirstResponder(in: NSApp.keyWindow) else { return false }
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
         if modifiers == .command, event.charactersIgnoringModifiers?.lowercased() == "v", onPaste() { return true }
         return super.performKeyEquivalent(with: event)
     }
 
     @objc func paste(_ sender: Any?) {
+        guard ownsFirstResponder(in: NSApp.keyWindow) else { return }
         if !onPaste() { NSSound.beep() }
     }
 
