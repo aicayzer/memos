@@ -55,6 +55,7 @@ final class EditorController: NSObject, Editing {
     var contentView: NSView { webView }
 
     @ObservationIgnored private var pendingMarkdown: String?
+    @ObservationIgnored private var wantsFocus = false
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var refreshPreviousGeneration: Int?
     @ObservationIgnored private var refreshChanges: [(text: String, generation: Int, sequence: Int)] = []
@@ -123,6 +124,7 @@ final class EditorController: NSObject, Editing {
     func reload(_ markdown: String) { replace(markdown, keepingCaret: true) }
 
     private func replace(_ markdown: String, keepingCaret: Bool) {
+        if !keepingCaret { wantsFocus = false }
         refreshPreviousGeneration = nil
         refreshChanges.removeAll()
         generation += 1
@@ -146,7 +148,7 @@ final class EditorController: NSObject, Editing {
                 guard self.generation == expectedGeneration, self.documentID == expectedDocumentID else { throw MemoEditorError.documentChanged }
                 self.failure = nil
                 self.isReady = true
-                if !keepingCaret { self.focus() }
+                if self.wantsFocus { self.focus() }
             } catch {
                 if self.generation == expectedGeneration, self.documentID == expectedDocumentID { self.failure = error }
                 throw error
@@ -163,8 +165,18 @@ final class EditorController: NSObject, Editing {
         }
     }
 
+    func releaseFocus() {
+        wantsFocus = false
+        if pageReady { call("blurText", String(generation)) }
+        guard let window = webView.window, let responder = window.firstResponder as? NSView,
+              responder === webView || responder.isDescendant(of: webView) else { return }
+        window.makeFirstResponder(nil)
+    }
+
     func focus() {
-        guard allowsFocus, webView.window?.isKeyWindow == true else { return }
+        guard allowsFocus, webView.window?.isKeyWindow == true else { wantsFocus = false; return }
+        guard isReady else { wantsFocus = true; return }
+        wantsFocus = false
         webView.window?.makeFirstResponder(webView)
         call("focus")
     }

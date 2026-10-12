@@ -57,6 +57,7 @@ final class FakeEditor: Editing {
     }
 
     func format(_ command: FormatCommand, argument: String?) {}
+    func releaseFocus() {}
     func focus() { if allowsFocus { focusCount += 1 } }
     private(set) var searches: [String] = []
     func find(_ text: String) { searches.append(text) }

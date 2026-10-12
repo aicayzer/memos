@@ -482,3 +482,9 @@ body {
 .ProseMirror-active-search-match {
   background: color-mix(in srgb, var(--accent) 55%, transparent);
 }
+
+/* The caret and selection show text focus; embedded controls keep their keyboard rings. */
+.inkkit-root .ProseMirror:focus-visible,
+.inkkit-root .inkkit-plain:focus-visible {
+  outline: none;
+}

@@ -132,7 +132,6 @@ struct SidePane: View {
     private func open(_ memo: Memo) {
         Task {
             await model.open(memo.id)
-            model.editor.focus()
         }
     }
 }

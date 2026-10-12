@@ -5,16 +5,16 @@ extension AppModel {
     /// under the hands; a query drops the groups it empties and leaves the rest labeled.
     var paletteItems: [PaletteItem] {
         [
-            PaletteItem(id: "new", title: "New Memo", symbol: "plus", shortcut: shortcuts.label(.newMemo), section: "Memo") {
+            PaletteItem(id: "new", title: "New Memo", symbol: "plus", shortcut: shortcuts.label(.newMemo), section: "Memo", restoresEditor: false) {
                 Task { await self.newMemo() }
             },
             PaletteItem(
                 id: "duplicate", title: "Duplicate Memo", symbol: "plus.square.on.square",
-                shortcut: shortcuts.label(.duplicate), section: "Memo"
+                shortcut: shortcuts.label(.duplicate), section: "Memo", restoresEditor: false
             ) {
                 Task { await self.duplicate() }
             },
-            PaletteItem(id: "delete", title: "Delete Memo", symbol: "trash", shortcut: shortcuts.label(.delete), section: "Memo") {
+            PaletteItem(id: "delete", title: "Delete Memo", symbol: "trash", shortcut: shortcuts.label(.delete), section: "Memo", restoresEditor: false) {
                 Task { await self.deleteMemo() }
             },
             PaletteItem(
@@ -31,13 +31,13 @@ extension AppModel {
             },
             PaletteItem(
                 id: "back", title: "Go Back", symbol: "arrow.left.circle", shortcut: shortcuts.label(.back),
-                section: "Navigate", enabled: history.canGoBack
+                section: "Navigate", enabled: history.canGoBack, restoresEditor: false
             ) {
                 Task { await self.goBack() }
             },
             PaletteItem(
                 id: "forward", title: "Go Forward", symbol: "arrow.right.circle", shortcut: shortcuts.label(.forward),
-                section: "Navigate", enabled: history.canGoForward
+                section: "Navigate", enabled: history.canGoForward, restoresEditor: false
             ) {
                 Task { await self.goForward() }
             },
@@ -99,7 +99,8 @@ extension AppModel {
                 title: memo.title,
                 subtitle: memo.updatedAt.formatted(.relative(presentation: .named)),
                 symbol: memo.favorite ? "star.fill" : "doc.text",
-                accented: memo.favorite
+                accented: memo.favorite,
+                restoresEditor: false
             ) {
                 Task { await self.open(memo.id) }
             }

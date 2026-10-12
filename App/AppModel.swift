@@ -251,6 +251,7 @@ final class AppModel {
                 show(memo)
             } else {
                 show(try await store.create(markdown: ""))
+                editor.focus()
             }
         } catch {
             report(error)
@@ -259,8 +260,9 @@ final class AppModel {
     }
 
     func open(_ id: Memo.ID, recording: Bool = true) async {
+        editor.releaseFocus()
         showWindowIfHidden()
-        guard id != current?.id else { editor.focus(); return }
+        guard id != current?.id else { return }
         guard !convertingStorage, await flush() else { return }
         do {
             guard let memo = try await store.get(id) else { return }
@@ -275,6 +277,7 @@ final class AppModel {
         guard !convertingStorage, await flush() else { return }
         do {
             show(try await store.create(markdown: ""))
+            editor.focus()
         } catch {
             report(error)
         }
@@ -286,6 +289,7 @@ final class AppModel {
         guard !convertingStorage, await flush() else { return }
         do {
             show(try await store.create(markdown: current.markdown))
+            editor.focus()
         } catch {
             report(error)
         }
@@ -333,6 +337,7 @@ final class AppModel {
                 show(next)
             } else {
                 show(try await store.create(markdown: ""))
+                editor.focus()
             }
         } catch {
             report(error)
@@ -594,10 +599,10 @@ final class AppModel {
     /// Key without activating: the app in front keeps the menu bar, this panel takes the keyboard.
     func showWindow() {
         guard let window else { return }
+        editor.releaseFocus()
         if NSApp.isHidden { NSApp.unhideWithoutActivation() }
         if window.isMiniaturized { window.deminiaturize(nil) }
         window.makeKeyAndOrderFront(nil)
-        editor.focus()
     }
 
     /// When the app is the one in front, hiding it hands focus back to the previous app; otherwise the panel alone goes.

@@ -15,6 +15,27 @@ import Testing
         return (model, store, editor)
     }
 
+    @Test func browseSelectionsAndNavigationDoNotRestoreTheOutgoingEditor() async {
+        let (model, _, _) = await model("Existing memo")
+        let rows = await model.browseItems("")
+        #expect(!rows.isEmpty)
+        #expect(rows.allSatisfy { !$0.restoresEditor })
+        let destinations = model.paletteItems.filter { ["new", "duplicate", "delete", "back", "forward"].contains($0.id) }
+        #expect(destinations.count == 5)
+        #expect(destinations.allSatisfy { !$0.restoresEditor })
+    }
+
+    @Test func selectionReadsAndNewMemoComposes() async throws {
+        let (model, _, editor) = await model("Existing memo")
+        let existing = try #require(model.current?.id)
+        let before = editor.focusCount
+        await model.open(existing)
+        #expect(editor.focusCount == before)
+        await model.newMemo()
+        #expect(model.current?.id != existing)
+        #expect(editor.focusCount == before + 1)
+    }
+
     @Test func overlaysOwnFocusUntilDismissed() async {
         let (model, _, editor) = await model("Keep this memo")
         for overlay in [Overlay.palette, .browse, .find] {
@@ -163,11 +184,13 @@ import Testing
     }
 
     @Test func deletingShowsTheMemoThatFollowed() async throws {
-        let (model, store, _) = await model("Oldest\n")
+        let (model, store, editor) = await model("Oldest\n")
         let second = try await store.create(markdown: "Middle\n")
         _ = try await store.create(markdown: "Newest\n")
         await model.open(second.id)
+        let focus = editor.focusCount
         await model.delete(second)
+        #expect(editor.focusCount == focus)
         let remaining = try await store.list(matching: nil)
         #expect(remaining.count == 2)
         #expect(model.current?.markdown == "Oldest\n")
@@ -175,9 +198,11 @@ import Testing
     }
 
     @Test func deletingTheLastMemoLeavesAnEmptyOne() async throws {
-        let (model, store, _) = await model("Only one\n")
+        let (model, store, editor) = await model("Only one\n")
         let only = try #require(model.current)
+        let focus = editor.focusCount
         await model.delete(only)
+        #expect(editor.focusCount == focus + 1)
         #expect(model.current?.id != only.id)
         #expect(model.current?.markdown == "")
         #expect(await store.list(matching: nil).count == 1)
