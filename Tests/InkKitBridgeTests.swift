@@ -138,6 +138,31 @@ struct InkKitBridgeTests {
             "document.activeElement?.matches('.ProseMirror, .inkkit-plain') === true"
         ) as? Bool
         #expect(cancelledCompose == false)
+        editor.documentID = "blocked-compose"
+        editor.load("")
+        editor.focus()
+        editor.allowsFocus = false
+        _ = try await editor.snapshot()
+        editor.allowsFocus = true
+        window.makeFirstResponder(search)
+        editor.reload("Background refresh")
+        _ = try await editor.snapshot()
+        #expect(window.firstResponder !== editor.webView)
+        let blockedCompose = try await editor.webView.evaluateJavaScript(
+            "document.activeElement?.matches('.ProseMirror, .inkkit-plain') === true"
+        ) as? Bool
+        #expect(blockedCompose == false)
+        editor.documentID = "inactive-compose"
+        editor.load("")
+        editor.focus()
+        other.makeKeyAndOrderFront(nil)
+        _ = try await editor.snapshot()
+        window.makeKeyAndOrderFront(nil)
+        window.makeFirstResponder(search)
+        editor.reload("Another refresh")
+        _ = try await editor.snapshot()
+        #expect(window.firstResponder !== editor.webView)
+
     }
 
     @Test func hostLayoutRetainsTextSizePaddingAndViewportHitArea() async throws {

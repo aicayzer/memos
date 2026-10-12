@@ -174,7 +174,7 @@ final class EditorController: NSObject, Editing {
     }
 
     func focus() {
-        guard allowsFocus, webView.window?.isKeyWindow == true else { return }
+        guard allowsFocus, webView.window?.isKeyWindow == true else { wantsFocus = false; return }
         guard isReady else { wantsFocus = true; return }
         wantsFocus = false
         webView.window?.makeFirstResponder(webView)

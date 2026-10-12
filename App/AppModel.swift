@@ -337,6 +337,7 @@ final class AppModel {
                 show(next)
             } else {
                 show(try await store.create(markdown: ""))
+                editor.focus()
             }
         } catch {
             report(error)

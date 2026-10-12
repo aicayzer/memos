@@ -184,11 +184,13 @@ import Testing
     }
 
     @Test func deletingShowsTheMemoThatFollowed() async throws {
-        let (model, store, _) = await model("Oldest\n")
+        let (model, store, editor) = await model("Oldest\n")
         let second = try await store.create(markdown: "Middle\n")
         _ = try await store.create(markdown: "Newest\n")
         await model.open(second.id)
+        let focus = editor.focusCount
         await model.delete(second)
+        #expect(editor.focusCount == focus)
         let remaining = try await store.list(matching: nil)
         #expect(remaining.count == 2)
         #expect(model.current?.markdown == "Oldest\n")
@@ -196,9 +198,11 @@ import Testing
     }
 
     @Test func deletingTheLastMemoLeavesAnEmptyOne() async throws {
-        let (model, store, _) = await model("Only one\n")
+        let (model, store, editor) = await model("Only one\n")
         let only = try #require(model.current)
+        let focus = editor.focusCount
         await model.delete(only)
+        #expect(editor.focusCount == focus + 1)
         #expect(model.current?.id != only.id)
         #expect(model.current?.markdown == "")
         #expect(await store.list(matching: nil).count == 1)
