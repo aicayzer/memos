@@ -600,8 +600,6 @@ struct InkKitBridgeTests {
         editor.documentID = "fixture"
         editor.load("")
         _ = try await editor.snapshot()
-        var warnings: [String] = []
-        editor.onWarning = { warnings.append($0) }
         _ = try await editor.webView.evaluateJavaScript("window.assetEvents = []; document.addEventListener('error', event => { window.assetEvents.push({message: String(event.message || ''), target: event.target.tagName || '', filename: event.filename || ''}) }, true); true")
         let source = "Before\n\n![Missing picture](\(reference.path))\n\nAfter\n"
         editor.load(source)
@@ -621,11 +619,8 @@ struct InkKitBridgeTests {
         #expect(text.contains("Before") && text.contains("Missing picture") && text.contains("After"))
         #expect(html.contains("Missing picture"))
         #expect(!html.contains("memo-image:"))
-        for _ in 0..<200 {
-            if !warnings.isEmpty { break }
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        #expect(!warnings.isEmpty)
+        let slots = try #require(clipboard["images"] as? [[String: Any]])
+        #expect(slots.first?["error"] != nil)
         _ = try await editor.webView.evaluateJavaScript("window.editor.pasteAsPlainText(' more')")
         #expect(try await editor.snapshot().contains("After more"))
         #expect(editor.isReady)

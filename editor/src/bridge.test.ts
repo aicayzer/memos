@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { InkKitEditor } from '@aicayzer/inkkit'
+import { InkKitEditor, type EditorEvents } from '@aicayzer/inkkit'
 
 // The page the app loads, driven as the app drives it: through window.editor, with what the page
 // posts to the host collected. InkKit itself is reached only to type, as a key press does.
@@ -27,6 +27,7 @@ interface Bridge {
     text: string,
   ): Message
   clipboard(): Promise<Message>
+  clipboardResponse(requestId: string, value: Record<string, string>): void
   printable(generation: number): Promise<Message>
   setKeymap(keymap: Record<string, string[]>): void
   focus(generation: number): unknown
@@ -35,7 +36,9 @@ interface Bridge {
 }
 
 const posted: Message[] = []
+const mount = vi.spyOn(InkKitEditor, 'mount')
 let inkkit: InkKitEditor
+let events: EditorEvents
 let generation = 0
 
 const bridge = () => (window as unknown as { editor: Bridge }).editor
@@ -47,9 +50,9 @@ beforeAll(async () => {
       messageHandlers: { host: { postMessage: (message: Message) => posted.push(message) } },
     },
   })
-  const mount = vi.spyOn(InkKitEditor, 'mount')
   await import('./main')
   inkkit = await (mount.mock.results[0]!.value as Promise<InkKitEditor>)
+  events = mount.mock.calls[0]![1]
 })
 
 afterAll(async () => {
@@ -327,6 +330,25 @@ describe('a memo that is reloaded, recovered or refreshed', () => {
     )
     expect(applied).toMatchObject({ applied: true, text: 'External\r\n', generation })
     expect(saved()).toBe('External\r\n')
+  })
+
+  it('tells the person when a copied image could not be read', async () => {
+    open()
+    const copying = events.clipboard!({
+      documentId: `memo-${generation}`,
+      generation,
+      revision: 0,
+      text: 'Before',
+      html: '<p>Before</p>',
+      markdown: 'Before',
+      images: [{ reference: 'images/gone.png', alt: 'Gone', error: 'Image bytes unavailable' }],
+      diagrams: [],
+    })
+    expect(of('editorWarning')).toHaveLength(1)
+    const [request] = of('writeClipboard')
+    expect(request).toMatchObject({ text: 'Before', images: [] })
+    bridge().clipboardResponse(request!.requestId as string, {})
+    await copying
   })
 
   it('copies and prints the memo it holds', async () => {

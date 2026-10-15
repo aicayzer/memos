@@ -90,6 +90,12 @@ const images: ImageAdapter = {
   },
 }
 function writeClipboard(output: ClipboardOutput): Promise<void> {
+  // InkKit describes degraded output in the output itself and no longer reports it as an error.
+  if (output.images.some((slot) => slot.error))
+    post({
+      type: 'editorWarning',
+      message: 'Some copied images were unavailable; their descriptions were retained',
+    })
   const requestId = crypto.randomUUID()
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
