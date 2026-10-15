@@ -277,16 +277,93 @@ struct InkKitBridgeTests {
         #expect(try await editor.snapshot() == source)
     }
 
-    @Test func invalidNumericSortingRetainsTheMemoAndRemainsRecoverable() async throws {
+    @Test func aSortThatDoesNotApplyRetainsTheMemo() async throws {
         let editor = EditorController(images: FakeImageStore())
         editor.documentID = "table"
         let source = "| Value |\n| --- |\n| Oops |\n| 12 |\n"
         editor.load(source)
         _ = try await editor.snapshot()
         _ = try await editor.webView.evaluateJavaScript("window.editor.find('Oops', 1)")
-        let rejected = try await editor.webView.evaluateJavaScript("window.editor.table('sortRows', {column: 0, comparison: 'number'}, 1)") as? [String: Any]
-        #expect(rejected?["commandError"] as? String == "invalid-argument")
+        let applied = try await editor.webView.evaluateJavaScript("window.editor.table('sortRows', {column: 0, comparison: 'number'}, 1)") as? Bool
+        #expect(applied == false)
         #expect(try await editor.snapshot() == source)
+    }
+
+    @Test func aNumberSortThatDoesNotApplyTellsThePerson() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "sorting"
+        let source = "| Value |\n| --- |\n| Oops |\n| 12 |\n"
+        editor.load(source)
+        _ = try await editor.snapshot()
+        _ = try await editor.webView.evaluateJavaScript("window.editor.find('Oops', 1)")
+        var warnings: [String] = []
+        editor.onWarning = { warnings.append($0) }
+        for _ in 0..<200 {
+            if !editor.caret.tables.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        var state = editor.caret
+        state.tables["sortRows"] = true
+        editor.receive(.commandState(state, documentID: "sorting", generation: 1))
+        editor.sortTable(order: "ascending", numeric: true)
+        for _ in 0..<200 {
+            if !warnings.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(warnings == ["Couldn’t sort by number. Every value in that column needs to be a number."])
+        #expect(try await editor.snapshot() == source)
+    }
+
+    @Test func aRefusedFormatReachesTheWarningPath() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "refused"
+        editor.load("Keep this memo\n")
+        _ = try await editor.snapshot()
+        var warnings: [String] = []
+        editor.onWarning = { warnings.append($0) }
+        for _ in 0..<200 {
+            if !editor.caret.formats.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        var state = editor.caret
+        state.formats["link"] = true
+        editor.receive(.commandState(state, documentID: "refused", generation: 1))
+        editor.format(.link, argument: "javascript:alert(1)")
+        for _ in 0..<200 {
+            if !warnings.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(warnings == ["options.destination must be relative, or an http, https, mailto or tel address, with no control characters"])
+        #expect(try await editor.snapshot() == "Keep this memo\n")
+    }
+
+    @Test func refusedDropsAndReplacementsReachTheWarningPathWithTheirReason() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "refused"
+        let table = "| a | b |\n| - | - |\n| x | y |\n"
+        editor.load(table)
+        _ = try await editor.snapshot()
+        var warnings: [String] = []
+        editor.onWarning = { warnings.append($0) }
+        editor.replace("x", with: "x\ny", all: false)
+        editor.replace("x", with: "x\ny", all: true)
+        let preservation = "The edited Markdown cannot be reopened without changing its content"
+        for _ in 0..<200 {
+            if warnings.count == 2 { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(warnings == [preservation, preservation])
+        warnings.removeAll()
+        _ = try await editor.webView.evaluateJavaScript("document.querySelector('.ProseMirror').dispatchEvent(new CompositionEvent('compositionstart', {bubbles: true}))")
+        editor.insertPaths(["/Users/a/File.txt"], at: .zero)
+        editor.insertImages([ImageReference(path: "images/\(String(repeating: "a", count: 64)).png", alt: "Pic")], at: nil)
+        for _ in 0..<200 {
+            if warnings.count == 2 { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(warnings == ["Text composition is in progress", "Text composition is in progress"])
+        _ = try await editor.webView.evaluateJavaScript("document.querySelector('.ProseMirror').dispatchEvent(new CompositionEvent('compositionend', {bubbles: true}))")
+        #expect(try await editor.snapshot() == table)
     }
 
     @Test func portablePrintKeepsCommentsPrivateAndRejectsMissingImages() async throws {
@@ -577,8 +654,6 @@ struct InkKitBridgeTests {
         editor.documentID = "fixture"
         editor.load("")
         _ = try await editor.snapshot()
-        var warnings: [String] = []
-        editor.onWarning = { warnings.append($0) }
         _ = try await editor.webView.evaluateJavaScript("window.assetEvents = []; document.addEventListener('error', event => { window.assetEvents.push({message: String(event.message || ''), target: event.target.tagName || '', filename: event.filename || ''}) }, true); true")
         let source = "Before\n\n![Missing picture](\(reference.path))\n\nAfter\n"
         editor.load(source)
@@ -598,11 +673,8 @@ struct InkKitBridgeTests {
         #expect(text.contains("Before") && text.contains("Missing picture") && text.contains("After"))
         #expect(html.contains("Missing picture"))
         #expect(!html.contains("memo-image:"))
-        for _ in 0..<200 {
-            if !warnings.isEmpty { break }
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        #expect(!warnings.isEmpty)
+        let slots = try #require(clipboard["images"] as? [[String: Any]])
+        #expect(slots.first?["error"] != nil)
         _ = try await editor.webView.evaluateJavaScript("window.editor.pasteAsPlainText(' more')")
         #expect(try await editor.snapshot().contains("After more"))
         #expect(editor.isReady)

@@ -21,6 +21,21 @@ struct EditorCommandStateTests {
         #expect(state.tables["moveRowUp"] == false)
     }
 
+    @Test func readsEachHeadingLevelAsItsOwnFormat() throws {
+        let message = try #require(EditorMessage(body: [
+            "type": "commandState", "documentId": "memo", "generation": 1, "mode": "formatted",
+            "caret": ["marks": [], "block": ["type": "heading", "level": 2], "quoted": false],
+            "commands": ["format": ["heading1": true, "heading2": false, "heading3": true, "bold": true]],
+        ]))
+        guard case .commandState(let state, _, _) = message else {
+            Issue.record("Expected scoped command state"); return
+        }
+        #expect(state.block == .heading(2))
+        #expect(state.formats["heading1"] == true)
+        #expect(state.formats["heading2"] == false)
+        #expect(state.formats["heading"] == nil)
+    }
+
     @Test func unscopedCommandStateIsRejected() {
         #expect(EditorMessage(body: ["type": "commandState", "generation": 1]) == nil)
     }

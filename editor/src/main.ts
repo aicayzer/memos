@@ -4,7 +4,9 @@ import {
   type CapturedImage,
   type ClipboardOutput,
   type DocumentContext,
+  type FormatCommand,
   type ImageAdapter,
+  type ImageInsertion,
   type PortableImage,
 } from '@aicayzer/inkkit'
 import '@aicayzer/inkkit/style.css'
@@ -88,7 +90,17 @@ const images: ImageAdapter = {
   },
 }
 function writeClipboard(output: ClipboardOutput): Promise<void> {
-  const scope = editor.snapshot()
+  // InkKit describes degraded output in the output itself and no longer reports it as an error.
+  if (output.images.some((slot) => slot.error))
+    post({
+      type: 'editorWarning',
+      message: 'Some copied images were unavailable; their descriptions were retained',
+    })
+  if (output.diagrams.some((diagram) => diagram.error))
+    post({
+      type: 'editorWarning',
+      message: 'Some copied diagrams were unavailable; their source was retained',
+    })
   const requestId = crypto.randomUUID()
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -108,8 +120,8 @@ function writeClipboard(output: ClipboardOutput): Promise<void> {
     post({
       type: 'writeClipboard',
       requestId,
-      documentId: scope.documentId,
-      generation: scope.generation,
+      documentId: output.documentId,
+      generation: output.generation,
       text: output.text,
       html: output.html,
       images: output.images.flatMap((slot) =>
@@ -129,14 +141,16 @@ function writeClipboard(output: ClipboardOutput): Promise<void> {
 const editor = await InkKitEditor.mount(
   root,
   {
-    changed(markdown, generation) {
-      post({ type: 'changed', markdown, generation, sequence: ++changeSequence })
+    changed(snapshot) {
+      post({
+        type: 'changed',
+        markdown: snapshot.text,
+        generation: snapshot.generation,
+        sequence: ++changeSequence,
+      })
     },
     commandStateChanged(state) {
       post({ type: 'commandState', ...state })
-    },
-    stateChanged(state) {
-      post({ type: 'state', ...state, generation })
     },
     openLink(href) {
       post({ type: 'openLink', href })
@@ -157,19 +171,17 @@ function command<T>(operation: () => T): T | { commandError: string; message: st
   } catch (error) {
     // Expected command guards must not poison the native document through a global script error.
     if (error instanceof InkKitError) return { commandError: error.code, message: error.message }
-    if (error instanceof RangeError)
-      return { commandError: 'invalid-argument', message: error.message }
     throw error
   }
 }
 const facade = {
   load(text: string, nextGeneration: number, documentId = String(nextGeneration)) {
+    editor.loadDocument({ text, generation: nextGeneration, documentId, format: 'md' })
     generation = nextGeneration
-    editor.loadDocument({ text, generation, documentId, format: 'md' })
   },
   reload(text: string, nextGeneration: number, documentId = String(nextGeneration)) {
+    editor.reloadDocument({ text, generation: nextGeneration, documentId, format: 'md' })
     generation = nextGeneration
-    editor.reloadDocument({ text, generation, documentId, format: 'md' })
   },
   rebind(
     expectedGeneration: number,
@@ -239,17 +251,12 @@ const facade = {
       throw error
     }
   },
-  clipboard: () => editor.clipboardSnapshot(true),
-  format: editor.format.bind(editor),
-  focus: editor.focus.bind(editor),
-  blurText(expected: number) {
-    if (expected !== generation) return
-    const active = document.activeElement
-    // Native responder resignation does not clear WebKit's retained DOM text focus.
-    if (active instanceof HTMLElement && active.matches('.ProseMirror, .inkkit-plain')) {
-      active.blur()
-    }
-  },
+  clipboard: () => editor.clipboardSnapshot('document', generation),
+  format: (name: FormatCommand, destination: string | null, expected: number) =>
+    command(() => editor.format(name, destination ? { destination } : undefined, expected)),
+  focus: (expected: number) => command(() => editor.focus(expected)),
+  // Native responder resignation does not clear WebKit's retained DOM text focus.
+  blur: (expected: number) => command(() => editor.blur(expected)),
   find: (text: string, expected: number) => command(() => editor.find(text, expected)),
   replace: (search: string, replacement: string, expected: number) =>
     command(() => editor.replace(search, replacement, expected)),
@@ -274,52 +281,49 @@ const facade = {
       throw error
     }
   },
-  insertText: editor.insertText.bind(editor),
-  keyDown: editor.keyDown.bind(editor),
-  insertPaths: editor.insertPaths.bind(editor),
-  insertImages: (
-    values: { path?: string; src?: string; alt: string }[],
-    x: number | null,
-    y: number | null,
-  ) =>
-    editor.insertImages(
-      values.map((value) => ({ path: value.path ?? value.src ?? '', alt: value.alt })),
-      x ?? undefined,
-      y ?? undefined,
+  insertPaths: (paths: string[], x: number, y: number, expected: number) =>
+    command(() => editor.insertPaths(paths, { clientX: x, clientY: y }, expected)),
+  insertImages: (images: ImageInsertion[], x: number | null, y: number | null, expected: number) =>
+    command(() =>
+      editor.insertImages(
+        images,
+        x != null && y != null ? { clientX: x, clientY: y } : undefined,
+        expected,
+      ),
     ),
   pasteAsPlainText: (text: string, expected = generation) =>
-    command(() => {
-      editor.commandState(expected)
-      editor.pasteAsPlainText(text)
-    }),
+    command(() => editor.pasteAsPlainText(text, expected)),
   table: (
     name: Parameters<InkKitEditor['table']>[0],
     options?: Parameters<InkKitEditor['table']>[1],
     expected = generation,
-  ) =>
-    command(() => {
-      editor.commandState(expected)
-      return editor.table(name, options ?? undefined)
-    }),
+  ) => command(() => editor.table(name, options ?? undefined, expected)),
   pasteNative: (payload: {
     text: string
     html?: string
     generation: number
     images: { bytesBase64: string; mimeType: string; filename?: string; source?: string }[]
   }) => {
-    if (payload.generation !== generation) throw new Error('The memo changed')
     void editor
-      .paste({
-        text: payload.text,
-        html: payload.html,
-        images: payload.images.map((image) => ({
-          bytes: decode(image.bytesBase64),
-          mimeType: image.mimeType,
-          filename: image.filename,
-          source: image.source,
-        })),
-      })
-      .catch((error) => post({ type: 'editorWarning', message: String(error) }))
+      .paste(
+        {
+          text: payload.text,
+          html: payload.html,
+          images: payload.images.map((image) => ({
+            bytes: decode(image.bytesBase64),
+            mimeType: image.mimeType,
+            filename: image.filename,
+            source: image.source,
+          })),
+        },
+        payload.generation,
+      )
+      .catch((error) =>
+        post({
+          type: 'editorWarning',
+          message: error instanceof Error ? error.message : String(error),
+        }),
+      )
   },
   clipboardResponse(requestId: string, value: Record<string, string>) {
     const pending = replies.get(requestId)
@@ -335,21 +339,12 @@ const facade = {
     if (value.error) pending.reject(new Error(value.error))
     else pending.resolve(value)
   },
-  setAccent: (color: string) => document.documentElement.style.setProperty('--accent', color),
+  setAccent: (color: string) =>
+    document.documentElement.style.setProperty('--inkkit-accent-color', color),
   setTextSize: (px: number) => document.documentElement.style.setProperty('font-size', `${px}px`),
-  setReadingWidth: (width: number | null) => {
-    if (width !== null && Number.isFinite(width) && width > 0)
-      document.documentElement.style.setProperty('--reading-width', `${width}px`)
-    else document.documentElement.style.removeProperty('--reading-width')
-  },
   setKeymap: editor.setKeymap.bind(editor),
 }
 Object.assign(window, { editor: facade })
-for (const name of ['keydown', 'keyup'] as const)
-  window.addEventListener(name, (event) =>
-    document.documentElement.classList.toggle('meta', event.metaKey),
-  )
-window.addEventListener('blur', () => document.documentElement.classList.remove('meta'))
 window.addEventListener('error', (event) => post({ type: 'error', message: event.message }))
 window.addEventListener('unhandledrejection', (event) =>
   post({ type: 'error', message: String(event.reason) }),

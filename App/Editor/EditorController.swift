@@ -158,16 +158,12 @@ final class EditorController: NSObject, Editing {
 
     func format(_ command: FormatCommand, argument: String?) {
         guard caret.formats[command.rawValue] == true else { return }
-        if let argument {
-            call("format", json(command.rawValue), json(argument))
-        } else {
-            call("format", json(command.rawValue))
-        }
+        guardedCall("format", json(command.rawValue), argument.map { json($0) } ?? "null", String(generation))
     }
 
     func releaseFocus() {
         wantsFocus = false
-        if pageReady { call("blurText", String(generation)) }
+        if pageReady { call("blur", String(generation)) }
         guard let window = webView.window, let responder = window.firstResponder as? NSView,
               responder === webView || responder.isDescendant(of: webView) else { return }
         window.makeFirstResponder(nil)
@@ -178,7 +174,7 @@ final class EditorController: NSObject, Editing {
         guard isReady else { wantsFocus = true; return }
         wantsFocus = false
         webView.window?.makeFirstResponder(webView)
-        call("focus")
+        call("focus", String(generation))
     }
 
     func find(_ text: String) { guardedCall("find", json(text), String(generation)) }
@@ -189,7 +185,7 @@ final class EditorController: NSObject, Editing {
         guardedCall(all ? "replaceAll" : "replace", json(search), json(replacement), String(generation))
     }
 
-    private func guardedCall(_ function: String, _ arguments: String..., requiringFocus: Bool = false) {
+    private func guardedCall(_ function: String, _ arguments: String..., requiringFocus: Bool = false, notAppliedWarning: String? = nil) {
         guard isReady else { return }
         let expectedGeneration = generation
         let expectedDocumentID = documentID
@@ -208,6 +204,8 @@ final class EditorController: NSObject, Editing {
                 guard expectedGeneration == generation, expectedDocumentID == documentID else { return }
                 if let rejection = result as? [String: Any], let message = rejection["message"] as? String {
                     onWarning(message)
+                } else if let notAppliedWarning, result as? Bool == false {
+                    onWarning(notAppliedWarning)
                 }
             } catch {
                 guard expectedGeneration == generation, expectedDocumentID == documentID else { return }
@@ -245,14 +243,14 @@ final class EditorController: NSObject, Editing {
     /// Inserts the paths as lines at a point in the view, and takes the keyboard, as typing there would.
     func insertPaths(_ paths: [String], at point: CGPoint) {
         webView.window?.makeFirstResponder(webView)
-        call("insertPaths", json(paths), String(Double(point.x)), String(Double(point.y)))
+        guardedCall("insertPaths", json(paths), String(Double(point.x)), String(Double(point.y)), String(generation))
     }
 
     /// Inserts the images at a point in the view, or where the caret is when a paste brought them.
     func insertImages(_ references: [ImageReference], at point: CGPoint?) {
         webView.window?.makeFirstResponder(webView)
-        let payload = references.map { ["path": $0.path, "alt": $0.alt] }
-        call("insertImages", json(payload), point.map { String(Double($0.x)) } ?? "null", point.map { String(Double($0.y)) } ?? "null")
+        let payload = references.map { ["reference": $0.path, "alt": $0.alt] }
+        guardedCall("insertImages", json(payload), point.map { String(Double($0.x)) } ?? "null", point.map { String(Double($0.y)) } ?? "null", String(generation))
     }
 
     func table(_ command: String) {
@@ -262,7 +260,11 @@ final class EditorController: NSObject, Editing {
 
     func sortTable(order: String, numeric: Bool) {
         guard caret.tables["sortRows"] == true else { return }
-        guardedCall("table", json("sortRows"), json(["order": order, "comparison": numeric ? "number" : "text"]), String(generation))
+        // InkKit leaves the table alone and answers false when a number sort meets a value that is not a number.
+        guardedCall(
+            "table", json("sortRows"), json(["order": order, "comparison": numeric ? "number" : "text"]), String(generation),
+            notAppliedWarning: numeric ? "Couldn’t sort by number. Every value in that column needs to be a number." : nil
+        )
     }
 
     func pasteAsPlainText(_ text: String) {
@@ -583,12 +585,6 @@ final class EditorController: NSObject, Editing {
                 lastChangeSequence = sequence
             }
             onChanged(markdown)
-        case .state(let state):
-            var updated = caret
-            updated.marks = state.marks
-            updated.block = state.block
-            updated.quoted = state.quoted
-            if updated != caret { caret = updated }
         case .commandState(let state, let documentID, let generation):
             guard generation == self.generation, documentID == self.documentID else { return }
             if state != caret { caret = state }
