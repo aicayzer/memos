@@ -15,6 +15,13 @@ interface Bridge {
     generation: number,
   ): unknown
   insertPaths(paths: string[], x: number, y: number, generation: number): unknown
+  table(name: string, options: null, generation: number): unknown
+  pasteAsPlainText(text: string, generation: number): unknown
+  replace(search: string, replacement: string, generation: number): unknown
+  replaceAll(search: string, replacement: string, generation: number): unknown
+  undo(generation: number): unknown
+  redo(generation: number): unknown
+  setEditingMode(mode: string, generation: number): unknown
   pasteNative(payload: { text: string; generation: number; images: [] }): void
   reload(text: string, generation: number, documentId: string): void
   rebind(generation: number, next: number, documentId: string, nextDocumentId: string): Message
@@ -219,38 +226,94 @@ describe('formatting', () => {
 
 describe('an edit that InkKit refuses', () => {
   const picture = `images/${'a'.repeat(64)}.png`
+  // Every entry the app sends an edit through, refused as another memo's, and with the message
+  // the app shows the person: native code shows `message` as it arrives.
+  const other = 'Document changed'
+  const stale = [
+    ['a format', () => bridge().format('bold', null, generation - 1)],
+    ['a table command', () => bridge().table('insert', null, generation - 1)],
+    ['a plain text paste', () => bridge().pasteAsPlainText('x', generation - 1)],
+    ['a replacement', () => bridge().replace('Plain', 'Simple', generation - 1)],
+    ['a replacement of all', () => bridge().replaceAll('Plain', 'Simple', generation - 1)],
+    ['an undo', () => bridge().undo(generation - 1)],
+    ['a redo', () => bridge().redo(generation - 1)],
+    ['a change of mode', () => bridge().setEditingMode('source', generation - 1)],
+    [
+      'images',
+      () => bridge().insertImages([{ reference: picture, alt: 'Pic' }], null, null, generation - 1),
+    ],
+    ['paths', () => bridge().insertPaths(['/Users/a/File.txt'], 10, 10, generation - 1)],
+  ] as const
   const refusals = [
+    ...stale.map(
+      ([name, call]) => [`${name} for another memo`, call, 'stale-document', other] as const,
+    ),
     [
       'a link to an address that cannot open',
       () => bridge().format('link', 'javascript:alert(1)', generation),
       'invalid-argument',
-    ],
-    [
-      'a format for another memo',
-      () => bridge().format('bold', null, generation - 1),
-      'stale-document',
-    ],
-    [
-      'images for another memo',
-      () => bridge().insertImages([{ reference: picture, alt: 'Pic' }], null, null, generation - 1),
-      'stale-document',
-    ],
-    [
-      'paths for another memo',
-      () => bridge().insertPaths(['/Users/a/File.txt'], 10, 10, generation - 1),
-      'stale-document',
+      'options.destination must be relative, or an http, https, mailto or tel address, with no control characters',
     ],
   ] as const
 
-  for (const [name, call, code] of refusals)
+  for (const [name, call, code, message] of refusals)
     it(`comes back to the host with its reason: ${name}`, () => {
       open()
       caret('Plain paragraph')
-      const refusal = call() as { commandError: string; message: string }
-      expect(refusal.commandError).toBe(code)
-      expect(refusal.message).not.toBe('')
+      expect(call()).toEqual({ commandError: code, message })
       expect(bridge().snapshot(generation)).toMatchObject({ text: memo, dirty: false })
     })
+
+  for (const [name, call] of [
+    ['paths', () => bridge().insertPaths(['/Users/a/File.txt'], 10, 10, generation)],
+    [
+      'images',
+      () => bridge().insertImages([{ reference: picture, alt: 'Pic' }], null, null, generation),
+    ],
+    ['a format', () => bridge().format('bold', null, generation)],
+  ] as const)
+    it(`comes back while text is being composed: ${name}`, () => {
+      open()
+      caret('Plain paragraph')
+      document
+        .querySelector('.ProseMirror')!
+        .dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
+      expect(call()).toEqual({
+        commandError: 'composition',
+        message: 'Text composition is in progress',
+      })
+      document
+        .querySelector('.ProseMirror')!
+        .dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }))
+      expect(saved()).toBe(memo)
+    })
+
+  // A cell holds one line, so text with a line break cannot be saved there.
+  const table = '| a | b |\r\n| - | - |\r\n| x | y |\r\n'
+  const preservation = 'The edited Markdown cannot be reopened without changing its content'
+  for (const [name, call] of [
+    ['a replacement', () => bridge().replace('x', 'x\ny', generation)],
+    ['a replacement of all', () => bridge().replaceAll('x', 'x\ny', generation)],
+    ['a plain text paste', () => bridge().pasteAsPlainText('p\nq', generation)],
+  ] as const)
+    it(`comes back when its Markdown could not be preserved: ${name}`, () => {
+      open(table)
+      select('x')
+      expect(call()).toEqual({ commandError: 'preservation', message: preservation })
+      expect(bridge().snapshot(generation)).toMatchObject({ text: table, dirty: false })
+    })
+
+  it('reaches the host as a warning when a native paste could not be preserved', async () => {
+    open(table)
+    select('x')
+    bridge().pasteNative({ text: 'p\nq', generation, images: [] })
+    await vi.waitFor(() => expect(of('editorWarning')).toHaveLength(1))
+    expect(of('editorWarning')[0]).toEqual({
+      type: 'editorWarning',
+      message: `The edit was not applied because its Markdown could not be preserved: ${preservation}`,
+    })
+    expect(saved()).toBe(table)
+  })
 
   it('does not stop an accepted one: images and paths land where the caret is', () => {
     open()
@@ -268,7 +331,7 @@ describe('an edit that InkKit refuses', () => {
     open()
     bridge().pasteNative({ text: 'Stale', generation: generation - 1, images: [] })
     await vi.waitFor(() => expect(of('editorWarning')).toHaveLength(1))
-    expect(of('editorWarning')[0]!.message).not.toBe('')
+    expect(of('editorWarning')[0]).toEqual({ type: 'editorWarning', message: 'Document changed' })
     expect(saved()).toBe(memo)
   })
 

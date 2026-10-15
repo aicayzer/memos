@@ -308,8 +308,37 @@ struct InkKitBridgeTests {
             if !warnings.isEmpty { break }
             try await Task.sleep(for: .milliseconds(20))
         }
-        #expect(warnings.count == 1)
+        #expect(warnings == ["options.destination must be relative, or an http, https, mailto or tel address, with no control characters"])
         #expect(try await editor.snapshot() == "Keep this memo\n")
+    }
+
+    @Test func refusedDropsAndReplacementsReachTheWarningPathWithTheirReason() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "refused"
+        let table = "| a | b |\n| - | - |\n| x | y |\n"
+        editor.load(table)
+        _ = try await editor.snapshot()
+        var warnings: [String] = []
+        editor.onWarning = { warnings.append($0) }
+        editor.replace("x", with: "x\ny", all: false)
+        editor.replace("x", with: "x\ny", all: true)
+        let preservation = "The edited Markdown cannot be reopened without changing its content"
+        for _ in 0..<200 {
+            if warnings.count == 2 { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(warnings == [preservation, preservation])
+        warnings.removeAll()
+        _ = try await editor.webView.evaluateJavaScript("document.querySelector('.ProseMirror').dispatchEvent(new CompositionEvent('compositionstart', {bubbles: true}))")
+        editor.insertPaths(["/Users/a/File.txt"], at: .zero)
+        editor.insertImages([ImageReference(path: "images/\(String(repeating: "a", count: 64)).png", alt: "Pic")], at: nil)
+        for _ in 0..<200 {
+            if warnings.count == 2 { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(warnings == ["Text composition is in progress", "Text composition is in progress"])
+        _ = try await editor.webView.evaluateJavaScript("document.querySelector('.ProseMirror').dispatchEvent(new CompositionEvent('compositionend', {bubbles: true}))")
+        #expect(try await editor.snapshot() == table)
     }
 
     @Test func portablePrintKeepsCommentsPrivateAndRejectsMissingImages() async throws {
