@@ -289,6 +289,31 @@ struct InkKitBridgeTests {
         #expect(try await editor.snapshot() == source)
     }
 
+    @Test func aNumberSortThatDoesNotApplyTellsThePerson() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "sorting"
+        let source = "| Value |\n| --- |\n| Oops |\n| 12 |\n"
+        editor.load(source)
+        _ = try await editor.snapshot()
+        _ = try await editor.webView.evaluateJavaScript("window.editor.find('Oops', 1)")
+        var warnings: [String] = []
+        editor.onWarning = { warnings.append($0) }
+        for _ in 0..<200 {
+            if !editor.caret.tables.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        var state = editor.caret
+        state.tables["sortRows"] = true
+        editor.receive(.commandState(state, documentID: "sorting", generation: 1))
+        editor.sortTable(order: "ascending", numeric: true)
+        for _ in 0..<200 {
+            if !warnings.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(warnings == ["Couldn’t sort by number. Every value in that column needs to be a number."])
+        #expect(try await editor.snapshot() == source)
+    }
+
     @Test func aRefusedFormatReachesTheWarningPath() async throws {
         let editor = EditorController(images: FakeImageStore())
         editor.documentID = "refused"

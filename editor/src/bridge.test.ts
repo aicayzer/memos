@@ -414,6 +414,29 @@ describe('a memo that is reloaded, recovered or refreshed', () => {
     await copying
   })
 
+  it('tells the person when a copied diagram could not be exported', async () => {
+    open()
+    const copying = events.clipboard!({
+      documentId: `memo-${generation}`,
+      generation,
+      revision: 0,
+      text: 'Before',
+      html: '<p>Before</p>',
+      markdown: 'Before',
+      images: [],
+      diagrams: [{ source: 'flowchart LR\nA-->B', error: 'Diagram could not be rendered' }],
+    })
+    expect(of('editorWarning')).toEqual([
+      {
+        type: 'editorWarning',
+        message: 'Some copied diagrams were unavailable; their source was retained',
+      },
+    ])
+    const [request] = of('writeClipboard')
+    bridge().clipboardResponse(request!.requestId as string, {})
+    await copying
+  })
+
   it('copies and prints the memo it holds', async () => {
     open()
     const copy = await bridge().clipboard()

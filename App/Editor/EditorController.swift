@@ -185,7 +185,7 @@ final class EditorController: NSObject, Editing {
         guardedCall(all ? "replaceAll" : "replace", json(search), json(replacement), String(generation))
     }
 
-    private func guardedCall(_ function: String, _ arguments: String..., requiringFocus: Bool = false) {
+    private func guardedCall(_ function: String, _ arguments: String..., requiringFocus: Bool = false, notAppliedWarning: String? = nil) {
         guard isReady else { return }
         let expectedGeneration = generation
         let expectedDocumentID = documentID
@@ -204,6 +204,8 @@ final class EditorController: NSObject, Editing {
                 guard expectedGeneration == generation, expectedDocumentID == documentID else { return }
                 if let rejection = result as? [String: Any], let message = rejection["message"] as? String {
                     onWarning(message)
+                } else if let notAppliedWarning, result as? Bool == false {
+                    onWarning(notAppliedWarning)
                 }
             } catch {
                 guard expectedGeneration == generation, expectedDocumentID == documentID else { return }
@@ -258,7 +260,11 @@ final class EditorController: NSObject, Editing {
 
     func sortTable(order: String, numeric: Bool) {
         guard caret.tables["sortRows"] == true else { return }
-        guardedCall("table", json("sortRows"), json(["order": order, "comparison": numeric ? "number" : "text"]), String(generation))
+        // InkKit leaves the table alone and answers false when a number sort meets a value that is not a number.
+        guardedCall(
+            "table", json("sortRows"), json(["order": order, "comparison": numeric ? "number" : "text"]), String(generation),
+            notAppliedWarning: numeric ? "Couldn’t sort by number. Every value in that column needs to be a number." : nil
+        )
     }
 
     func pasteAsPlainText(_ text: String) {

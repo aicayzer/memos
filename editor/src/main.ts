@@ -96,6 +96,11 @@ function writeClipboard(output: ClipboardOutput): Promise<void> {
       type: 'editorWarning',
       message: 'Some copied images were unavailable; their descriptions were retained',
     })
+  if (output.diagrams.some((diagram) => diagram.error))
+    post({
+      type: 'editorWarning',
+      message: 'Some copied diagrams were unavailable; their source was retained',
+    })
   const requestId = crypto.randomUUID()
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
