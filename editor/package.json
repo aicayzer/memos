@@ -12,7 +12,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@aicayzer/inkkit": "0.0.13"
+    "@aicayzer/inkkit": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",

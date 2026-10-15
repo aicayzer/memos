@@ -9,7 +9,6 @@ describe('packed editor consumer', () => {
     document.body.append(root)
     editor = await InkKitEditor.mount(root, {
       changed() {},
-      stateChanged() {},
       openLink() {},
       copy() {},
     })
@@ -38,7 +37,7 @@ describe('packed editor consumer', () => {
       format: 'md',
       text: 'tight. and **bold** \n',
     })
-    const clipboard = await editor.clipboardSnapshot(true)
+    const clipboard = await editor.clipboardSnapshot('document')
     expect(clipboard.text).toContain('tight. and bold')
     expect(clipboard.text).not.toContain('&#x20;')
     expect(clipboard.text).not.toContain('**')
@@ -52,7 +51,7 @@ describe('packed editor consumer', () => {
       html: '<table><tr><th>Name</th><th>Value</th></tr><tr><td>Alice</td><td>42</td></tr></table>',
     })
     expect(editor.snapshot().text).toMatch(/\|\s*Alice\s*\|\s*42\s*\|/)
-    expect((await editor.clipboardSnapshot(true)).html).toContain('<table')
+    expect((await editor.clipboardSnapshot('document')).html).toContain('<table')
   })
 
   it('keeps TXT literal while Markdown plain paste inserts literal markers', () => {

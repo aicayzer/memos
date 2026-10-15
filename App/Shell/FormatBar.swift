@@ -8,6 +8,8 @@ struct FormatBar: View {
     @State private var linkPopover = false
     @State private var linkURL = ""
 
+    private static let headings: [FormatCommand] = [.heading1, .heading2, .heading3]
+
     private var caret: CaretState { editor.caret }
 
     var body: some View {
@@ -15,12 +17,12 @@ struct FormatBar: View {
             menu("Heading", active: caret.block.isHeading) {
                 ForEach(1...3, id: \.self) { level in
                     Toggle("Heading \(level)", isOn: toggle(caret.block == .heading(level)) {
-                        editor.format(.heading, argument: String(level))
+                        editor.format(Self.headings[level - 1])
                     })
                 }
             } label: {
                 Image(nsImage: Self.headingGlyph(active: caret.block.isHeading, size: chrome.iconSize))
-            }.disabled(caret.formats["heading"] != true)
+            }.disabled(!Self.headings.contains { caret.formats[$0.rawValue] == true })
 
             menu("Text Style", active: !caret.marks.isDisjoint(with: [.bold, .italic, .strikethrough])) {
                 Toggle("Bold", isOn: toggle(caret.marks.contains(.bold)) { editor.format(.bold) }).disabled(caret.formats["bold"] != true)

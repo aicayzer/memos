@@ -277,16 +277,39 @@ struct InkKitBridgeTests {
         #expect(try await editor.snapshot() == source)
     }
 
-    @Test func invalidNumericSortingRetainsTheMemoAndRemainsRecoverable() async throws {
+    @Test func aSortThatDoesNotApplyRetainsTheMemo() async throws {
         let editor = EditorController(images: FakeImageStore())
         editor.documentID = "table"
         let source = "| Value |\n| --- |\n| Oops |\n| 12 |\n"
         editor.load(source)
         _ = try await editor.snapshot()
         _ = try await editor.webView.evaluateJavaScript("window.editor.find('Oops', 1)")
-        let rejected = try await editor.webView.evaluateJavaScript("window.editor.table('sortRows', {column: 0, comparison: 'number'}, 1)") as? [String: Any]
-        #expect(rejected?["commandError"] as? String == "invalid-argument")
+        let applied = try await editor.webView.evaluateJavaScript("window.editor.table('sortRows', {column: 0, comparison: 'number'}, 1)") as? Bool
+        #expect(applied == false)
         #expect(try await editor.snapshot() == source)
+    }
+
+    @Test func aRefusedFormatReachesTheWarningPath() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "refused"
+        editor.load("Keep this memo\n")
+        _ = try await editor.snapshot()
+        var warnings: [String] = []
+        editor.onWarning = { warnings.append($0) }
+        for _ in 0..<200 {
+            if !editor.caret.formats.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        var state = editor.caret
+        state.formats["link"] = true
+        editor.receive(.commandState(state, documentID: "refused", generation: 1))
+        editor.format(.link, argument: "javascript:alert(1)")
+        for _ in 0..<200 {
+            if !warnings.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(warnings.count == 1)
+        #expect(try await editor.snapshot() == "Keep this memo\n")
     }
 
     @Test func portablePrintKeepsCommentsPrivateAndRejectsMissingImages() async throws {

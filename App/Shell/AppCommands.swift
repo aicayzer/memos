@@ -115,7 +115,9 @@ struct AppCommands: Commands {
 
     private func formatName(_ shortcut: Shortcut) -> String? {
         switch shortcut {
-        case .heading1, .heading2, .heading3: "heading"
+        case .heading1: "heading1"
+        case .heading2: "heading2"
+        case .heading3: "heading3"
         case .paragraph: "paragraph"
         case .bold: "bold"
         case .italic: "italic"

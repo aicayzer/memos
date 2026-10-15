@@ -25,14 +25,13 @@ struct CaretState: Equatable, Sendable {
 }
 
 enum FormatCommand: String, Sendable {
-    case heading, paragraph, bold, italic, strikethrough, code, codeBlock, quote
+    case heading1, heading2, heading3, paragraph, bold, italic, strikethrough, code, codeBlock, quote
     case bulletList, orderedList, taskList, link
 }
 
 enum EditorMessage: Sendable {
     case ready
     case changed(String, generation: Int, sequence: Int? = nil)
-    case state(CaretState)
     case commandState(CaretState, documentID: String, generation: Int)
     case openLink(String)
     case copy(String)
@@ -47,10 +46,6 @@ enum EditorMessage: Sendable {
         case "changed":
             guard let markdown = dict["markdown"] as? String, let generation = dict["generation"] as? Int else { return nil }
             self = .changed(markdown, generation: generation, sequence: dict["sequence"] as? Int)
-        case "state":
-            let marks = (dict["marks"] as? [String] ?? []).compactMap(Mark.init(rawValue:))
-            guard let block = Block(dict["block"]) else { return nil }
-            self = .state(CaretState(marks: Set(marks), block: block, quoted: dict["quoted"] as? Bool ?? false))
         case "commandState":
             guard let documentID = dict["documentId"] as? String, let generation = dict["generation"] as? Int,
                   let commands = dict["commands"] as? [String: Any], let caret = dict["caret"] as? [String: Any],
