@@ -10,27 +10,36 @@ For local development signing, inject the repository's existing credential-manag
 
 Before shipping, run native and editor tests, then exercise memo editing, search/focus, storage conversion, shortcuts, Settings, and CLI access on an isolated test machine. Keep GUI suites serial and use disposable libraries. App Store delivery must also verify CLI access to the installed app's library; source-level shared store tests do not establish filesystem permission behavior.
 
-## Xcode Cloud owner checklist
+## Xcode Cloud
 
-1. Register the existing app bundle identifier and create the App Store Connect app record. Keep its chosen locale. Enable Xcode Cloud through Product > Xcode Cloud > Create Workflow in Xcode, connecting the public repository and the shared `Memos` scheme.
-2. Configure a Release workflow with Xcode 27, macOS 27, clean builds, and an **Archive — macOS** action using `Memos`, **TestFlight and App Store** distribution, and the scheme's Release configuration. Restrict workflow editing for App Store eligibility.
-3. Set `APPLE_DEVELOPMENT_TEAM` in the workflow environment from the canonical credential-manager value. Do not substitute `CI_TEAM_ID`: it did not provide a valid signing team in the observed Cloud environment. The post-clone hook renders automatic signing, installs Node/pnpm for the bundled editor, and updates the build number from `CI_BUILD_NUMBER`.
-4. Use a tag-change condition **begins with `v`** (the `v*` family). Remove branch, pull-request, and scheduled triggers. The hook requires a `vMAJOR.MINOR.PATCH` tag matching `MARKETING_VERSION`.
-5. Set the next Cloud build number above every previously uploaded app build. Keep this counter monotonic. Add a **TestFlight Internal Testing** post-action for the intended internal group; do not enable external testing or public App Store submission.
-6. After a green PR is squash merged, create the version-matching tag on main. Confirm the Cloud run uses that exact commit, successfully archives and uploads, and makes the processed build available to the internal group. Install the update through TestFlight on the isolated test machine and verify the installed version, app behavior, and library before marking delivery complete.
+Xcode Cloud is configured for product **Memos** with the **Release** workflow:
+
+- Tag changes and manual starts for tags beginning with `v`; no branch, pull-request, or scheduled starts.
+- Xcode 27, macOS 27, and clean builds, with `APPLE_DEVELOPMENT_TEAM` set in the workflow environment.
+- One **Archive macOS** action using the `Memos` scheme, **Any Mac**, and **App Store Connect** distribution.
+- One **TestFlight Internal Testing** post-action for **Internal Testers**.
+
+The post-clone hook validates the tag against `MARKETING_VERSION`, renders automatic signing, installs Node/pnpm for the bundled editor, and sets the build number from `CI_BUILD_NUMBER`. Keep Cloud's next build number above every uploaded build. As of October 16, 2026, the next number is **8**; the latest uploaded build is **0.4.7 (7)**.
+
+To release the app:
+
+1. Bump `MARKETING_VERSION` in `project.yml`, run `xcodegen generate`, and commit the generated files. Run `scripts/validate-release.sh vX.Y.Z` with the matching version.
+2. Merge the PR after CI passes. Create the matching `vX.Y.Z` tag on main and push the tag.
+3. Cloud archives, uploads, and distributes the build to internal testers. Confirm the Cloud run uses the tagged commit, then check App Store Connect for successful processing and availability to **Internal Testers**.
+4. Install through TestFlight on the isolated test machine and verify the version, app behavior, and library before marking delivery complete.
 
 Apple references: [project requirements](https://developer.apple.com/documentation/xcode/setting-up-your-project-to-use-xcode-cloud), [distribution workflow](https://developer.apple.com/documentation/xcode/creating-a-workflow-that-builds-your-app-for-distribution), [build numbering](https://developer.apple.com/documentation/xcode/setting-the-next-build-number-for-xcode-cloud-builds), and [internal testing](https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers).
 
-## Manual TestFlight archive
+## Manual TestFlight fallback
 
-When Cloud is unavailable, use an isolated checkout and the existing credential manager. Supply `APPLE_DEVELOPMENT_TEAM`, an installed `APPLE_PROVISIONING_PROFILE`, and the appropriate `APPLE_DISTRIBUTION_IDENTITY` and `APPLE_INSTALLER_IDENTITY`. An existing task keychain can be selected with `MEMOS_SIGNING_KEYCHAIN` and unlocked using injected `MEMOS_KEYCHAIN_PASSWORD`. Run:
+Use a manual archive only when Cloud is unavailable, with an isolated checkout and the existing credential manager. Supply `APPLE_DEVELOPMENT_TEAM`, an installed `APPLE_PROVISIONING_PROFILE`, and the appropriate `APPLE_DISTRIBUTION_IDENTITY` and `APPLE_INSTALLER_IDENTITY`. An existing task keychain can be selected with `MEMOS_SIGNING_KEYCHAIN` and unlocked using injected `MEMOS_KEYCHAIN_PASSWORD`. Run:
 
 ```sh
 scripts/archive-testflight.sh BUILD_NUMBER
 scripts/upload-testflight.py build/TestFlight-BUILD_NUMBER/Export/Memos.pkg --wait
 ```
 
-The upload requires injected `ASC_KEY_ID`, `ASC_ISSUER_ID`, and PEM `ASC_PRIVATE_KEY`. It renders a temporary private key, uploads, and removes that key. Logs stay private. The archive helper refuses existing output and verifies installed app file permissions before export. Check App Store Connect before retrying any uncertain upload. Advance Cloud's next build number afterward.
+The upload requires injected `ASC_KEY_ID`, `ASC_ISSUER_ID`, and PEM `ASC_PRIVATE_KEY`. It renders a temporary private key, uploads, and removes that key. Logs stay private. The archive helper refuses existing output and verifies installed app file permissions before export. Check App Store Connect before retrying any uncertain upload. After a manual upload, raise Cloud's next build number above the uploaded number before the next Cloud release.
 
 ## Standalone CLI release
 
