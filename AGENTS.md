@@ -43,7 +43,7 @@ The store behind `MemoStore` is `LibraryStore`, selecting internal JSON or Markd
 
 ## Distribution
 
-The app ships through TestFlight and the App Store. The CLI is a separate signed, notarized download; never embed it in the app. Do not restore a direct-app updater, TextPad code, document registration, or transitional integration. Preserve existing library paths and bundle identities.
+The app ships through TestFlight and the App Store using the configured Xcode Cloud Release workflow, triggered by `vX.Y.Z` tags on main. Manual archives are a fallback only; keep Cloud's next build number above every uploaded build. Follow [RELEASING.md](RELEASING.md). The CLI is a separate signed, notarized download; never embed it in the app. Do not restore a direct-app updater, TextPad code, document registration, or transitional integration. Preserve existing library paths and bundle identities.
 
 Run local builds, packaging and interactive verification on an isolated development Mac, never an occupied workstation. Public pull requests use hosted CI only. Delegate independent work with clear file ownership and serialize GUI checks. A release is complete only after processing, internal tester availability and an installed smoke check.
 
