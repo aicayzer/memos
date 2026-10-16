@@ -45,7 +45,13 @@ final class MemosUITests: XCTestCase {
         check(app.textFields["Replace with"])
         app.typeKey("f", modifierFlags: .command)
         editor.click()
-        app.buttons["Link"].click()
+        let link = app.buttons["Link"]
+        if !link.exists {
+            app.menuBars.menuBarItems["View"].click()
+            app.menuItems["Formatting Bar"].click()
+        }
+        XCTAssertTrue(link.waitForExistence(timeout: 5), app.debugDescription)
+        link.click()
         check(app.textFields["https://"])
         app.typeKey(.escape, modifierFlags: [])
         editor.click()
