@@ -5,7 +5,9 @@ import XCTest
 @MainActor
 final class MemosUITests: XCTestCase {
     func testInkKitEditingPreferencesAndBlockMovement() throws {
-        let fixture = try launchMemos()
+        let fixture = try launchMemos(arguments: [
+            "-NSAutomaticQuoteSubstitutionEnabled", "YES", "-NSAutomaticDashSubstitutionEnabled", "YES",
+        ])
         let app = fixture.app
         let editor = app.webViews.textViews.firstMatch
         XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
@@ -355,7 +357,7 @@ final class MemosUITests: XCTestCase {
         let bundleIdentifier: String
     }
 
-    private func launchMemos() throws -> Fixture {
+    private func launchMemos(arguments: [String] = []) throws -> Fixture {
         continueAfterFailure = false
         let testBundleID = try XCTUnwrap(Bundle(for: Self.self).bundleIdentifier)
         guard testBundleID.hasSuffix(".uitests") else {
@@ -374,7 +376,7 @@ final class MemosUITests: XCTestCase {
         app.launchArguments = ["-showInDock", "YES", "-menuBarItem", "NO", "-floating", "NO",
                                "-sidePaneAtLaunch", "NO", "-shortcuts", "invalid",
                                "-KeyboardShortcuts_toggleWindow", #""{\"carbonKeyCode\":11,\"carbonModifiers\":6400}""#,
-                               "-KeyboardShortcuts_newMemo", #""{\"carbonKeyCode\":46,\"carbonModifiers\":6400}""#]
+                               "-KeyboardShortcuts_newMemo", #""{\"carbonKeyCode\":46,\"carbonModifiers\":6400}""#] + arguments
         let fixture = Fixture(app: app, folder: folder, bundleIdentifier: bundleIdentifier)
         addTeardownBlock { @MainActor in self.finish(fixture) }
         app.launch()
