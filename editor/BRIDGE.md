@@ -40,7 +40,7 @@ The production `LibraryStore` deliberately retains image files rather than sweep
 
 `format(command, destination, generation)`, `moveBlock(direction, generation)`, `find(text, generation)`, `replace(search, replacement, generation)`, `replaceAll(search, replacement, generation)`, `setEditingMode(mode, generation)`, `undo(generation)`, `redo(generation)`, `table`, `pasteAsPlainText`, `insertImages` and `insertPaths` call the public facade. Search and replacement are literal. Reload retains mode; loading another memo resets history.
 
-InkKit 0.1.3 always enables the typed table-row shortcut. Memos keeps block movement on Option-Up and Option-Down by default, with Move Up and Move Down labels owned by its shared shortcut definitions. The Format menu follows `commands.moveBlockUp` and `commands.moveBlockDown`. Smart punctuation and the slash menu are explicitly disabled at mount. No wiki-link adapter is supplied, so `[[` does not offer note suggestions.
+InkKit always enables the typed table-row shortcut; it has no option for it. Block movement defaults to Option-Up and Option-Down, and its Move Up and Move Down titles and keys come from the shared shortcut definitions, as every editor shortcut's do. The Format menu follows `commands.moveBlockUp` and `commands.moveBlockDown`. Smart punctuation and the slash menu are disabled at mount. No wiki-link adapter is supplied, so `[[` stays literal.
 
 The native host also registers disabled WebKit quote and dash substitution defaults before creating its web view. These native substitutions are independent of InkKit's smart punctuation option; spelling and autocorrection retain their existing behavior.
 
