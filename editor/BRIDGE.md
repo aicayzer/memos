@@ -42,7 +42,7 @@ The production `LibraryStore` deliberately retains image files rather than sweep
 
 InkKit always enables the typed table-row shortcut; it has no option for it. Block movement defaults to Option-Up and Option-Down, and its Move Up and Move Down titles and keys come from the shared shortcut definitions, as every editor shortcut's do. The Format menu follows `commands.moveBlockUp` and `commands.moveBlockDown`. InkKit's smart punctuation and the slash menu are disabled at mount. No wiki-link adapter is supplied, so `[[` stays literal.
 
-Editor Format menu shortcuts require the editor to own the first responder. A queued `moveBlock` also rechecks its originating window, responder, and document before dispatch, so a native field can retain its keys.
+Format menu items for editor shortcuts are disabled unless the editor owns the first responder, so their keys reach a focused native field. A queued `moveBlock` also rechecks its window, responder, and document before it runs.
 
 InkKit throws from a facade call that it refuses, and sends nothing to its error event. The bridge returns `commandError` and `message` instead, and native code shows that message through the same warning path as any other refused edit. Edits the person makes, such as typing or a shortcut, arrive as `editorWarning` through InkKit's error event. `pasteNative` has no reply to carry a refusal, so the page posts its rejection as `editorWarning` itself, as it does for a copy whose images were unavailable.
 
