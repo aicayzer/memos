@@ -65,6 +65,9 @@ struct AppCommands: Commands {
             item(.orderedList)
             item(.taskList)
             Divider()
+            item(.moveBlockUp)
+            item(.moveBlockDown)
+            Divider()
             Menu("Table") {
                 tableItem("Insert Table", "insert")
                 tableItem("Add Row Before", "addRowBefore")
@@ -136,6 +139,8 @@ struct AppCommands: Commands {
     private func item(_ shortcut: Shortcut, title: String? = nil) -> some View {
         Button(title ?? shortcut.title) { model.perform(shortcut) }
             .keyboardShortcut(model.shortcuts.keyboardShortcut(shortcut))
+            .disabled(shortcut.isEditor && !editorOwnsHistory)
             .disabled(formatName(shortcut).map { model.editor.caret.formats[$0] != true } ?? false)
+            .disabled(shortcut == .moveBlockUp || shortcut == .moveBlockDown ? model.editor.caret.commands[shortcut.rawValue] != true : false)
     }
 }

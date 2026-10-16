@@ -40,6 +40,32 @@ struct PasteRoutingTests {
         }
     }
 
+    @Test(arguments: [false, true], [false, true])
+    func blockMovesLeaveNativeFieldsAlone(up: Bool, focusChangesAfterQueueing: Bool) async throws {
+        let editor = EditorController(images: FakeImageStore())
+        let (window, field) = attach(editor)
+        defer { window.orderOut(nil); window.contentView = nil; window.close() }
+        let source = "First\n\nMiddle\n\nLast\n"
+        editor.documentID = "moving"
+        editor.load(source)
+        _ = try await editor.snapshot()
+        editor.focus()
+        _ = try await editor.webView.evaluateJavaScript("window.editor.find('Middle', 1)")
+        for _ in 0..<200 {
+            if editor.caret.commands[up ? "moveBlockUp" : "moveBlockDown"] == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(editor.caret.commands[up ? "moveBlockUp" : "moveBlockDown"] == true)
+        field.stringValue = "Keep the field text"
+        if !focusChangesAfterQueueing { #expect(window.makeFirstResponder(field)) }
+        editor.moveBlock(up: up)
+        if focusChangesAfterQueueing { #expect(window.makeFirstResponder(field)) }
+        await mainQueueBoundary()
+        #expect(try await editor.snapshot() == source)
+        #expect(field.stringValue == "Keep the field text")
+        #expect(window.firstResponder === field.currentEditor())
+    }
+
     @Test(arguments: ["Search memos", "Title"], [false, true])
     func pasteReplacesTheFocusedNativeField(fieldName: String, plainText: Bool) async throws {
         let previousClipboard = preserveClipboard()

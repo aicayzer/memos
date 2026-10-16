@@ -33,6 +33,12 @@ import Testing
         #expect(KeyCombo("n", [.command]).isShortcut)
         #expect(KeyCombo("n", [.control]).isShortcut)
         #expect(KeyCombo("F5", []).isShortcut)
+        #expect(KeyCombo("ArrowUp", [.option]).isShortcut)
+        #expect(KeyCombo("ArrowDown", [.option]).isShortcut)
+        #expect(KeyCombo("ArrowLeft", [.option]).isShortcut)
+        #expect(KeyCombo("ArrowRight", [.option, .shift]).isShortcut)
+        #expect(!KeyCombo("ArrowUp", []).isShortcut)
+        #expect(!KeyCombo("ArrowDown", [.shift]).isShortcut)
         #expect(!KeyCombo("n", []).isShortcut)
         #expect(!KeyCombo("n", [.shift]).isShortcut)
         #expect(!KeyCombo("n", [.option]).isShortcut)
@@ -240,6 +246,8 @@ import Testing
         let keymap = settings.editorKeymap
         #expect(Set(keymap.keys) == Set(Shortcut.editor.map(\.rawValue)))
         #expect(keymap["bulletList"] == ["Mod-l", "Alt-Mod-8"])
+        #expect(keymap["moveBlockUp"] == ["Alt-ArrowUp"])
+        #expect(keymap["moveBlockDown"] == ["Alt-ArrowDown"])
         #expect(keymap["newMemo"] == nil)
     }
 }

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { InkKitEditor, type EditorEvents } from '@aicayzer/inkkit'
+import { InkKitEditor, type EditorEvents, type EditorOptions } from '@aicayzer/inkkit'
 
 // The page the app loads, driven as the app drives it: through window.editor, with what the page
 // posts to the host collected. InkKit itself is reached only to type, as a key press does.
@@ -8,6 +8,7 @@ interface Bridge {
   load(text: string, generation: number, documentId: string): void
   snapshot(generation: number): Message
   format(name: string, destination: string | null, generation: number): unknown
+  moveBlock(direction: 'up' | 'down', generation: number): unknown
   insertImages(
     images: { reference: string; alt: string }[],
     x: number | null,
@@ -46,6 +47,7 @@ const posted: Message[] = []
 const mount = vi.spyOn(InkKitEditor, 'mount')
 let inkkit: InkKitEditor
 let events: EditorEvents
+let options: EditorOptions | undefined
 let generation = 0
 
 const bridge = () => (window as unknown as { editor: Bridge }).editor
@@ -60,6 +62,7 @@ beforeAll(async () => {
   await import('./main')
   inkkit = await (mount.mock.results[0]!.value as Promise<InkKitEditor>)
   events = mount.mock.calls[0]![1]
+  options = mount.mock.calls[0]![2]
 })
 
 afterAll(async () => {
@@ -231,6 +234,7 @@ describe('an edit that InkKit refuses', () => {
   const other = 'Document changed'
   const stale = [
     ['a format', () => bridge().format('bold', null, generation - 1)],
+    ['a block move', () => bridge().moveBlock('up', generation - 1)],
     ['a table command', () => bridge().table('insert', null, generation - 1)],
     ['a plain text paste', () => bridge().pasteAsPlainText('x', generation - 1)],
     ['a replacement', () => bridge().replace('Plain', 'Simple', generation - 1)],
@@ -271,6 +275,7 @@ describe('an edit that InkKit refuses', () => {
       () => bridge().insertImages([{ reference: picture, alt: 'Pic' }], null, null, generation),
     ],
     ['a format', () => bridge().format('bold', null, generation)],
+    ['a block move', () => bridge().moveBlock('up', generation)],
   ] as const)
     it(`comes back while text is being composed: ${name}`, () => {
       open()
@@ -288,19 +293,18 @@ describe('an edit that InkKit refuses', () => {
       expect(saved()).toBe(memo)
     })
 
-  // A cell holds one line, so text with a line break cannot be saved there.
   const table = '| a | b |\r\n| - | - |\r\n| x | y |\r\n'
   const preservation = 'The edited Markdown cannot be reopened without changing its content'
-  for (const [name, call] of [
-    ['a replacement', () => bridge().replace('x', 'x\ny', generation)],
-    ['a replacement of all', () => bridge().replaceAll('x', 'x\ny', generation)],
-    ['a plain text paste', () => bridge().pasteAsPlainText('p\nq', generation)],
+  for (const [name, call, cell] of [
+    ['a replacement', () => bridge().replace('x', 'x\ny', generation), 'x<br />y'],
+    ['a replacement of all', () => bridge().replaceAll('x', 'x\ny', generation), 'x<br />y'],
+    ['a plain text paste', () => bridge().pasteAsPlainText('p\nq', generation), 'p<br />q'],
   ] as const)
-    it(`comes back when its Markdown could not be preserved: ${name}`, () => {
+    it(`preserves table cell line breaks from ${name}`, () => {
       open(table)
       select('x')
-      expect(call()).toEqual({ commandError: 'preservation', message: preservation })
-      expect(bridge().snapshot(generation)).toMatchObject({ text: table, dirty: false })
+      expect(call()).toBeTruthy()
+      expect(saved()).toBe(table.replace('x', cell))
     })
 
   it('reaches the host as a warning when a native paste could not be preserved', async () => {
@@ -479,5 +483,40 @@ describe('the page', () => {
   it('takes the accent through InkKit’s token', () => {
     bridge().setAccent('#ff8800')
     expect(document.documentElement.style.getPropertyValue('--inkkit-accent-color')).toBe('#ff8800')
+  })
+})
+
+describe('Memos editing preferences and block commands', () => {
+  it('disables smart punctuation and slash commands without note suggestions', () => {
+    expect(options).toMatchObject({
+      textInput: { smartPunctuation: false },
+      slashMenu: { enabled: false },
+    })
+    expect(options).not.toHaveProperty('wikiLinks')
+  })
+
+  it('moves CRLF blocks through the bridge and reports availability to the host', () => {
+    open('First\r\n\r\nSecond\r\n')
+    caret('Second')
+    expect(of('commandState').at(-1)).toMatchObject({
+      documentId: `memo-${generation}`,
+      generation,
+      commands: { moveBlockUp: true, moveBlockDown: false },
+    })
+    expect(bridge().moveBlock('up', generation)).toBe(true)
+    expect(saved()).toBe('Second\r\n\r\nFirst\r\n')
+    expect(of('changed').at(-1)).toMatchObject({ markdown: saved(), generation })
+    expect(of('commandState').at(-1)).toMatchObject({
+      commands: { moveBlockUp: false, moveBlockDown: true },
+    })
+    expect(bridge().moveBlock('down', generation)).toBe(true)
+    expect(saved()).toBe('First\r\n\r\nSecond\r\n')
+    bridge().undo(generation)
+    expect(saved()).toBe('Second\r\n\r\nFirst\r\n')
+    bridge().redo(generation)
+    expect(saved()).toBe('First\r\n\r\nSecond\r\n')
+    bridge().setEditingMode('source', generation)
+    expect(bridge().moveBlock('up', generation)).toBe(false)
+    expect(saved()).toBe('First\r\n\r\nSecond\r\n')
   })
 })

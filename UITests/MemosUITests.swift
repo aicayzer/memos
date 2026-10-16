@@ -4,6 +4,107 @@ import XCTest
 
 @MainActor
 final class MemosUITests: XCTestCase {
+    func testFormatShortcutsStayWithNativeFields() throws {
+        let fixture = try launchMemos()
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
+        let previousClipboard = captureClipboard()
+        defer { restoreClipboard(previousClipboard) }
+        app.typeText("First block\nMiddle block\nLast block")
+        expectText("Last block", in: editor)
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.contains("Middle block") }
+        let source = try XCTUnwrap(NSPasteboard.general.string(forType: .string))
+
+        func check(_ field: XCUIElement, verifyMenu: Bool = false) {
+            XCTAssertTrue(field.waitForExistence(timeout: 5), app.debugDescription)
+            field.click()
+            app.typeKey(.upArrow, modifierFlags: .option)
+            app.typeKey(.downArrow, modifierFlags: .option)
+            app.typeKey("e", modifierFlags: .command)
+            app.typeText("Field token")
+            expectText("Field token", in: field)
+            if verifyMenu {
+                app.menuBars.menuBarItems["Format"].click()
+                for title in ["Heading 1", "Heading 2", "Heading 3", "Paragraph", "Bold", "Italic", "Strikethrough",
+                              "Inline Code", "Code Block", "Quote", "Bulleted List", "Numbered List", "Task List", "Move Up", "Move Down"] {
+                    XCTAssertFalse(app.menuItems[title].isEnabled, title)
+                }
+                app.typeKey(.escape, modifierFlags: [])
+            }
+            app.typeKey("c", modifierFlags: [.command, .shift])
+            expectClipboard { $0 == source }
+        }
+
+        app.typeKey("f", modifierFlags: .command)
+        let find = app.textFields["Find in memo"]
+        XCTAssertTrue(find.waitForExistence(timeout: 5), app.debugDescription)
+        app.typeText("Middle")
+        check(find, verifyMenu: true)
+        check(app.textFields["Replace with"])
+        app.typeKey("f", modifierFlags: .command)
+        editor.click()
+        let link = app.buttons["Link"]
+        if !link.exists {
+            app.menuBars.menuBarItems["View"].click()
+            app.menuItems["Formatting Bar"].click()
+        }
+        XCTAssertTrue(link.waitForExistence(timeout: 5), app.debugDescription)
+        link.click()
+        check(app.textFields["https://"])
+        app.typeKey(.escape, modifierFlags: [])
+        editor.click()
+        app.typeKey(".", modifierFlags: .command)
+        check(app.textFields["Search"])
+        attach(app, name: "Native fields retain formatting shortcuts")
+    }
+
+    func testInkKitEditingPreferencesAndBlockMovement() throws {
+        let fixture = try launchMemos()
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
+        let previousClipboard = captureClipboard()
+        defer { restoreClipboard(previousClipboard) }
+
+        app.typeText("First block")
+        app.typeKey(.return, modifierFlags: [])
+        app.typeText("Second block")
+        app.typeKey(.upArrow, modifierFlags: .option)
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.hasPrefix("Second block\n\nFirst block") }
+        app.typeKey(.downArrow, modifierFlags: .option)
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.hasPrefix("First block\n\nSecond block") }
+
+        app.menuBars.menuBarItems["Format"].click()
+        app.menuItems["Move Up"].click()
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.hasPrefix("Second block\n\nFirst block") }
+        app.menuBars.menuBarItems["Format"].click()
+        app.menuItems["Move Down"].click()
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.hasPrefix("First block\n\nSecond block") }
+
+        for key in [XCUIKeyboardKey.return, .tab] {
+            app.typeKey("n", modifierFlags: .command)
+            app.typeText("| Name | Date |")
+            app.typeKey(key, modifierFlags: [])
+            app.typeText("Cell")
+            app.typeKey("c", modifierFlags: [.command, .shift])
+            expectClipboard { $0.contains("| Name | Date |") && $0.contains("---") && $0.contains("Cell") }
+        }
+
+        app.typeKey("n", modifierFlags: .command)
+        app.typeText("/heading")
+        app.typeKey(.return, modifierFlags: [])
+        expectText("/heading", in: editor)
+        app.typeText("[[No note suggestions]]")
+        expectText("[[No note suggestions]]", in: editor)
+        attach(app, name: "InkKit editing preferences")
+    }
+
     func testExistingMemoSelectionReadsUntilClickAndNewMemoComposes() throws {
         let fixture = try launchMemos()
         let app = fixture.app

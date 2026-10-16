@@ -25,6 +25,7 @@ protocol Editing: AnyObject {
     /// Shows the markdown of the memo already open, keeping the caret and the scroll where they are.
     func reload(_ markdown: String)
     func format(_ command: FormatCommand, argument: String?)
+    func moveBlock(up: Bool)
     func releaseFocus()
     func focus()
     func find(_ text: String)
