@@ -73,11 +73,6 @@ final class EditorController: NSObject, Editing {
 
     init(images: any ImageStore) {
         self.images = images
-        // WebKit's native substitutions run independently of InkKit's input rules.
-        UserDefaults.standard.register(defaults: [
-            "WebAutomaticQuoteSubstitutionEnabled": false,
-            "WebAutomaticDashSubstitutionEnabled": false,
-        ])
         let configuration = WKWebViewConfiguration()
         configuration.preferences.isElementFullscreenEnabled = false
         let handler = ImageSchemeHandler(images: images)
@@ -168,7 +163,7 @@ final class EditorController: NSObject, Editing {
 
     func moveBlock(up: Bool) {
         guard caret.commands[up ? "moveBlockUp" : "moveBlockDown"] == true else { return }
-        guardedCall("moveBlock", json(up ? "up" : "down"), String(generation))
+        guardedCall("moveBlock", json(up ? "up" : "down"), String(generation), requiringFocus: true)
     }
 
     func releaseFocus() {

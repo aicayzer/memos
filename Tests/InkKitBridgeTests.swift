@@ -8,10 +8,18 @@ import PDFKit
 struct InkKitBridgeTests {
     @Test func blockMovementUsesScopedCommandsAndRetainsCRLF() async throws {
         let editor = EditorController(images: FakeImageStore())
+        let window = ReadingPanel(contentRect: NSRect(x: 100, y: 100, width: 500, height: 600),
+                                  styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = editor.webView
+        defer { window.orderOut(nil); window.contentView = nil; window.close() }
+        window.makeKeyAndOrderFront(nil)
         editor.documentID = "moving"
         let source = "First\r\n\r\nSecond\r\n"
         editor.load(source)
         #expect(try await editor.snapshot() == source)
+        editor.focus()
+        #expect(editor.webView.ownsFirstResponder(in: NSApp.keyWindow))
         _ = try await editor.webView.evaluateJavaScript("window.editor.find('Second', 1)")
         for _ in 0..<200 {
             if editor.caret.commands["moveBlockUp"] == true { break }
@@ -41,10 +49,20 @@ struct InkKitBridgeTests {
             try await Task.sleep(for: .milliseconds(20))
         }
         #expect(editor.caret.commands["moveBlockUp"] == true)
+        _ = try await editor.webView.evaluateJavaScript("""
+        window.moveAttempts = [];
+        const move = window.editor.moveBlock;
+        window.editor.moveBlock = (...args) => { window.moveAttempts.push(args); return move(...args) };
+        true
+        """)
         editor.moveBlock(up: true)
         editor.documentID = "next"
-        editor.load("Keep the next memo\r\n")
-        #expect(try await editor.snapshot() == "Keep the next memo\r\n")
+        let next = "Next first\r\n\r\nNext second\r\n"
+        editor.load(next)
+        #expect(try await editor.snapshot() == next)
+        // The facade also rejects stale generations, so unchanged text alone cannot prove native cancellation.
+        let attempts = try await editor.webView.evaluateJavaScript("window.moveAttempts.length") as? Int
+        #expect(attempts == 0)
     }
 
     private final class ReadingPanel: NSPanel {
