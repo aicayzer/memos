@@ -163,7 +163,7 @@ const editor = await InkKitEditor.mount(
     },
     clipboard: writeClipboard,
   },
-  { images },
+  { images, textInput: { smartPunctuation: false }, slashMenu: { enabled: false } },
 )
 function command<T>(operation: () => T): T | { commandError: string; message: string } {
   try {
@@ -254,6 +254,8 @@ const facade = {
   clipboard: () => editor.clipboardSnapshot('document', generation),
   format: (name: FormatCommand, destination: string | null, expected: number) =>
     command(() => editor.format(name, destination ? { destination } : undefined, expected)),
+  moveBlock: (direction: 'up' | 'down', expected: number) =>
+    command(() => editor.moveBlock(direction, expected)),
   focus: (expected: number) => command(() => editor.focus(expected)),
   // Native responder resignation does not clear WebKit's retained DOM text focus.
   blur: (expected: number) => command(() => editor.blur(expected)),

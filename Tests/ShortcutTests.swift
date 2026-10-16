@@ -240,6 +240,8 @@ import Testing
         let keymap = settings.editorKeymap
         #expect(Set(keymap.keys) == Set(Shortcut.editor.map(\.rawValue)))
         #expect(keymap["bulletList"] == ["Mod-l", "Alt-Mod-8"])
+        #expect(keymap["moveBlockUp"] == ["Alt-ArrowUp"])
+        #expect(keymap["moveBlockDown"] == ["Alt-ArrowDown"])
         #expect(keymap["newMemo"] == nil)
     }
 }

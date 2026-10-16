@@ -161,6 +161,11 @@ final class EditorController: NSObject, Editing {
         guardedCall("format", json(command.rawValue), argument.map { json($0) } ?? "null", String(generation))
     }
 
+    func moveBlock(up: Bool) {
+        guard caret.commands[up ? "moveBlockUp" : "moveBlockDown"] == true else { return }
+        guardedCall("moveBlock", json(up ? "up" : "down"), String(generation))
+    }
+
     func releaseFocus() {
         wantsFocus = false
         if pageReady { call("blur", String(generation)) }

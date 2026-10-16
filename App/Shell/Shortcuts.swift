@@ -9,7 +9,7 @@ private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "sh
 enum Shortcut: String, CaseIterable, Identifiable {
     case newMemo, duplicate, delete, favorite, browse, back, forward, copyMarkdown, saveAs, find, palette, sidePane
     case heading1, heading2, heading3, paragraph, bold, italic, strikethrough, code, codeBlock, quote
-    case bulletList, orderedList, taskList
+    case bulletList, orderedList, taskList, moveBlockUp, moveBlockDown
 
     var id: String { rawValue }
 
@@ -19,7 +19,7 @@ enum Shortcut: String, CaseIterable, Identifiable {
         case .newMemo, .duplicate, .delete, .favorite, .browse, .back, .forward, .copyMarkdown, .saveAs, .find, .palette, .sidePane:
             false
         case .heading1, .heading2, .heading3, .paragraph, .bold, .italic, .strikethrough, .code, .codeBlock, .quote,
-             .bulletList, .orderedList, .taskList:
+             .bulletList, .orderedList, .taskList, .moveBlockUp, .moveBlockDown:
             true
         }
     }
@@ -54,6 +54,8 @@ enum Shortcut: String, CaseIterable, Identifiable {
         case .bulletList: "Bulleted List"
         case .orderedList: "Numbered List"
         case .taskList: "Task List"
+        case .moveBlockUp: "Move Up"
+        case .moveBlockDown: "Move Down"
         }
     }
 
@@ -85,6 +87,8 @@ enum Shortcut: String, CaseIterable, Identifiable {
         case .bulletList: [KeyCombo("l", [.command]), KeyCombo("8", [.option, .command])]
         case .orderedList: [KeyCombo("7", [.option, .command])]
         case .taskList: [KeyCombo("l", [.shift, .command])]
+        case .moveBlockUp: [KeyCombo("ArrowUp", [.option])]
+        case .moveBlockDown: [KeyCombo("ArrowDown", [.option])]
         }
     }
 }

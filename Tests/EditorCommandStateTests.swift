@@ -6,7 +6,7 @@ struct EditorCommandStateTests {
         let message = try #require(EditorMessage(body: [
             "type": "commandState", "documentId": "memo", "generation": 9, "mode": "source",
             "caret": ["marks": ["bold"], "block": ["type": "paragraph"], "quoted": false],
-            "commands": ["undo": true, "redo": false, "replace": true,
+            "commands": ["undo": true, "redo": false, "replace": true, "moveBlockUp": true, "moveBlockDown": false,
                          "format": ["bold": false], "table": ["moveRowUp": false]],
         ]))
         guard case .commandState(let state, let id, let generation) = message else {
@@ -16,6 +16,8 @@ struct EditorCommandStateTests {
         #expect(generation == 9)
         #expect(state.sourceMode)
         #expect(state.commands["undo"] == true)
+        #expect(state.commands["moveBlockUp"] == true)
+        #expect(state.commands["moveBlockDown"] == false)
         #expect(state.commands["format"] == nil)
         #expect(state.formats["bold"] == false)
         #expect(state.tables["moveRowUp"] == false)

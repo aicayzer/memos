@@ -4,6 +4,54 @@ import XCTest
 
 @MainActor
 final class MemosUITests: XCTestCase {
+    func testInkKitEditingPreferencesAndBlockMovement() throws {
+        let fixture = try launchMemos()
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
+        let previousClipboard = captureClipboard()
+        defer { restoreClipboard(previousClipboard) }
+
+        app.typeText("First block")
+        app.typeKey(.return, modifierFlags: [])
+        app.typeText("Second block")
+        app.typeKey(.upArrow, modifierFlags: .option)
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.hasPrefix("Second block\n\nFirst block") }
+        app.typeKey(.downArrow, modifierFlags: .option)
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.hasPrefix("First block\n\nSecond block") }
+
+        app.menuBars.menuBarItems["Format"].click()
+        app.menuItems["Move Up"].click()
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.hasPrefix("Second block\n\nFirst block") }
+        app.menuBars.menuBarItems["Format"].click()
+        app.menuItems["Move Down"].click()
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.hasPrefix("First block\n\nSecond block") }
+
+        for key in [XCUIKeyboardKey.return, .tab] {
+            app.typeKey("n", modifierFlags: .command)
+            app.typeText("| Name | Date |")
+            app.typeKey(key, modifierFlags: [])
+            app.typeText("Cell")
+            app.typeKey("c", modifierFlags: [.command, .shift])
+            expectClipboard { $0.contains("| Name | Date |") && $0.contains("---") && $0.contains("Cell") }
+        }
+
+        app.typeKey("n", modifierFlags: .command)
+        app.typeText("\"Straight\" 'quotes' -- dashes --- stay")
+        expectText("\"Straight\" 'quotes' -- dashes --- stay", in: editor)
+        app.typeKey(.return, modifierFlags: [])
+        app.typeText("/heading")
+        app.typeKey(.return, modifierFlags: [])
+        expectText("/heading", in: editor)
+        app.typeText("[[No note suggestions]]")
+        expectText("[[No note suggestions]]", in: editor)
+        attach(app, name: "InkKit editing preferences")
+    }
+
     func testExistingMemoSelectionReadsUntilClickAndNewMemoComposes() throws {
         let fixture = try launchMemos()
         let app = fixture.app

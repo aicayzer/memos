@@ -425,6 +425,8 @@ final class AppModel {
         case .bulletList: editor.format(.bulletList)
         case .orderedList: editor.format(.orderedList)
         case .taskList: editor.format(.taskList)
+        case .moveBlockUp: editor.moveBlock(up: true)
+        case .moveBlockDown: editor.moveBlock(up: false)
         }
     }
 

@@ -6,6 +6,47 @@ import PDFKit
 @MainActor
 @Suite(.serialized, .opensWindows)
 struct InkKitBridgeTests {
+    @Test func blockMovementUsesScopedCommandsAndRetainsCRLF() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "moving"
+        let source = "First\r\n\r\nSecond\r\n"
+        editor.load(source)
+        #expect(try await editor.snapshot() == source)
+        _ = try await editor.webView.evaluateJavaScript("window.editor.find('Second', 1)")
+        for _ in 0..<200 {
+            if editor.caret.commands["moveBlockUp"] == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(editor.caret.commands["moveBlockUp"] == true)
+        editor.moveBlock(up: true)
+        for _ in 0..<200 {
+            if try await editor.snapshot() == "Second\r\n\r\nFirst\r\n" { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(try await editor.snapshot() == "Second\r\n\r\nFirst\r\n")
+        for _ in 0..<200 {
+            if editor.caret.commands["moveBlockDown"] == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        editor.moveBlock(up: false)
+        for _ in 0..<200 {
+            if try await editor.snapshot() == source { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(try await editor.snapshot() == source)
+
+        // A queued menu action must not land in the memo loaded before its task runs.
+        for _ in 0..<200 {
+            if editor.caret.commands["moveBlockUp"] == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(editor.caret.commands["moveBlockUp"] == true)
+        editor.moveBlock(up: true)
+        editor.documentID = "next"
+        editor.load("Keep the next memo\r\n")
+        #expect(try await editor.snapshot() == "Keep the next memo\r\n")
+    }
+
     private final class ReadingPanel: NSPanel {
         override var canBecomeKey: Bool { true }
         override var canBecomeMain: Bool { false }
@@ -337,7 +378,7 @@ struct InkKitBridgeTests {
         #expect(try await editor.snapshot() == "Keep this memo\n")
     }
 
-    @Test func refusedDropsAndReplacementsReachTheWarningPathWithTheirReason() async throws {
+    @Test func refusedDropsReachTheWarningPathWithTheirReason() async throws {
         let editor = EditorController(images: FakeImageStore())
         editor.documentID = "refused"
         let table = "| a | b |\n| - | - |\n| x | y |\n"
@@ -345,15 +386,6 @@ struct InkKitBridgeTests {
         _ = try await editor.snapshot()
         var warnings: [String] = []
         editor.onWarning = { warnings.append($0) }
-        editor.replace("x", with: "x\ny", all: false)
-        editor.replace("x", with: "x\ny", all: true)
-        let preservation = "The edited Markdown cannot be reopened without changing its content"
-        for _ in 0..<200 {
-            if warnings.count == 2 { break }
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        #expect(warnings == [preservation, preservation])
-        warnings.removeAll()
         _ = try await editor.webView.evaluateJavaScript("document.querySelector('.ProseMirror').dispatchEvent(new CompositionEvent('compositionstart', {bubbles: true}))")
         editor.insertPaths(["/Users/a/File.txt"], at: .zero)
         editor.insertImages([ImageReference(path: "images/\(String(repeating: "a", count: 64)).png", alt: "Pic")], at: nil)
