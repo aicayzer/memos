@@ -159,9 +159,10 @@ struct KeyCombo: Hashable, Codable, Sendable {
 
     var isFunctionKey: Bool { key.hasPrefix("F") && key.count > 1 }
 
-    /// A character alone would type; a shortcut needs Command or Control, unless it is a function key.
+    /// A character alone would type; shortcuts need Command or Control, a function key, or Option with an arrow.
     var isShortcut: Bool {
         isFunctionKey || !modifiers.isDisjoint(with: [.command, .control])
+            || (modifiers.contains(.option) && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].contains(key))
     }
 
     /// A global hotkey is pressed with no text field in mind, so Option alone will do as well.
