@@ -1,0 +1,51 @@
+name: Release
+
+# Publishes the GitHub Release for an app tag. Xcode Cloud ships the build from
+# the same tag; this workflow only records it. CLI tags (`cli-v*`) do not match.
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Verify tag
+        run: |
+          version=$(sed -n 's/^[[:space:]]*MARKETING_VERSION: "\([0-9.]*\)"/\1/p' project.yml)
+          [ "${GITHUB_REF_NAME#v}" = "$version" ] || {
+            echo "Tag $GITHUB_REF_NAME does not match project version $version." >&2
+            exit 1
+          }
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+            echo "Tag $GITHUB_REF_NAME is not on main." >&2
+            exit 1
+          }
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists."
+            exit 0
+          fi
+          previous=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | grep -vx "$GITHUB_REF_NAME" | while read -r t; do
+            git merge-base --is-ancestor "$t" "$GITHUB_SHA" && echo "$t" && break
+          done)
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Memos ${GITHUB_REF_NAME#v}" \
+            --generate-notes \
+            ${previous:+--notes-start-tag "$previous"} \
+            --verify-tag
