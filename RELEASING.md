@@ -25,7 +25,7 @@ To release the app:
 
 1. Bump `MARKETING_VERSION` in `project.yml`, run `xcodegen generate`, and commit the generated files. Run `scripts/validate-release.sh vX.Y.Z` with the matching version.
 2. Merge the PR after CI passes. Create the matching `vX.Y.Z` tag on main and push the tag.
-3. Cloud archives, uploads, and distributes the build to internal testers. Confirm the Cloud run uses the tagged commit, then check App Store Connect for successful processing and availability to **Internal Testers**.
+3. The **Release** GitHub Actions workflow publishes the GitHub Release for the tag with generated notes. It fails if the tag does not match `MARKETING_VERSION` or is not on main. Cloud archives, uploads, and distributes the build to internal testers. Confirm the Cloud run uses the tagged commit, then check App Store Connect for successful processing and availability to **Internal Testers**.
 4. Install through TestFlight on the isolated test machine and verify the version, app behavior, and library before marking delivery complete.
 
 Apple references: [project requirements](https://developer.apple.com/documentation/xcode/setting-up-your-project-to-use-xcode-cloud), [distribution workflow](https://developer.apple.com/documentation/xcode/creating-a-workflow-that-builds-your-app-for-distribution), [build numbering](https://developer.apple.com/documentation/xcode/setting-the-next-build-number-for-xcode-cloud-builds), and [internal testing](https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers).
