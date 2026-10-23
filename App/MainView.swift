@@ -15,7 +15,7 @@ struct MainView: View {
                         .ignoresSafeArea(edges: .top)
                         .frame(minWidth: Chrome.paneWidth, idealWidth: model.sidePaneWidth, maxWidth: Chrome.maximumPaneWidth)
                         .background(SidebarInitialWidth(width: model.sidePaneWidth))
-                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { model.sidePaneWidth = $0 }
+                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { if model.sidePane { model.sidePaneWidth = $0 } }
                     editorPane.ignoresSafeArea(edges: .top)
                 }
             } else {

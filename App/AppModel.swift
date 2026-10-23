@@ -559,8 +559,12 @@ final class AppModel {
         showWindowIfHidden()
         // The frame first: a window narrower than its content is widened to the right, and setFrame is
         // not held to the minimum, so closing can shrink it before the content lets the minimum down.
+        let rememberedWidth = sidePaneWidth
         resizeWindow(forPane: !sidePane)
         sidePane.toggle()
+        // Shrinking the frame can compress the departing split view before it
+        // disappears. That layout is not a divider adjustment.
+        sidePaneWidth = rememberedWidth
         // Closing takes the search field with it; typing should land in the memo again.
         if !sidePane { editor.focus() }
     }
