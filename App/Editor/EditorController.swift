@@ -31,6 +31,7 @@ enum TextSize: Double, CaseIterable, Identifiable {
 @Observable
 final class EditorController: NSObject, Editing {
     private(set) var caret = CaretState()
+    private(set) var counts: EditorCounts?
     private(set) var isReady = false
     var allowsFocus = true
     var documentID = ""
@@ -58,6 +59,7 @@ final class EditorController: NSObject, Editing {
     @ObservationIgnored private var wantsFocus = false
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var refreshPreviousGeneration: Int?
+    @ObservationIgnored private var refreshCounts: [Int: (documentID: String, value: EditorCounts)] = [:]
     @ObservationIgnored private var refreshChanges: [(text: String, generation: Int, sequence: Int)] = []
     @ObservationIgnored private var lastChangeSequence = 0
     @ObservationIgnored private var loadTask: Task<Void, any Error>?
@@ -127,10 +129,12 @@ final class EditorController: NSObject, Editing {
         if !keepingCaret { wantsFocus = false }
         refreshPreviousGeneration = nil
         refreshChanges.removeAll()
+        refreshCounts.removeAll()
         generation += 1
         pendingMarkdown = markdown
         isReady = false
         caret = CaretState()
+        counts = nil
         guard pageReady else { return }
         applyDocument(markdown, keepingCaret: keepingCaret)
     }
@@ -360,11 +364,16 @@ final class EditorController: NSObject, Editing {
         documentID = nextDocumentID
         refreshPreviousGeneration = previousGeneration
         refreshChanges.removeAll()
+        refreshCounts.removeAll()
         isReady = false
         defer {
             if generation == nextGeneration || generation == previousGeneration {
+                if let buffered = refreshCounts[generation], buffered.documentID == documentID {
+                    counts = buffered.value
+                }
                 refreshPreviousGeneration = nil
                 refreshChanges.removeAll()
+                refreshCounts.removeAll()
             }
         }
         do {
@@ -593,6 +602,13 @@ final class EditorController: NSObject, Editing {
         case .commandState(let state, let documentID, let generation):
             guard generation == self.generation, documentID == self.documentID else { return }
             if state != caret { caret = state }
+        case .textCounts(let counts, let documentID, let generation):
+            if let previous = refreshPreviousGeneration, generation == previous || generation == self.generation {
+                refreshCounts[generation] = (documentID, counts)
+                return
+            }
+            guard generation == self.generation, documentID == self.documentID else { return }
+            self.counts = counts
         case .openLink(let href):
             if let url = URL(string: href), let scheme = url.scheme, ["http", "https", "mailto"].contains(scheme) {
                 onOpenLink(url)

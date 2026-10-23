@@ -6,6 +6,7 @@ import AppKit
 protocol Editing: AnyObject {
     /// The marks and block under the caret, for the formatting bar.
     var caret: CaretState { get }
+    var counts: EditorCounts? { get }
     var allowsFocus: Bool { get set }
     var documentID: String { get set }
 

@@ -18,7 +18,7 @@ struct TopRow: View {
                         .animation(.easeOut(duration: 0.15), value: active)
                         .accessibilityLabel("Favorite")
                 }
-                Text(Memo.abbreviated(model.title))
+                Text(model.title)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)

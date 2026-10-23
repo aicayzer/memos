@@ -520,3 +520,28 @@ describe('Memos editing preferences and block commands', () => {
     expect(saved()).toBe('First\r\n\r\nSecond\r\n')
   })
 })
+
+describe('native viewport and counts', () => {
+  it('registers the fade and formatting chrome as viewport insets', () => {
+    expect(inkkit.viewport().insets).toEqual({ top: 24, right: 0, bottom: 96, left: 0 })
+  })
+
+  it('counts readable graphemes and words with memo scope', async () => {
+    open('**Hello** café 👨‍👩‍👧‍👦\n\n<!-- hidden -->')
+    await Promise.resolve()
+    const snapshot = inkkit.textSnapshot(generation)
+    expect(snapshot.text).toBe('Hello café 👨‍👩‍👧‍👦')
+    expect(of('textCounts').at(-1)).toMatchObject({
+      documentId: snapshot.documentId,
+      generation,
+      characters: 12,
+      words: 2,
+    })
+    bridge().setEditingMode('source', generation)
+    await Promise.resolve()
+    expect(of('textCounts').at(-1)?.characters).toBeGreaterThan(12)
+    bridge().setEditingMode('formatted', generation)
+    await Promise.resolve()
+    expect(of('textCounts').at(-1)?.characters).toBe(12)
+  })
+})

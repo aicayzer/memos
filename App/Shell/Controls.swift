@@ -16,9 +16,9 @@ struct HoverHighlight<Content: View>: View {
 
 enum Chrome {
     static let rowHeight: CGFloat = 52
-    static let cornerRadius: CGFloat = 22
+    static let cornerRadius: CGFloat = 24
     static let paneWidth: CGFloat = 220
-    static let paneRoom = paneWidth + 1
+    static let maximumPaneWidth: CGFloat = 400
 }
 
 /// The size of the app's own controls: the title bar's actions, the formatting bar and the two glass

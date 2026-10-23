@@ -138,10 +138,45 @@ function writeClipboard(output: ClipboardOutput): Promise<void> {
     })
   })
 }
+const characterSegments = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+const wordSegments = new Intl.Segmenter(undefined, { granularity: 'word' })
+let countsEditor: InkKitEditor | undefined
+let countsPending = false
+let countedText: { text: string; documentId: string; generation: number } | undefined
+function scheduleCounts(): void {
+  if (countsPending) return
+  countsPending = true
+  queueMicrotask(() => {
+    countsPending = false
+    if (!countsEditor) return
+    try {
+      const snapshot = countsEditor.textSnapshot(generation)
+      if (
+        countedText?.text === snapshot.text &&
+        countedText.documentId === snapshot.documentId &&
+        countedText.generation === snapshot.generation
+      )
+        return
+      countedText = snapshot
+      post({
+        type: 'textCounts',
+        documentId: snapshot.documentId,
+        generation: snapshot.generation,
+        characters: Array.from(characterSegments.segment(snapshot.text)).length,
+        words: Array.from(wordSegments.segment(snapshot.text)).filter((part) => part.isWordLike)
+          .length,
+      })
+    } catch (error) {
+      // Composition and pending imports do not replace a valid count with zero.
+      if (!(error instanceof InkKitError) || !retryableSnapshotCodes.has(error.code)) throw error
+    }
+  })
+}
 const editor = await InkKitEditor.mount(
   root,
   {
     changed(snapshot) {
+      scheduleCounts()
       post({
         type: 'changed',
         markdown: snapshot.text,
@@ -150,6 +185,7 @@ const editor = await InkKitEditor.mount(
       })
     },
     commandStateChanged(state) {
+      scheduleCounts()
       post({ type: 'commandState', ...state })
     },
     openLink(href) {
@@ -165,6 +201,8 @@ const editor = await InkKitEditor.mount(
   },
   { images, textInput: { smartPunctuation: false }, slashMenu: { enabled: false } },
 )
+countsEditor = editor
+editor.setViewport({ scrollContainer: root, insets: { top: 24, bottom: 96 } })
 function command<T>(operation: () => T): T | { commandError: string; message: string } {
   try {
     return operation()
@@ -178,10 +216,12 @@ const facade = {
   load(text: string, nextGeneration: number, documentId = String(nextGeneration)) {
     editor.loadDocument({ text, generation: nextGeneration, documentId, format: 'md' })
     generation = nextGeneration
+    scheduleCounts()
   },
   reload(text: string, nextGeneration: number, documentId = String(nextGeneration)) {
     editor.reloadDocument({ text, generation: nextGeneration, documentId, format: 'md' })
     generation = nextGeneration
+    scheduleCounts()
   },
   rebind(
     expectedGeneration: number,
@@ -211,6 +251,7 @@ const facade = {
       format: 'md',
     })
     generation = nextGeneration
+    scheduleCounts()
     return { ...snapshot, generation: nextGeneration, documentId }
   },
   refresh(
@@ -240,6 +281,7 @@ const facade = {
       return { ...snapshot, applied: false, sequence: changeSequence }
     editor.reloadDocument({ text, generation: nextGeneration, documentId, format: 'md' })
     generation = nextGeneration
+    scheduleCounts()
     return { text, applied: true, generation: nextGeneration, documentId, sequence: changeSequence }
   },
   snapshot(expectedGeneration: number) {
@@ -251,6 +293,7 @@ const facade = {
       throw error
     }
   },
+  viewport: () => editor.viewport(),
   clipboard: () => editor.clipboardSnapshot('document', generation),
   format: (name: FormatCommand, destination: string | null, expected: number) =>
     command(() => editor.format(name, destination ? { destination } : undefined, expected)),

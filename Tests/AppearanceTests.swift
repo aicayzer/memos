@@ -81,4 +81,30 @@ import Testing
         model.windowTint = .red
         #expect(!model.appearanceIsDefault)
     }
+    @Test func countVisibilityAndUnitAreRememberedAndReset() {
+        let (model, defaults) = model()
+        #expect(model.showEditorCount)
+        #expect(model.editorCountUnit == .characters)
+        model.showEditorCount = false
+        model.editorCountUnit = .words
+        let again = open(defaults)
+        #expect(!again.showEditorCount)
+        #expect(again.editorCountUnit == .words)
+        #expect(!again.appearanceIsDefault)
+        again.resetAppearance()
+        #expect(again.showEditorCount)
+        #expect(again.editorCountUnit == .characters)
+    }
+
+    @Test func sidebarWidthDefaultsTo220AndRestoresWithinBounds() {
+        let (model, defaults) = model()
+        #expect(model.sidePaneWidth == 220)
+        model.sidePaneWidth = 300
+        #expect(open(defaults).sidePaneWidth == 300)
+        defaults.set(900, forKey: "sidePaneWidth")
+        #expect(open(defaults).sidePaneWidth == 400)
+        defaults.set(100, forKey: "sidePaneWidth")
+        #expect(open(defaults).sidePaneWidth == 220)
+    }
+
 }

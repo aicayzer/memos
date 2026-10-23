@@ -31,9 +31,9 @@ struct Memo: Identifiable, Codable, Equatable, Sendable {
         return name + ".md"
     }
 
-    /// The title as the title bar shows it: at most `limit` characters and an ellipsis. A cut inside a word
+    /// A shortened title for confirmation dialogs: at most `limit` characters and an ellipsis. A cut inside a word
     /// falls back to the end of the word before, unless that would give up most of the room.
-    static func abbreviated(_ title: String, to limit: Int = 20) -> String {
+    static func abbreviated(_ title: String, to limit: Int) -> String {
         guard title.count > limit else { return title }
         var cut = title.prefix(limit)
         if !title[cut.endIndex].isWhitespace, let space = cut.lastIndex(where: \.isWhitespace),

@@ -97,4 +97,12 @@ import Testing
     @Test func emptyListHasNoGroups() {
         #expect(MemoGroup.grouped([], now: now, calendar: calendar).isEmpty)
     }
+    @Test func favoritesAppearOnlyInTheirOwnSection() {
+        let starred = memo("starred", daysAgo: 0, favorite: true)
+        let ordinary = memo("today", daysAgo: 0)
+        let groups = MemoGroup.grouped([starred, ordinary], now: now, calendar: calendar)
+        #expect(groups.map(\.title) == ["Favorites", "Today"])
+        #expect(groups.flatMap(\.memos).map(\.id) == [starred.id, ordinary.id])
+    }
+
 }
