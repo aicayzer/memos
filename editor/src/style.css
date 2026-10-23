@@ -18,7 +18,7 @@ body {
   --inkkit-font-size: 1rem;
   --inkkit-line-height: 1.55;
   --inkkit-min-height: 100vh;
-  --inkkit-padding-top: 8px;
+  --inkkit-padding-top: 24px;
   --inkkit-padding-inline: 24px;
   --inkkit-padding-bottom: 96px;
   /* One Light and One Dark, as Memos has always drawn code. */
@@ -31,6 +31,8 @@ body {
   overflow-y: auto;
   -webkit-mask-image: linear-gradient(
     to bottom,
+    transparent 0,
+    black 24px,
     black calc(100% - 96px),
     transparent calc(100% - 16px)
   );

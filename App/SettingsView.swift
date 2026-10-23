@@ -162,6 +162,7 @@ struct SettingsView: View {
                     Text("Standard").tag(true)
                 }
                 .tint(.primary)
+                Toggle("Show character or word count", isOn: $model.showEditorCount)
                 Picker("Text size", selection: $model.textSize) {
                     ForEach(TextSize.allCases) { size in
                         Text(size.title).tag(size.points)

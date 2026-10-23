@@ -25,6 +25,17 @@ import Testing
         #expect(destinations.allSatisfy { !$0.restoresEditor })
     }
 
+    @Test func favoritingAnotherMemoDoesNotChangeTheOpenMemo() async throws {
+        let (model, store, _) = await model("Open", "Other")
+        let opened = try #require(model.current)
+        let other = try #require(try await store.list(matching: nil).first { $0.id != opened.id })
+        await model.toggleFavorite(other)
+        #expect(model.current?.id == opened.id)
+        #expect(model.current?.favorite == opened.favorite)
+        let saved = try #require(try await store.list(matching: nil).first { $0.id == other.id })
+        #expect(saved.favorite)
+    }
+
     @Test func selectionReadsAndNewMemoComposes() async throws {
         let (model, _, editor) = await model("Existing memo")
         let existing = try #require(model.current?.id)

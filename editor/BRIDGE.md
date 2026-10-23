@@ -47,3 +47,11 @@ Format menu items for editor shortcuts are disabled unless the editor owns the f
 InkKit throws from a facade call that it refuses, and sends nothing to its error event. The bridge returns `commandError` and `message` instead, and native code shows that message through the same warning path as any other refused edit. Edits the person makes, such as typing or a shortcut, arrive as `editorWarning` through InkKit's error event. `pasteNative` has no reply to carry a refusal, so the page posts its rejection as `editorWarning` itself, as it does for a copy whose images were unavailable.
 
 `printable(generation)` awaits `printableSnapshot` and returns scoped `html`, `revision` and `warnings`, or `snapshotError` and `message`. HTML is a complete frozen portable document, with images embedded. Native printing awaits a fresh source snapshot, validates the print scope, loads HTML in a separate retained web view, waits for fonts and image decoding, then rechecks the live revision before presenting the standard Print panel with its PDF option. Failures do not print partial content or alter the memo.
+
+## Reading viewport and counts
+
+The host registers the scrolling editor root with `setViewport`, with 24 CSS pixels at the top for the fade and 96 at the bottom for the formatting bar and count. InkKit uses these insets when revealing the caret and search results.
+
+The page posts `textCounts` with `documentId`, `generation`, `characters`, and `words`. Counts come from InkKit's public `textSnapshot()`: formatted text omits Markdown delimiters and hidden comments; source mode counts the literal text it displays. Characters are Unicode grapheme clusters, including spaces and line breaks. Words use `Intl.Segmenter` word boundaries. The native controller rejects counts for another memo or generation. Composition and pending imports retain the last valid count until the editor can report again.
+
+Appearance settings can hide the count. The count also hides while the formatting bar is open. The bottom-center count toggles between characters and words, and the selected unit is remembered.

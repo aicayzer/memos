@@ -1,5 +1,20 @@
 import Foundation
 
+enum EditorCountUnit: String {
+    case characters, words
+}
+
+struct EditorCounts: Equatable, Sendable {
+    let characters: Int
+    let words: Int
+
+    func label(for unit: EditorCountUnit) -> String {
+        let value = unit == .characters ? characters : words
+        let name = unit == .characters ? (value == 1 ? "character" : "characters") : (value == 1 ? "word" : "words")
+        return "\(value.formatted()) \(name)"
+    }
+}
+
 enum Mark: String, Sendable {
     case bold, italic, strikethrough, code, link
 }
@@ -33,6 +48,7 @@ enum EditorMessage: Sendable {
     case ready
     case changed(String, generation: Int, sequence: Int? = nil)
     case commandState(CaretState, documentID: String, generation: Int)
+    case textCounts(EditorCounts, documentID: String, generation: Int)
     case openLink(String)
     case copy(String)
     case warning(String)
@@ -56,6 +72,12 @@ enum EditorMessage: Sendable {
             state.formats = commands["format"] as? [String: Bool] ?? [:]
             state.tables = commands["table"] as? [String: Bool] ?? [:]
             self = .commandState(state, documentID: documentID, generation: generation)
+        case "textCounts":
+            guard let documentID = dict["documentId"] as? String,
+                  let generation = dict["generation"] as? Int,
+                  let characters = dict["characters"] as? Int, characters >= 0,
+                  let words = dict["words"] as? Int, words >= 0 else { return nil }
+            self = .textCounts(EditorCounts(characters: characters, words: words), documentID: documentID, generation: generation)
         case "openLink":
             guard let href = dict["href"] as? String else { return nil }
             self = .openLink(href)

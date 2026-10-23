@@ -52,17 +52,22 @@ struct SidePane: View {
             .glassEffect(.regular, in: .capsule)
             .padding(.horizontal, 12)
             ScrollView {
-                LazyVStack(spacing: 0) {
+                LazyVStack(spacing: 4) {
                     ForEach(groups) { group in
                         Section {
                             ForEach(group.memos) { memo in
-                                Button { open(memo) } label: { HoverHighlight { row(memo) } }
+                                Button { open(memo) } label: { row(memo) }
+                                    .contextMenu {
+                                        Button(memo.favorite ? "Unfavorite Memo" : "Favorite Memo") {
+                                            Task { await model.toggleFavorite(memo) }
+                                        }
+                                    }
                                     .buttonStyle(.plain)
                                     .accessibilityAddTraits(memo.id == model.current?.id ? .isSelected : [])
                             }
                         } header: {
                             Text(group.title)
-                                .font(.subheadline.weight(.semibold))
+                                .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 8)
                                 .padding(.top, 14)
@@ -76,7 +81,6 @@ struct SidePane: View {
                 .padding(.bottom, 8)
             }
         }
-        .frame(width: Chrome.paneWidth)
         // The store changes on save, on favoriting and from outside, so those and the query drive the list, and
         // the day, since the sections follow it; the title of the memo being edited comes from the model until then.
         .task(id: RefreshKey(query: query, memo: model.current, day: day, store: model.storeGeneration)) {
@@ -107,26 +111,9 @@ struct SidePane: View {
 
     private func row(_ memo: Memo) -> some View {
         let isCurrent = memo.id == model.current?.id
-        return HStack(spacing: 8) {
-            Image(systemName: memo.favorite ? "star.fill" : "doc.text")
-                .frame(width: 16)
-                .foregroundStyle(memo.favorite && active ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(isCurrent ? model.title : memo.title)
-                    .lineLimit(1)
-                Text(memo.updatedAt.formatted(.relative(presentation: .named)))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
+        return TimelineView(.periodic(from: .now, by: 60)) { context in
+            MemoSidebarRow(title: isCurrent ? model.title : memo.title, updatedAt: memo.updatedAt, selected: isCurrent, now: context.date)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(isCurrent ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 8))
-        .contentShape(.rect)
     }
 
     private func open(_ memo: Memo) {

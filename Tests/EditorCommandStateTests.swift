@@ -41,4 +41,19 @@ struct EditorCommandStateTests {
     @Test func unscopedCommandStateIsRejected() {
         #expect(EditorMessage(body: ["type": "commandState", "generation": 1]) == nil)
     }
+    @Test func countMessagesRequireScopeAndNonnegativeValues() throws {
+        let body: [String: Any] = ["type": "textCounts", "documentId": "memo", "generation": 2, "characters": 17, "words": 3]
+        let message = try #require(EditorMessage(body: body))
+        guard case .textCounts(let counts, let id, let generation) = message else {
+            Issue.record("Expected scoped text counts"); return
+        }
+        #expect(id == "memo")
+        #expect(generation == 2)
+        #expect(counts == EditorCounts(characters: 17, words: 3))
+        #expect(EditorMessage(body: body.merging(["characters": -1]) { _, new in new }) == nil)
+        #expect(EditorMessage(body: body.filter { $0.key != "documentId" }) == nil)
+        #expect(EditorCounts(characters: 1, words: 0).label(for: .characters) == "1 character")
+        #expect(EditorCounts(characters: 1, words: 0).label(for: .words) == "0 words")
+    }
+
 }

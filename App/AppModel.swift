@@ -52,8 +52,20 @@ final class AppModel {
         didSet { defaults.set(formatBarHidden, forKey: Self.formatBarHiddenKey) }
     }
 
+    var showEditorCount: Bool {
+        didSet { defaults.set(showEditorCount, forKey: Self.showEditorCountKey) }
+    }
+
+    var editorCountUnit: EditorCountUnit {
+        didSet { defaults.set(editorCountUnit.rawValue, forKey: Self.editorCountUnitKey) }
+    }
+
     /// Open and closed within a session; each launch starts from the setting.
     var sidePane: Bool
+
+    var sidePaneWidth: CGFloat {
+        didSet { defaults.set(sidePaneWidth, forKey: Self.sidePaneWidthKey) }
+    }
 
     var sidePaneAtLaunch: Bool {
         didSet { defaults.set(sidePaneAtLaunch, forKey: Self.sidePaneAtLaunchKey) }
@@ -97,7 +109,7 @@ final class AppModel {
 
     var appearanceIsDefault: Bool {
         textSize == Self.defaultTextSize && !standardControls && windowOpacity == Self.defaultWindowOpacity
-            && !advancedAppearance && windowTint == nil && windowBlur
+            && !advancedAppearance && windowTint == nil && windowBlur && showEditorCount && editorCountUnit == .characters
     }
 
     func resetAppearance() {
@@ -107,6 +119,8 @@ final class AppModel {
         advancedAppearance = false
         windowTint = nil
         windowBlur = true
+        showEditorCount = true
+        editorCountUnit = .characters
     }
 
     var accent: Accent {
@@ -156,6 +170,9 @@ final class AppModel {
     private static let lastMemoKey = "lastMemoID"
     private static let floatingKey = "floating"
     private static let formatBarHiddenKey = "formatBarHidden"
+    private static let showEditorCountKey = "showEditorCount"
+    private static let editorCountUnitKey = "editorCountUnit"
+    private static let sidePaneWidthKey = "sidePaneWidth"
     private static let sidePaneAtLaunchKey = "sidePaneAtLaunch"
     /// Whether the autosaved frame has room for the pane.
     private static let paneRoomKey = "paneRoom"
@@ -198,6 +215,10 @@ final class AppModel {
         floating = defaults.object(forKey: Self.floatingKey) as? Bool ?? true
         #endif
         formatBarHidden = defaults.object(forKey: Self.formatBarHiddenKey) as? Bool ?? true
+        showEditorCount = defaults.object(forKey: Self.showEditorCountKey) as? Bool ?? true
+        editorCountUnit = defaults.string(forKey: Self.editorCountUnitKey).flatMap(EditorCountUnit.init(rawValue:)) ?? .characters
+        let storedPaneWidth = defaults.object(forKey: Self.sidePaneWidthKey) as? Double ?? Chrome.paneWidth
+        sidePaneWidth = storedPaneWidth.isFinite ? min(Chrome.maximumPaneWidth, max(Chrome.paneWidth, storedPaneWidth)) : Chrome.paneWidth
         let paneAtLaunch = defaults.bool(forKey: Self.sidePaneAtLaunchKey)
         sidePaneAtLaunch = paneAtLaunch
         sidePane = paneAtLaunch
@@ -297,11 +318,18 @@ final class AppModel {
 
     func toggleFavorite() async {
         guard let current else { return }
+        await toggleFavorite(current)
+    }
+
+    func toggleFavorite(_ memo: Memo) async {
         do {
             // The file's memo may lag an edit that has not saved yet; only the flag is taken from it.
-            let saved = try await store.setFavorite(current.id, !current.favorite)
-            self.current?.favorite = saved.favorite
-            self.current?.updatedAt = saved.updatedAt
+            let saved = try await store.setFavorite(memo.id, !memo.favorite)
+            if current?.id == memo.id {
+                current?.favorite = saved.favorite
+                current?.updatedAt = saved.updatedAt
+            }
+            storeGeneration += 1
         } catch {
             report(error)
         }
@@ -511,7 +539,7 @@ final class AppModel {
             sharePicker = picker
             NSApp.activate()
             // The hosting view is flipped, so the top row is the first row-height from y = 0.
-            let left = sidePane ? Chrome.paneRoom : 0
+            let left = sidePane ? (sidePaneWidth + 1) : 0
             let bounds = contentView.bounds
             let top = contentView.isFlipped ? bounds.minY : bounds.maxY - Chrome.rowHeight
             let anchor = NSRect(x: (left + bounds.maxX) / 2 - 1, y: top, width: 2, height: Chrome.rowHeight)
@@ -531,8 +559,12 @@ final class AppModel {
         showWindowIfHidden()
         // The frame first: a window narrower than its content is widened to the right, and setFrame is
         // not held to the minimum, so closing can shrink it before the content lets the minimum down.
+        let rememberedWidth = sidePaneWidth
         resizeWindow(forPane: !sidePane)
         sidePane.toggle()
+        // Shrinking the frame can compress the departing split view before it
+        // disappears. That layout is not a divider adjustment.
+        sidePaneWidth = rememberedWidth
         // Closing takes the search field with it; typing should land in the memo again.
         if !sidePane { editor.focus() }
     }
@@ -540,7 +572,7 @@ final class AppModel {
     /// The pane takes its room on the left, so the memo stays where it is, and gives it back on closing.
     private func resizeWindow(forPane open: Bool) {
         guard let window else { return }
-        let delta = open ? Chrome.paneRoom : -Chrome.paneRoom
+        let delta = open ? (sidePaneWidth + 1) : -(sidePaneWidth + 1)
         var frame = window.frame
         frame.origin.x -= delta
         frame.size.width += delta

@@ -250,7 +250,7 @@ struct InkKitBridgeTests {
             #expect(abs((value?["heading"] as? Double ?? 0) - Double(size) * 1.733) < 0.01)
             #expect(abs((value?["code"] as? Double ?? 0) - Double(size) * 0.88) < 0.01)
             #expect(abs((value?["spacing"] as? Double ?? 0) - Double(size) * 0.667) < 0.01)
-            #expect(value?["top"] as? Double == 8)
+            #expect(value?["top"] as? Double == 24)
             #expect(value?["inline"] as? Double == 24)
             #expect(value?["bottom"] as? Double == 96)
             #expect((value?["height"] as? Double ?? 0) >= 600)

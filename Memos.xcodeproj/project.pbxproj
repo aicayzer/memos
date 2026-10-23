@@ -26,6 +26,7 @@
 		3452F057291ADD4BEB2D8C06 /* Shortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E162F8F4756E2EA22E83E98 /* Shortcuts.swift */; };
 		39ABE4C20FF2B7C72665348F /* SpotlightTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7970D35200D9E2932F36915 /* SpotlightTests.swift */; };
 		39B03FB1849A62068709063D /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = B6C33BE6E7B693C053C9A19E /* AppIcon.icon */; };
+		404F1B7378EAAF151921087F /* SidebarInitialWidth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80104140CA2F4D6865F8DA64 /* SidebarInitialWidth.swift */; };
 		411771A8E826DD1B9EAFBF6E /* ShortcutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9B9255280795EB7565DB71 /* ShortcutTests.swift */; };
 		44300EA67958A93411D27606 /* AppIconDEV.icon in Resources */ = {isa = PBXBuildFile; fileRef = 70496F5B36747D845ED79F7F /* AppIconDEV.icon */; };
 		474BC584BADC2247332C1B90 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = C343BCB5B9B579D65A02896E /* Colors.swift */; };
@@ -58,6 +59,7 @@
 		8DFD09DC341C4A3E4E3BFD6E /* Fakes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4967B82863FF5C8D7D97748C /* Fakes.swift */; };
 		908B23CEB7AC146457BB96FE /* StorageSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08C157E367F3348B8D4A6E9A /* StorageSettings.swift */; };
 		954DE2EDE37756D8A1624FA6 /* ImageSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99DE3FDE8424BB483007AFF2 /* ImageSchemeHandler.swift */; };
+		96A70CB9C205FE4AD175B19D /* EditorPolishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C65E47D8D17B043460A8C31 /* EditorPolishTests.swift */; };
 		97FDC2843CE196FAA55B70F7 /* MemoLookupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E2284D64483232E354776B /* MemoLookupTests.swift */; };
 		9D13E5B1B340E08B10204980 /* MemoClipboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3D382FA7A99CF70E224EE1F /* MemoClipboard.swift */; };
 		9FCEE35530D2A1F05440E759 /* Memos.swift in Sources */ = {isa = PBXBuildFile; fileRef = 776CB9FF3A35F66C689EC57B /* Memos.swift */; };
@@ -68,6 +70,7 @@
 		AB5456E80E4656F9132F78B7 /* MemosApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA9B6EDD2C6EDBDDE2450573 /* MemosApp.swift */; };
 		AE762C526F51C012C319BA8E /* StoreChangeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551119FC8448D84284945CB /* StoreChangeTests.swift */; };
 		B5E24BF80A80E70ADC5D8457 /* SpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C8A003C5B2D4F590CFFA134 /* SpotlightIndexer.swift */; };
+		BF7928875C9DE48397627FD1 /* MemoSidebarRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 871EB32A1BC47B20AD38F0E0 /* MemoSidebarRow.swift */; };
 		C4585781C6611811831A867F /* AppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05750D9C590C4B72C13E50A6 /* AppearanceTests.swift */; };
 		C5FA205EFDD709B35C5A109E /* SidePane.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA9C9F8E917B0816065D8A3 /* SidePane.swift */; };
 		C6ED2FAC0E485F2AD2188E03 /* FormatBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF4205A779A5AB50860003B7 /* FormatBar.swift */; };
@@ -131,6 +134,7 @@
 		35C56DBF2F2A260DBF0F4DAB /* MemoGroups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoGroups.swift; sourceTree = "<group>"; };
 		37CA2C61606EFE9D2CF07C73 /* PaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaletteView.swift; sourceTree = "<group>"; };
 		3946CB52E8848F6024E48147 /* OpensWindows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpensWindows.swift; sourceTree = "<group>"; };
+		3C65E47D8D17B043460A8C31 /* EditorPolishTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorPolishTests.swift; sourceTree = "<group>"; };
 		3D4E9CD2E15E0E85C52B7900 /* Memos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Memos.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4316BBA76AAFFA21B400BF0E /* MemosTool */ = {isa = PBXFileReference; includeInIndex = 0; path = MemosTool; sourceTree = BUILT_PRODUCTS_DIR; };
 		44656B1C04E0FE952B982163 /* PasteRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteRoutingTests.swift; sourceTree = "<group>"; };
@@ -148,7 +152,9 @@
 		776CB9FF3A35F66C689EC57B /* Memos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Memos.swift; sourceTree = "<group>"; };
 		7B0563CDCB30A3EF9BD37792 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		7C3A035C50905967B389C3E4 /* LibraryWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryWatcher.swift; sourceTree = "<group>"; };
+		80104140CA2F4D6865F8DA64 /* SidebarInitialWidth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarInitialWidth.swift; sourceTree = "<group>"; };
 		84F15876092AE4444B4305FC /* MemoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoStore.swift; sourceTree = "<group>"; };
+		871EB32A1BC47B20AD38F0E0 /* MemoSidebarRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSidebarRow.swift; sourceTree = "<group>"; };
 		8DC15BDEEE2675CE6130F754 /* AppCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommands.swift; sourceTree = "<group>"; };
 		8EC46701C5A7D8FCC219FAB5 /* Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Actions.swift; sourceTree = "<group>"; };
 		90580D16D27897966CB47F58 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -274,10 +280,12 @@
 				BDAAB701DEDB68675A9CF639 /* Hotkeys.swift */,
 				5C74C77B82BBFA275595D792 /* KeyRecorder.swift */,
 				B4EED5D9186DDC795388F687 /* MemoPanel.swift */,
+				871EB32A1BC47B20AD38F0E0 /* MemoSidebarRow.swift */,
 				4F22224F5D6D601AA05F118D /* Overlay.swift */,
 				92EA905B164821C4F7D97061 /* OverlaySearchField.swift */,
 				37CA2C61606EFE9D2CF07C73 /* PaletteView.swift */,
 				6E162F8F4756E2EA22E83E98 /* Shortcuts.swift */,
+				80104140CA2F4D6865F8DA64 /* SidebarInitialWidth.swift */,
 				EDA9C9F8E917B0816065D8A3 /* SidePane.swift */,
 				AC2786CCFEEE5A203C75DE51 /* TopRow.swift */,
 				2E9FDD1B0167BFFF1F4916F9 /* WindowBackdrop.swift */,
@@ -293,6 +301,7 @@
 				05750D9C590C4B72C13E50A6 /* AppearanceTests.swift */,
 				1CA8E50B55DA8FA70DF9F182 /* ColorsTests.swift */,
 				E539466B536FBFA433610F93 /* EditorCommandStateTests.swift */,
+				3C65E47D8D17B043460A8C31 /* EditorPolishTests.swift */,
 				4967B82863FF5C8D7D97748C /* Fakes.swift */,
 				A173D37EC0A86D02131CA004 /* HistoryTests.swift */,
 				B4868C3588A4BF8D32BD9961 /* ImageStoreTests.swift */,
@@ -569,6 +578,7 @@
 				C4585781C6611811831A867F /* AppearanceTests.swift in Sources */,
 				5FAD7EEB65EF90A092C2BAF5 /* ColorsTests.swift in Sources */,
 				FCEA8AF13ED87D9953293E34 /* EditorCommandStateTests.swift in Sources */,
+				96A70CB9C205FE4AD175B19D /* EditorPolishTests.swift in Sources */,
 				8DFD09DC341C4A3E4E3BFD6E /* Fakes.swift in Sources */,
 				CC748EC43BA5FD14FABA6604 /* HistoryTests.swift in Sources */,
 				61FD3E47E20485F875A5EE51 /* ImageStoreTests.swift in Sources */,
@@ -647,6 +657,7 @@
 				0B4EBA44A9A8741E9CC115DE /* MemoLookup.swift in Sources */,
 				4FAE7ABC6F90882DEA90E793 /* MemoPanel.swift in Sources */,
 				49441C9C77772196DE98783E /* MemoPrintRenderer.swift in Sources */,
+				BF7928875C9DE48397627FD1 /* MemoSidebarRow.swift in Sources */,
 				58E80CB90D7D2F76C32E7BE6 /* MemoStore.swift in Sources */,
 				AB5456E80E4656F9132F78B7 /* MemosApp.swift in Sources */,
 				2E22CC7B47896431EB87E2C9 /* Overlay.swift in Sources */,
@@ -655,6 +666,7 @@
 				6C2F561B9E219E580F173198 /* SettingsView.swift in Sources */,
 				3452F057291ADD4BEB2D8C06 /* Shortcuts.swift in Sources */,
 				C5FA205EFDD709B35C5A109E /* SidePane.swift in Sources */,
+				404F1B7378EAAF151921087F /* SidebarInitialWidth.swift in Sources */,
 				B5E24BF80A80E70ADC5D8457 /* SpotlightIndexer.swift in Sources */,
 				908B23CEB7AC146457BB96FE /* StorageSettings.swift in Sources */,
 				0AD4EC9238A7B8B581F051EF /* TopRow.swift in Sources */,
@@ -812,7 +824,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.4.9;
+				MARKETING_VERSION = 0.4.10;
 				MEMOS_APP_IDENTIFIER = me.cyzr.memos.dev;
 				MEMOS_DISPLAY_NAME = "Memos Dev";
 				MEMOS_URL_SCHEME = "memos-dev";
@@ -953,7 +965,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.4.9;
+				MARKETING_VERSION = 0.4.10;
 				MEMOS_APP_IDENTIFIER = me.cyzr.memos;
 				MEMOS_DISPLAY_NAME = Memos;
 				MEMOS_URL_SCHEME = memos;

@@ -17,6 +17,7 @@ func discard(_ url: URL) {
 @MainActor
 final class FakeEditor: Editing {
     var caret = CaretState()
+    var counts: EditorCounts?
     var allowsFocus = true
     var documentID = ""
     private(set) var focusCount = 0

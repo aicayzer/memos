@@ -8,32 +8,19 @@ struct MainView: View {
     @State private var active = false
 
     var body: some View {
-        @Bindable var model = model
-        HStack(spacing: 0) {
+        Group {
             if model.sidePane {
-                SidePane(active: active)
-                Divider()
-            }
-            VStack(spacing: 0) {
-                TopRow(active: active)
-                if let notice = model.storageNotice {
-                    HStack {
-                        Text(notice).font(.caption).foregroundStyle(.secondary)
-                        Button("Dismiss") { model.storageNotice = nil }
-                    }.padding(8)
+                HSplitView {
+                    SidePane(active: active)
+                        .ignoresSafeArea(edges: .top)
+                        .frame(minWidth: Chrome.paneWidth, idealWidth: model.sidePaneWidth, maxWidth: Chrome.maximumPaneWidth)
+                        .background(SidebarInitialWidth(width: model.sidePaneWidth))
+                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { if model.sidePane { model.sidePaneWidth = $0 } }
+                    editorPane.ignoresSafeArea(edges: .top)
                 }
-                if let error = model.storageError {
-                    Text(error).font(.caption).foregroundStyle(.red).padding(8)
-                }
-                EditorView(editor: model.editor)
-                    .overlay(alignment: .bottom) { bottomBar }
-                    .overlay(alignment: .topTrailing) {
-                        if model.overlay == .find {
-                            FindBar(model: model).padding(12)
-                        }
-                    }
+            } else {
+                editorPane
             }
-            .frame(minWidth: model.chromeMetrics.minWidth)
         }
         // Over the whole window, so the palette is centered in it whether or not the pane is open. Before the
         // safe area is ignored below, so the reader's height is the window's, title bar included, which the
@@ -71,6 +58,46 @@ struct MainView: View {
         .overlay { if model.convertingStorage { ProgressView("Converting storage…").padding().background(.regularMaterial) } }
         .tint(model.accentColor)
         .environment(\.chrome, model.chromeMetrics)
+    }
+
+    private var editorPane: some View {
+        VStack(spacing: 0) {
+            TopRow(active: active)
+            if let notice = model.storageNotice {
+                HStack {
+                    Text(notice).font(.caption).foregroundStyle(.secondary)
+                    Button("Dismiss") { model.storageNotice = nil }
+                }.padding(8)
+            }
+            if let error = model.storageError {
+                Text(error).font(.caption).foregroundStyle(.red).padding(8)
+            }
+            EditorView(editor: model.editor)
+                .overlay(alignment: .bottom) { bottomBar }
+                .overlay(alignment: .bottom) {
+                    if model.showEditorCount && model.formatBarHidden, let counts = model.editor.counts {
+                        Button {
+                            model.editorCountUnit = model.editorCountUnit == .characters ? .words : .characters
+                        } label: {
+                            Text(counts.label(for: model.editorCountUnit))
+                                .font(.system(size: 11))
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.plain)
+                        .help(model.editorCountUnit == .characters ? "Show Word Count" : "Show Character Count")
+                        .padding(.bottom, 12)
+                    }
+                }
+                .overlay(alignment: .topTrailing) {
+                    if model.overlay == .find {
+                        FindBar(model: model).padding(12)
+                    }
+                }
+        }
+        .frame(minWidth: model.chromeMetrics.minWidth)
     }
 
     private var bottomBar: some View {
