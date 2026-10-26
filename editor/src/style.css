@@ -21,6 +21,8 @@ body {
   --inkkit-padding-top: 24px;
   --inkkit-padding-inline: 24px;
   --inkkit-padding-bottom: 96px;
+  /* Text focus uses the caret; embedded controls keep their keyboard rings. */
+  --inkkit-surface-focus-width: 0;
   /* One Light and One Dark, as Memos has always drawn code. */
   --inkkit-code-keyword: light-dark(#a626a4, #c678dd);
   --inkkit-code-string: light-dark(#50a14f, #98c379);
@@ -36,10 +38,4 @@ body {
     black calc(100% - 96px),
     transparent calc(100% - 16px)
   );
-}
-
-/* The caret and selection show text focus; embedded controls keep their keyboard rings. */
-.inkkit-root .ProseMirror:focus-visible,
-.inkkit-root .inkkit-plain:focus-visible {
-  outline: none;
 }
