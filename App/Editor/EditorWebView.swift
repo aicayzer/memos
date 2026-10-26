@@ -38,10 +38,12 @@ final class EditorWebView: WKWebView {
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
         let urls = fileURLs(in: sender)
         guard !urls.isEmpty else { return super.performDragOperation(sender) }
-        var point = convert(sender.draggingLocation, from: nil)
-        // The page measures from the top; the web view happens to as well, which nothing documents.
-        if !isFlipped { point.y = bounds.height - point.y }
-        onDropFiles(urls, point)
+        onDropFiles(urls, mirrored(convert(sender.draggingLocation, from: nil)))
         return true
+    }
+
+    /// The page measures from the top; the web view happens to as well, which nothing documents.
+    func mirrored(_ point: CGPoint) -> CGPoint {
+        isFlipped ? point : CGPoint(x: point.x, y: bounds.height - point.y)
     }
 }

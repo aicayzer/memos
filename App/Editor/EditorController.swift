@@ -430,7 +430,16 @@ final class EditorController: NSObject, Editing {
         let expectedGeneration = generation
         let expectedDocumentID = documentID
         var capturedImages: [[String: String]] = []
+        // One item is one picture: a screenshot tool offers the same pixels as a file URL, PNG and TIFF.
+        var coveredFiles = Set<URL>()
         for item in pasteboard.pasteboardItems ?? [] {
+            if let location = item.string(forType: .fileURL), let url = URL(string: location), url.isFileURL {
+                coveredFiles.insert(url.standardizedFileURL)
+                if let data = try? Data(contentsOf: url), let type = ImageType(sniffing: data) {
+                    capturedImages.append(["bytesBase64": data.base64EncodedString(), "mimeType": type.mimeType, "filename": url.lastPathComponent])
+                }
+                continue
+            }
             for type in [NSPasteboard.PasteboardType.png, .tiff] {
                 guard let data = item.data(forType: type) else { continue }
                 capturedImages.append(["bytesBase64": data.base64EncodedString(), "mimeType": type == .png ? "image/png" : "image/tiff"])
@@ -464,7 +473,7 @@ final class EditorController: NSObject, Editing {
             }
         }
         let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-        for url in urls {
+        for url in urls where !coveredFiles.contains(url.standardizedFileURL) {
             guard let data = try? Data(contentsOf: url), let type = ImageType(sniffing: data) else { continue }
             capturedImages.append(["bytesBase64": data.base64EncodedString(), "mimeType": type.mimeType, "filename": url.lastPathComponent])
         }
@@ -514,6 +523,36 @@ final class EditorController: NSObject, Editing {
             guard generation == expectedGeneration, documentID == capturedDocumentID else { throw MemoEditorError.documentChanged }
         } catch { response = ["error": error.localizedDescription] }
         call("imageResponse", json(requestID), json(response))
+    }
+
+    private func showImageMenu(for reference: String, at point: CGPoint) {
+        guard webView.window != nil,
+              let menu = ImageMenu.make(for: reference, target: self, action: #selector(saveImageFromMenu)) else { return }
+        menu.popUp(positioning: nil, at: webView.mirrored(point), in: webView)
+    }
+
+    @objc private func saveImageFromMenu(_ item: NSMenuItem) {
+        guard let reference = item.representedObject as? String else { return }
+        Task { await saveImage(reference, choosingDestination: { await self.chooseDestination(for: $0) }) }
+    }
+
+    func saveImage(_ reference: String, choosingDestination choose: (ImageExport) async -> URL?) async {
+        do {
+            let image = try await ImageExport.load(reference, from: images)
+            guard let destination = await choose(image) else { return }
+            try image.write(to: destination)
+        } catch {
+            log.error("image not saved: \(error.localizedDescription, privacy: .public)")
+            onWarning("Couldn’t save the image.")
+        }
+    }
+
+    private func chooseDestination(for image: ImageExport) async -> URL? {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = image.suggestedName
+        panel.allowedContentTypes = [image.contentType]
+        let response = if let window = webView.window { await panel.beginSheetModal(for: window) } else { await panel.begin() }
+        return response == .OK ? panel.url : nil
     }
 
     func writeClipboard(_ body: [String: Any], to pasteboard: NSPasteboard = .general) {
@@ -613,6 +652,8 @@ final class EditorController: NSObject, Editing {
             if let url = URL(string: href), let scheme = url.scheme, ["http", "https", "mailto"].contains(scheme) {
                 onOpenLink(url)
             }
+        case .imageMenu(let reference, let point):
+            showImageMenu(for: reference, at: point)
         case .copy(let text):
             onCopy(text)
         case .warning(let message):

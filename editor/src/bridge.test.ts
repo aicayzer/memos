@@ -570,4 +570,15 @@ describe('native image storage', () => {
     })
     expect(request).not.toHaveProperty('signal')
   })
+
+  it('hands an image context menu request to the host, at the point in the page', () => {
+    open('')
+    const reference = `images/${'a'.repeat(64)}.png`
+    options!.images!.contextMenu!(
+      reference,
+      { clientX: 12.5, clientY: 40 },
+      { documentId: `memo-${generation}`, generation, operationId: 'image-menu' },
+    )
+    expect(of('imageMenu').at(-1)).toEqual({ type: 'imageMenu', reference, x: 12.5, y: 40 })
+  })
 })

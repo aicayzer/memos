@@ -944,6 +944,40 @@ struct InkKitBridgeTests {
         #expect(stored == converted.bytes)
         #expect(ImageType(sniffing: stored) == .png)
     }
+
+    @Test(arguments: [
+        ["png", "tiff", "file"], ["png", "tiff"], ["png"], ["tiff"], ["file"],
+    ])
+    func oneScreenshotInsertsOneImage(representations: [String]) async throws {
+        let png = makePNG()
+        let folder = try temporaryFolder()
+        defer { discard(folder) }
+        let file = folder.appending(path: "Screenshot.png")
+        // Tools re-encode the saved file, so its bytes need not match the clipboard's.
+        try makePNG().write(to: file)
+        let images = FolderImageStore(besideStoreAt: folder.appending(path: "store.json"))
+        let editor = EditorController(images: images)
+        editor.documentID = "fixture"
+        editor.load("")
+        _ = try await editor.snapshot()
+        let item = NSPasteboardItem()
+        if representations.contains("png") { item.setData(png, forType: .png) }
+        if representations.contains("tiff") { item.setData(try #require(NSBitmapImageRep(data: png)?.tiffRepresentation), forType: .tiff) }
+        if representations.contains("file") { item.setString(file.absoluteString, forType: .fileURL) }
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        #expect(pasteboard.writeObjects([item]))
+        var source = ""
+        editor.onChanged = { source = $0 }
+        #expect(editor.pasteCapturedClipboard(from: pasteboard))
+        for _ in 0..<200 {
+            if source.contains("![") { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        // Allow a duplicate insertion to land before counting.
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(source.components(separatedBy: "![").count - 1 == 1)
+    }
 }
 
 private actor SuspendedImageStore: ImageStore {
