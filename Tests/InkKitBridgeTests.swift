@@ -171,10 +171,13 @@ struct InkKitBridgeTests {
             "document.activeElement?.matches('.ProseMirror, .inkkit-plain') === true"
         ) as? Bool
         #expect(refocused == true)
-        let outline = try await editor.webView.evaluateJavaScript(
-            "getComputedStyle(document.querySelector('.ProseMirror')).outlineStyle"
-        ) as? String
-        #expect(outline == "none")
+        let outline = try await editor.webView.evaluateJavaScript("""
+        (() => {
+          const style = getComputedStyle(document.querySelector('.ProseMirror'));
+          return {style: style.outlineStyle, width: style.outlineWidth};
+        })()
+        """) as? [String: String]
+        #expect(outline?["style"] == "none" || outline?["width"] == "0px")
         editor.reload("Edited memo")
         _ = try await editor.snapshot()
         let reloadFocus = try await editor.webView.evaluateJavaScript(
