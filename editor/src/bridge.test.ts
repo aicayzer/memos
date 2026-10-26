@@ -257,7 +257,7 @@ describe('an edit that InkKit refuses', () => {
       'a link to an address that cannot open',
       () => bridge().format('link', 'javascript:alert(1)', generation),
       'invalid-argument',
-      'options.destination must be relative, or an http, https, mailto or tel address, with no control characters',
+      'options.destination must be relative, or an address with an allowed scheme (http, https, mailto, tel or one of linkSchemes), with no control characters',
     ],
   ] as const
 
