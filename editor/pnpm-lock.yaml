@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@aicayzer/inkkit':
-        specifier: 0.1.5
-        version: 0.1.5
+        specifier: 0.3.0
+        version: 0.3.0
     devDependencies:
       '@types/node':
         specifier: ^26.6.2
@@ -36,8 +36,8 @@ importers:
 
 packages:
 
-  '@aicayzer/inkkit@0.1.5':
-    resolution: {integrity: sha512-F7ebuJlK0ydlmdlCycYdLHFflkTzX4m61H2mSgmddbf30gJI7l67qF7NMkL9hgvGh4WHjz8F/K4GgCMnNhw5ow==}
+  '@aicayzer/inkkit@0.3.0':
+    resolution: {integrity: sha512-V1oJrhilZp0c4RxP8a+3crFzasLm91OomA4zzRZilVsdw39ek46JzcDQGWs171X7E0o6OiKfzEsY6eargB3Lqg==}
     engines: {node: '>=22.14'}
 
   '@antfu/install-pkg@2.1.0':
@@ -1161,7 +1161,7 @@ packages:
 
 snapshots:
 
-  '@aicayzer/inkkit@0.1.5':
+  '@aicayzer/inkkit@0.3.0':
     dependencies:
       mermaid: 12.1.0
 

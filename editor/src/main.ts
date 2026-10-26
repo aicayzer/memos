@@ -7,6 +7,7 @@ import {
   type FormatCommand,
   type ImageAdapter,
   type ImageInsertion,
+  type ImageImportContext,
   type PortableImage,
 } from '@aicayzer/inkkit'
 import '@aicayzer/inkkit/style.css'
@@ -57,7 +58,14 @@ function imageRequest(
         reject(error)
       },
     })
-    post({ type: 'imageRequest', action, requestId, ...context, ...fields })
+    post({
+      type: 'imageRequest',
+      action,
+      requestId,
+      documentId: context.documentId,
+      generation: context.generation,
+      ...fields,
+    })
   })
 }
 function encode(bytes: Uint8Array): string {
@@ -74,7 +82,7 @@ const images: ImageAdapter = {
       ? { url: `memo-image://memo/${reference}` }
       : undefined
   },
-  async importImage(input: CapturedImage, context: DocumentContext) {
+  async importImage(input: CapturedImage, context: ImageImportContext) {
     const reply = await imageRequest('import', context, {
       bytesBase64: encode(input.bytes),
       mimeType: input.mimeType,
