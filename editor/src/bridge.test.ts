@@ -35,6 +35,7 @@ interface Bridge {
     text: string,
   ): Message
   clipboard(): Promise<Message>
+  imageResponse(requestId: string, value: Record<string, string>): void
   clipboardResponse(requestId: string, value: Record<string, string>): void
   printable(generation: number): Promise<Message>
   setKeymap(keymap: Record<string, string[]>): void
@@ -543,5 +544,30 @@ describe('native viewport and counts', () => {
     bridge().setEditingMode('formatted', generation)
     await Promise.resolve()
     expect(of('textCounts').at(-1)?.characters).toBe(12)
+  })
+})
+
+describe('native image storage', () => {
+  it('sends only serializable document context when imports include an AbortSignal', async () => {
+    open('')
+    const signal = new AbortController().signal
+    const pending = options!.images!.importImage(
+      { bytes: new Uint8Array([137, 80, 78, 71]), mimeType: 'image/png', filename: 'picture.png' },
+      { documentId: `memo-${generation}`, generation, operationId: 'image-import', signal },
+    )
+    const request = of('imageRequest').at(-1)!
+    bridge().imageResponse(request.requestId as string, { reference: 'images/imported.png' })
+    await expect(pending).resolves.toEqual({ reference: 'images/imported.png' })
+    expect(request).toEqual({
+      type: 'imageRequest',
+      action: 'import',
+      requestId: expect.any(String),
+      documentId: `memo-${generation}`,
+      generation,
+      bytesBase64: 'iVBORw==',
+      mimeType: 'image/png',
+      filename: 'picture.png',
+    })
+    expect(request).not.toHaveProperty('signal')
   })
 })
