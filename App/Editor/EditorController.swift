@@ -430,7 +430,16 @@ final class EditorController: NSObject, Editing {
         let expectedGeneration = generation
         let expectedDocumentID = documentID
         var capturedImages: [[String: String]] = []
+        // One item is one picture: a screenshot tool offers the same pixels as a file URL, PNG and TIFF.
+        var coveredFiles = Set<URL>()
         for item in pasteboard.pasteboardItems ?? [] {
+            if let location = item.string(forType: .fileURL), let url = URL(string: location), url.isFileURL {
+                coveredFiles.insert(url.standardizedFileURL)
+                if let data = try? Data(contentsOf: url), let type = ImageType(sniffing: data) {
+                    capturedImages.append(["bytesBase64": data.base64EncodedString(), "mimeType": type.mimeType, "filename": url.lastPathComponent])
+                }
+                continue
+            }
             for type in [NSPasteboard.PasteboardType.png, .tiff] {
                 guard let data = item.data(forType: type) else { continue }
                 capturedImages.append(["bytesBase64": data.base64EncodedString(), "mimeType": type == .png ? "image/png" : "image/tiff"])
@@ -464,7 +473,7 @@ final class EditorController: NSObject, Editing {
             }
         }
         let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-        for url in urls {
+        for url in urls where !coveredFiles.contains(url.standardizedFileURL) {
             guard let data = try? Data(contentsOf: url), let type = ImageType(sniffing: data) else { continue }
             capturedImages.append(["bytesBase64": data.base64EncodedString(), "mimeType": type.mimeType, "filename": url.lastPathComponent])
         }
