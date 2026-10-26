@@ -395,7 +395,7 @@ struct InkKitBridgeTests {
             if !warnings.isEmpty { break }
             try await Task.sleep(for: .milliseconds(20))
         }
-        #expect(warnings == ["options.destination must be relative, or an http, https, mailto or tel address, with no control characters"])
+        #expect(warnings == ["options.destination must be relative, or an address with an allowed scheme (http, https, mailto, tel or one of linkSchemes), with no control characters"])
         #expect(try await editor.snapshot() == "Keep this memo\n")
     }
 
