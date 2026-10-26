@@ -24,6 +24,7 @@
 		2E22CC7B47896431EB87E2C9 /* Overlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F22224F5D6D601AA05F118D /* Overlay.swift */; };
 		2E81B00444740180153A903E /* WindowBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9FDD1B0167BFFF1F4916F9 /* WindowBackdrop.swift */; };
 		3452F057291ADD4BEB2D8C06 /* Shortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E162F8F4756E2EA22E83E98 /* Shortcuts.swift */; };
+		3756F09A289CAE5D89953775 /* ImageExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6CD00FE5843BF4969AFBD8F /* ImageExport.swift */; };
 		39ABE4C20FF2B7C72665348F /* SpotlightTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7970D35200D9E2932F36915 /* SpotlightTests.swift */; };
 		39B03FB1849A62068709063D /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = B6C33BE6E7B693C053C9A19E /* AppIcon.icon */; };
 		404F1B7378EAAF151921087F /* SidebarInitialWidth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80104140CA2F4D6865F8DA64 /* SidebarInitialWidth.swift */; };
@@ -50,6 +51,7 @@
 		7481DBCD79FD3E17158C91FE /* MemoGroups.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35C56DBF2F2A260DBF0F4DAB /* MemoGroups.swift */; };
 		76D668749C7EAF438ACCB482 /* KeyRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C74C77B82BBFA275595D792 /* KeyRecorder.swift */; };
 		7892105FDDB03D0F102CD72D /* Editing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16F9AF4349EAE1C3D493E7D1 /* Editing.swift */; };
+		7BAAE82691F8D60BD7090398 /* ImageSaveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32C109DBDE875AE72470D839 /* ImageSaveTests.swift */; };
 		7BCA87FE55418A4CEAB9DB76 /* WindowReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8FEEB233187DA06F1EA0F3 /* WindowReader.swift */; };
 		8643F8C296FDD880A1F27926 /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23EC7962F7BC8184D4BB0361 /* EditorView.swift */; };
 		872FB6693883A87ED26E83A0 /* JSONMemoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E560C423FC07DFDB29EC1878 /* JSONMemoStore.swift */; };
@@ -130,6 +132,7 @@
 		2E9A9A5B456F8BF4E3235589 /* MarkdownDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownDocument.swift; sourceTree = "<group>"; };
 		2E9B9255280795EB7565DB71 /* ShortcutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutTests.swift; sourceTree = "<group>"; };
 		2E9FDD1B0167BFFF1F4916F9 /* WindowBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowBackdrop.swift; sourceTree = "<group>"; };
+		32C109DBDE875AE72470D839 /* ImageSaveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageSaveTests.swift; sourceTree = "<group>"; };
 		33BCCFC69D1048C89AC6DF9A /* LoginItemSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItemSettings.swift; sourceTree = "<group>"; };
 		35C56DBF2F2A260DBF0F4DAB /* MemoGroups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoGroups.swift; sourceTree = "<group>"; };
 		37CA2C61606EFE9D2CF07C73 /* PaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaletteView.swift; sourceTree = "<group>"; };
@@ -182,6 +185,7 @@
 		D3477E0C6176B03F3F0445FB /* WindowChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowChrome.swift; sourceTree = "<group>"; };
 		D4E67A904E658070FDBAD394 /* EditorWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorWebView.swift; sourceTree = "<group>"; };
 		D565B361CE8DEEC210211DE4 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
+		D6CD00FE5843BF4969AFBD8F /* ImageExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageExport.swift; sourceTree = "<group>"; };
 		D7970D35200D9E2932F36915 /* SpotlightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightTests.swift; sourceTree = "<group>"; };
 		DCAE84AA6823EE4F3E8F2B1C /* MemoTitleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoTitleTests.swift; sourceTree = "<group>"; };
 		E3D382FA7A99CF70E224EE1F /* MemoClipboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoClipboard.swift; sourceTree = "<group>"; };
@@ -304,6 +308,7 @@
 				3C65E47D8D17B043460A8C31 /* EditorPolishTests.swift */,
 				4967B82863FF5C8D7D97748C /* Fakes.swift */,
 				A173D37EC0A86D02131CA004 /* HistoryTests.swift */,
+				32C109DBDE875AE72470D839 /* ImageSaveTests.swift */,
 				B4868C3588A4BF8D32BD9961 /* ImageStoreTests.swift */,
 				14F9979DE063E737BB811744 /* InkKitBridgeTests.swift */,
 				6A47E87DD4CEEC682450000C /* JSONMemoStoreTests.swift */,
@@ -377,6 +382,7 @@
 				B30C960E636E363D2B6D5FF2 /* EditorMessages.swift */,
 				23EC7962F7BC8184D4BB0361 /* EditorView.swift */,
 				D4E67A904E658070FDBAD394 /* EditorWebView.swift */,
+				D6CD00FE5843BF4969AFBD8F /* ImageExport.swift */,
 				99DE3FDE8424BB483007AFF2 /* ImageSchemeHandler.swift */,
 				E3D382FA7A99CF70E224EE1F /* MemoClipboard.swift */,
 				250CDB323FEC38E0364735CD /* MemoPrintRenderer.swift */,
@@ -581,6 +587,7 @@
 				96A70CB9C205FE4AD175B19D /* EditorPolishTests.swift in Sources */,
 				8DFD09DC341C4A3E4E3BFD6E /* Fakes.swift in Sources */,
 				CC748EC43BA5FD14FABA6604 /* HistoryTests.swift in Sources */,
+				7BAAE82691F8D60BD7090398 /* ImageSaveTests.swift in Sources */,
 				61FD3E47E20485F875A5EE51 /* ImageStoreTests.swift in Sources */,
 				2A6A031C6FAEF0A0F4FBE4D7 /* InkKitBridgeTests.swift in Sources */,
 				1A29C57F265D4932D0CF7F3C /* JSONMemoStoreTests.swift in Sources */,
@@ -640,6 +647,7 @@
 				8C5F27C94471220A6139C8A2 /* FindBar.swift in Sources */,
 				C6ED2FAC0E485F2AD2188E03 /* FormatBar.swift in Sources */,
 				E57BDB3A38D57B4E61168090 /* Hotkeys.swift in Sources */,
+				3756F09A289CAE5D89953775 /* ImageExport.swift in Sources */,
 				954DE2EDE37756D8A1624FA6 /* ImageSchemeHandler.swift in Sources */,
 				D42346F4E760F67DD344F70D /* ImageStore.swift in Sources */,
 				872FB6693883A87ED26E83A0 /* JSONMemoStore.swift in Sources */,

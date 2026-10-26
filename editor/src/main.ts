@@ -96,6 +96,9 @@ const images: ImageAdapter = {
     if (!reply.bytesBase64 || !reply.mimeType) throw new Error('Image bytes unavailable')
     return { bytes: decode(reply.bytesBase64), mimeType: reply.mimeType }
   },
+  contextMenu(reference, point) {
+    post({ type: 'imageMenu', reference, x: point.clientX, y: point.clientY })
+  },
 }
 function writeClipboard(output: ClipboardOutput): Promise<void> {
   // InkKit describes degraded output in the output itself and no longer reports it as an error.

@@ -525,6 +525,36 @@ final class EditorController: NSObject, Editing {
         call("imageResponse", json(requestID), json(response))
     }
 
+    private func showImageMenu(for reference: String, at point: CGPoint) {
+        guard webView.window != nil,
+              let menu = ImageMenu.make(for: reference, target: self, action: #selector(saveImageFromMenu)) else { return }
+        menu.popUp(positioning: nil, at: webView.mirrored(point), in: webView)
+    }
+
+    @objc private func saveImageFromMenu(_ item: NSMenuItem) {
+        guard let reference = item.representedObject as? String else { return }
+        Task { await saveImage(reference, choosingDestination: { await self.chooseDestination(for: $0) }) }
+    }
+
+    func saveImage(_ reference: String, choosingDestination choose: (ImageExport) async -> URL?) async {
+        do {
+            let image = try await ImageExport.load(reference, from: images)
+            guard let destination = await choose(image) else { return }
+            try image.write(to: destination)
+        } catch {
+            log.error("image not saved: \(error.localizedDescription, privacy: .public)")
+            onWarning("Couldn’t save the image.")
+        }
+    }
+
+    private func chooseDestination(for image: ImageExport) async -> URL? {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = image.suggestedName
+        panel.allowedContentTypes = [image.contentType]
+        let response = if let window = webView.window { await panel.beginSheetModal(for: window) } else { await panel.begin() }
+        return response == .OK ? panel.url : nil
+    }
+
     func writeClipboard(_ body: [String: Any], to pasteboard: NSPasteboard = .general) {
         guard let requestID = body["requestId"] as? String else { return }
         var response: [String: String] = [:]
@@ -622,6 +652,8 @@ final class EditorController: NSObject, Editing {
             if let url = URL(string: href), let scheme = url.scheme, ["http", "https", "mailto"].contains(scheme) {
                 onOpenLink(url)
             }
+        case .imageMenu(let reference, let point):
+            showImageMenu(for: reference, at: point)
         case .copy(let text):
             onCopy(text)
         case .warning(let message):

@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 enum EditorCountUnit: String {
@@ -50,6 +51,7 @@ enum EditorMessage: Sendable {
     case commandState(CaretState, documentID: String, generation: Int)
     case textCounts(EditorCounts, documentID: String, generation: Int)
     case openLink(String)
+    case imageMenu(reference: String, at: CGPoint)
     case copy(String)
     case warning(String)
     case error(String)
@@ -81,6 +83,11 @@ enum EditorMessage: Sendable {
         case "openLink":
             guard let href = dict["href"] as? String else { return nil }
             self = .openLink(href)
+        case "imageMenu":
+            guard let reference = dict["reference"] as? String,
+                  let x = (dict["x"] as? NSNumber)?.doubleValue, let y = (dict["y"] as? NSNumber)?.doubleValue,
+                  x.isFinite, y.isFinite else { return nil }
+            self = .imageMenu(reference: reference, at: CGPoint(x: x, y: y))
         case "copy":
             guard let text = dict["text"] as? String else { return nil }
             self = .copy(text)
