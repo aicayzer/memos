@@ -40,3 +40,6 @@ Config/Cloud.xcconfig
 *.keychain-db
 *.p8
 *.xcodeproj/xcshareddata/xcodecloud/
+
+# Records kept beside the code, synced to Marfa (not part of this repository)
+/marfa/
