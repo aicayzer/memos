@@ -572,7 +572,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/zsh;
-			shellScript = "set -euo pipefail\nexport PATH=\"$HOME/Library/pnpm:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nexport CI=true\ncd \"$SRCROOT/editor\"\npnpm install --frozen-lockfile --silent\npnpm build --logLevel warn\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Editor\"\nmkdir -p \"$DEST\"\ncp dist/index.html \"$DEST/index.html\"\n";
+			shellScript = "set -euo pipefail\nexport PATH=\"$HOME/Library/pnpm:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nexport CI=true\ncd \"$SRCROOT/editor\"\npnpm install --frozen-lockfile --silent\npnpm build --logLevel warn\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Editor\"\nmkdir -p \"$DEST\"\ncp dist/index.html \"$DEST/index.html\"\ncp -R dist/licenses \"$DEST/\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -832,7 +832,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.4.11;
+				MARKETING_VERSION = 0.4.12;
 				MEMOS_APP_IDENTIFIER = me.cyzr.memos.dev;
 				MEMOS_DISPLAY_NAME = "Memos Dev";
 				MEMOS_URL_SCHEME = "memos-dev";
@@ -973,7 +973,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.4.11;
+				MARKETING_VERSION = 0.4.12;
 				MEMOS_APP_IDENTIFIER = me.cyzr.memos;
 				MEMOS_DISPLAY_NAME = Memos;
 				MEMOS_URL_SCHEME = memos;
