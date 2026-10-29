@@ -87,7 +87,7 @@ import Testing
         #expect(!String(decoding: persisted, as: UTF8.self).contains(canary))
     }
 
-    @Test func copyingWorksWithoutSnapshotAndOptOutDuringCollectionKeepsClipboard() async throws {
+    @Test(arguments: [false, true]) func copyingWorksWithoutSnapshotAndOptOutDuringCollectionKeepsClipboard(reenable: Bool) async throws {
         let (recorder, defaults, folder, name) = try fixture()
         defer { discard(folder); defaults.removePersistentDomain(forName: name) }
         let editor = FakeEditor()
@@ -105,10 +105,13 @@ import Testing
         #expect(pasteboard.string(forType: .string)?.contains("PRIVATE") == false)
         pasteboard.clearContents()
         pasteboard.setString("Keep clipboard", forType: .string)
-        editor.duringDiagnosticReport = { model.setDiagnosticsEnabled(false) }
+        editor.duringDiagnosticReport = {
+            model.setDiagnosticsEnabled(false)
+            if reenable { model.setDiagnosticsEnabled(true) }
+        }
         await model.copyDiagnosticReport(to: pasteboard)
         #expect(pasteboard.string(forType: .string) == "Keep clipboard")
-        #expect(!recorder.enabled)
+        #expect(recorder.enabled == reenable)
     }
 
     @Test func hostileNestedReportsStayBoundedAndLeaveNativeHistoryAvailable() throws {
