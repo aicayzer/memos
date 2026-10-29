@@ -886,7 +886,7 @@ final class AppModel {
     }
 
     private func report(_ error: any Error) {
-        diagnostics.record(.rejected, incident: EditorIncident(code: "unavailable"))
+        diagnostics.record(.rejected, incident: EditorIncident(error: error))
         log.error("app operation failed")
         // An alert from an inactive app lands behind the app in front.
         presentError(error)

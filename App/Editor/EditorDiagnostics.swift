@@ -23,6 +23,19 @@ struct EditorIncident: Equatable, Sendable {
         self.init(code: code, reason: body["reason"] as? String, generation: body["generation"] as? Int, revision: body["revision"] as? Int)
     }
 
+    init(error: any Error) {
+        let code: String
+        switch error as? MemoEditorError {
+        case .notReady: code = "not-ready"
+        case .documentChanged: code = "stale-document"
+        case .invalidResponse: code = "invalid-response"
+        case .script: code = "script"
+        case .snapshotRejected(let value, _): code = value
+        case .unavailable, nil: code = "unavailable"
+        }
+        self.init(code: code)
+    }
+
     var fields: [String: Any] {
         var result: [String: Any] = ["code": code]
         if let reason { result["reason"] = reason }

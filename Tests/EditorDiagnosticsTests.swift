@@ -124,6 +124,54 @@ import Testing
         #expect(report.contains("truncated"))
     }
 
+    @Test func firstNativeIncidentKeepsTwoHundredEventsAndFortyFollowups() throws {
+        let (recorder, defaults, folder, name) = try fixture()
+        defer { discard(folder); defaults.removePersistentDomain(forName: name) }
+        recorder.setEnabled(true)
+        for _ in 0..<240 { recorder.record(.input, generation: 1) }
+        recorder.record(.rejected, generation: 1, incident: EditorIncident(code: "preservation"))
+        for _ in 0..<60 { recorder.record(.input, generation: 1) }
+        recorder.record(.rejected, generation: 1, incident: EditorIncident(code: "internal"))
+        let report = try #require(recorder.report())
+        let parsed = try #require(JSONSerialization.jsonObject(with: Data(report.utf8)) as? [String: Any])
+        let incident = try #require(parsed["nativeIncident"] as? [String: Any])
+        #expect(incident["triggerSequence"] as? Int == 242)
+        let events = try #require(incident["events"] as? [[String: Any]])
+        #expect(events.count == 200)
+        #expect(events.last?["code"] as? String == "preservation")
+        let tail = try #require(incident["tail"] as? [[String: Any]])
+        #expect(tail.count == 40)
+        #expect(tail.last?["sequence"] as? Int == 282)
+    }
+
+    @Test func unavailableEditorReportCopiesTheCachedNativeIncident() async throws {
+        let (recorder, defaults, folder, name) = try fixture()
+        defer { discard(folder); defaults.removePersistentDomain(forName: name) }
+        let editor = FakeEditor()
+        editor.diagnosticError = MemoEditorError.unavailable
+        let model = AppModel(store: ChangeableStore([]), images: FakeImageStore(), defaults: defaults, editor: editor, diagnostics: recorder, presentError: { _ in })
+        model.setDiagnosticsEnabled(true)
+        recorder.record(.rejected, incident: EditorIncident(code: "preservation", reason: "reopen-mismatch"))
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        await model.copyDiagnosticReport(to: pasteboard)
+        let report = try #require(pasteboard.string(forType: .string))
+        #expect(report.contains("nativeIncident"))
+        #expect(report.contains("preservation"))
+        #expect(report.contains("reportUnavailable"))
+    }
+
+    @Test func nativeErrorsKeepOnlyKnownCodesAndDiscardTheirMessages() throws {
+        let canary = "PRIVATE exception containing memo contents"
+        let incident = EditorIncident(error: MemoEditorError.snapshotRejected(code: "preservation", message: canary))
+        #expect(incident.code == "preservation")
+        let unknown = EditorIncident(error: MemoEditorError.snapshotRejected(code: canary, message: canary))
+        #expect(unknown.code == "unavailable")
+        let encoded = try JSONSerialization.data(withJSONObject: ["known": incident.fields, "unknown": unknown.fields])
+        #expect(!String(decoding: encoded, as: UTF8.self).contains(canary))
+        #expect(EditorIncident(error: MemoEditorError.documentChanged).code == "stale-document")
+    }
+
     @Test func fontStacksKeepOnlyKnownFamilies() throws {
         let report = EditorDiagnostics.sanitizeReport(["presentation": ["fontFamily": "-apple-system, BlinkMacSystemFont, system-ui, sans-serif, \"Times New Roman\", Georgia, ui-rounded, PRIVATE-memo-title", "fontWeight": 600, "fontStyle": "italic", "headingLevel": 2]])
         let presentation = try #require(report["presentation"] as? [String: Any])
