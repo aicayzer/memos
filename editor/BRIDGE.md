@@ -2,7 +2,7 @@
 
 The app bootstrap consumes `@aicayzer/inkkit` and bundles its JavaScript and CSS into one offline HTML file. The native app owns document identity, generation, storage, appearance, and keyboard bindings. InkKit owns editing, preservation, tables, and clipboard conversion.
 
-The editor build generates host dependency notices and copies Inkkit's license and notices into `dist/licenses/`. The native build includes that directory alongside the offline page in its editor resources.
+The editor build generates host dependency notices and copies Inkkit's license and notices into `dist/licenses/`. The native build includes that directory alongside the offline page and `editor-version.json`, which records the bundled package version for diagnostic reports.
 
 ## Documents and snapshots
 
@@ -48,7 +48,7 @@ InkKit always enables the typed table-row shortcut; it has no option for it. Blo
 
 Format menu items for editor shortcuts are disabled unless the editor owns the first responder, so their keys reach a focused native field. A queued `moveBlock` also rechecks its window, responder, and document before it runs.
 
-InkKit throws from a facade call that it refuses, and sends nothing to its error event. The bridge returns `commandError` and `message` instead, and native code shows that message through the same warning path as any other refused edit. Edits the person makes, such as typing or a shortcut, arrive as `editorWarning` through InkKit's error event. `pasteNative` has no reply to carry a refusal, so the page posts its rejection as `editorWarning` itself, as it does for a copy whose images were unavailable.
+InkKit throws from a facade call that it refuses, and sends nothing to its error event. The bridge returns `commandError`, `code`, `generation`, fixed user-facing `message`, and a revision and closed-category preservation reason when available. Native code shows its own user-facing copy through the warning path and ignores responses for an old document or generation. Both awaited commands and fire-and-forget calls handle coded refusals without disabling the bridge. Edits the person makes, such as typing or a shortcut, arrive as `editorWarning` through InkKit's error event. `pasteNative` has no reply to carry a refusal, so the page posts its rejection as `editorWarning` itself, as it does for a copy whose images were unavailable.
 
 `printable(generation)` awaits `printableSnapshot` and returns scoped `html`, `revision` and `warnings`, or `snapshotError` and `message`. HTML is a complete frozen portable document, with images embedded. Native printing awaits a fresh source snapshot, validates the print scope, loads HTML in a separate retained web view, waits for fonts and image decoding, then rechecks the live revision before presenting the standard Print panel with its PDF option. Failures do not print partial content or alter the memo.
 
@@ -59,3 +59,11 @@ The host registers the scrolling editor root with `setViewport`, with 24 CSS pix
 The page posts `textCounts` with `documentId`, `generation`, `characters`, and `words`. Counts come from InkKit's public `textSnapshot()`: formatted text omits Markdown delimiters and hidden comments; source mode counts the literal text it displays. Characters are Unicode grapheme clusters, including spaces and line breaks. Words use `Intl.Segmenter` word boundaries. The native controller rejects counts for another memo or generation. Composition and pending imports retain the last valid count until the editor can report again.
 
 Appearance settings can hide the count. The count also hides while the formatting bar is open. The bottom-center count toggles between characters and words, and the selected unit is remembered.
+
+## Local diagnostics
+
+General Settings contains **Record diagnostic activity**, off by default and persisted in preferences, and **Copy Diagnostic Report**. Recording stays on this Mac. It records bounded native operation, input, focus, snapshot, and save categories alongside Inkkit's public diagnostic report. Native history keeps 200 events and an incident with up to 40 subsequent events. The report includes the actual app version, build, bundled editor version, and random session identifiers. It excludes memo content and identities, filenames, paths, links, clipboard data, raw event data, and arbitrary exception messages.
+
+`setDiagnosticsEnabled(enabled)` forwards the setting through Inkkit's public API. `diagnosticReport()` retrieves the engine report without taking a snapshot or requiring a document generation. Native collection times out after two seconds, validates the current controller and recording session, and accepts only documented enum, boolean, numeric, UUID, and restricted presentation fields. Geometry is collected only for an incident or an explicit report request. Global JavaScript failures forward only `script-error` or `unhandled-rejection` classifications.
+
+A rejection saves one sanitized incident file, capped at 256 KiB, for the next launch. Disabling recording clears native and engine histories and deletes that file. Copying explicitly writes the report to the native clipboard; an unavailable engine report still allows the native history to be copied, and a clipboard-write failure restores the previous representations. Reports are never sent automatically. Tests inject isolated preferences and incident-file locations; resetting the recorder deletes both the test setting and retained file.

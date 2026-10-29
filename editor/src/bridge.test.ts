@@ -1,10 +1,19 @@
+import { userMessage } from './diagnostics'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { InkKitEditor, type EditorEvents, type EditorOptions } from '@aicayzer/inkkit'
+import {
+  InkKitEditor,
+  InkKitError,
+  type DiagnosticReport,
+  type EditorEvents,
+  type EditorOptions,
+} from '@aicayzer/inkkit'
 
 // The page the app loads, driven as the app drives it: through window.editor, with what the page
 // posts to the host collected. InkKit itself is reached only to type, as a key press does.
 type Message = Record<string, unknown>
 interface Bridge {
+  setDiagnosticsEnabled(enabled: boolean): void
+  diagnosticReport(): DiagnosticReport & { editorVersion: string }
   load(text: string, generation: number, documentId: string): void
   snapshot(generation: number): Message
   format(name: string, destination: string | null, generation: number): unknown
@@ -265,7 +274,13 @@ describe('an edit that InkKit refuses', () => {
     it(`comes back to the host with its reason: ${name}`, () => {
       open()
       caret('Plain paragraph')
-      expect(call()).toEqual({ commandError: code, message })
+      expect(call()).toMatchObject({
+        commandError: code,
+        code,
+        message: userMessage(code),
+        generation,
+      })
+      expect(JSON.stringify(call())).not.toContain(message)
       expect(bridge().snapshot(generation)).toMatchObject({ text: memo, dirty: false })
     })
 
@@ -284,9 +299,11 @@ describe('an edit that InkKit refuses', () => {
       document
         .querySelector('.ProseMirror')!
         .dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
-      expect(call()).toEqual({
+      expect(call()).toMatchObject({
         commandError: 'composition',
-        message: 'Text composition is in progress',
+        code: 'composition',
+        generation,
+        message: 'Finish entering text before trying again.',
       })
       document
         .querySelector('.ProseMirror')!
@@ -313,9 +330,11 @@ describe('an edit that InkKit refuses', () => {
     select('x')
     bridge().pasteNative({ text: 'p\nq', generation, images: [] })
     await vi.waitFor(() => expect(of('editorWarning')).toHaveLength(1))
-    expect(of('editorWarning')[0]).toEqual({
+    expect(of('editorWarning')[0]).toMatchObject({
       type: 'editorWarning',
-      message: `The edit was not applied because its Markdown could not be preserved: ${preservation}`,
+      code: 'preservation',
+      generation,
+      message: 'That edit couldn’t be applied. Your previous text is unchanged.',
     })
     expect(saved()).toBe(table)
   })
@@ -336,7 +355,12 @@ describe('an edit that InkKit refuses', () => {
     open()
     bridge().pasteNative({ text: 'Stale', generation: generation - 1, images: [] })
     await vi.waitFor(() => expect(of('editorWarning')).toHaveLength(1))
-    expect(of('editorWarning')[0]).toEqual({ type: 'editorWarning', message: 'Document changed' })
+    expect(of('editorWarning')[0]).toMatchObject({
+      type: 'editorWarning',
+      code: 'stale-document',
+      generation: generation - 1,
+      message: 'Your memo changed. Try again.',
+    })
     expect(saved()).toBe(memo)
   })
 
@@ -580,5 +604,60 @@ describe('native image storage', () => {
       { documentId: `memo-${generation}`, generation, operationId: 'image-menu' },
     )
     expect(of('imageMenu').at(-1)).toEqual({ type: 'imageMenu', reference, x: 12.5, y: 40 })
+  })
+})
+
+describe('safe global error classification', () => {
+  it('does not forward writing from script errors or unhandled promise rejections', () => {
+    open()
+    const canary = 'PRIVATE memo text filename /private/memo.md'
+    window.dispatchEvent(new ErrorEvent('error', { message: canary, error: new Error(canary) }))
+    const rejection = new Event('unhandledrejection')
+    Object.defineProperty(rejection, 'reason', { value: new Error(canary) })
+    window.dispatchEvent(rejection)
+    expect(of('error')).toEqual([
+      { type: 'error', classification: 'script-error' },
+      { type: 'error', classification: 'unhandled-rejection' },
+    ])
+    expect(JSON.stringify(of('error'))).not.toContain(canary)
+  })
+})
+
+describe('local diagnostic reports', () => {
+  it('records only while enabled and reports without a successful snapshot', () => {
+    open('PRIVATE source canary\r\n')
+    expect(bridge().diagnosticReport()).toMatchObject({ enabled: false, events: [] })
+    expect(bridge().diagnosticReport().editorVersion).toMatch(/^\d+\.\d+\.\d+$/)
+    bridge().setDiagnosticsEnabled(true)
+    const root = document.getElementById('editor')!
+    root.dispatchEvent(
+      new InputEvent('beforeinput', {
+        data: 'PRIVATE replacement canary',
+        inputType: 'insertReplacementText',
+        bubbles: true,
+      }),
+    )
+    const snapshot = inkkit.snapshot.bind(inkkit)
+    try {
+      inkkit.snapshot = () => {
+        throw new InkKitError('composition', 'PRIVATE technical exception')
+      }
+      expect(bridge().snapshot(generation)).toMatchObject({
+        snapshotError: 'composition',
+        code: 'composition',
+        generation,
+      })
+      const report = bridge().diagnosticReport()
+      expect(report).toMatchObject({ schemaVersion: 1, enabled: true, state: { generation } })
+      expect(report.events.some((event) => event.kind === 'input')).toBe(true)
+      expect(JSON.stringify(report)).not.toContain('PRIVATE')
+      expect(JSON.stringify(report)).not.toContain(`memo-${generation}`)
+    } finally {
+      inkkit.snapshot = snapshot
+      bridge().setDiagnosticsEnabled(false)
+    }
+    expect(bridge().diagnosticReport()).toMatchObject({ enabled: false, events: [] })
+    expect(bridge().diagnosticReport().incident).toBeUndefined()
+    expect(saved()).toBe('PRIVATE source canary\r\n')
   })
 })

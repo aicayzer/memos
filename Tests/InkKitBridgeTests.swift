@@ -6,6 +6,56 @@ import PDFKit
 @MainActor
 @Suite(.serialized, .opensWindows)
 struct InkKitBridgeTests {
+    @Test func fireAndForgetRefusalWarnsWithoutDisablingTheBridgeAndIgnoresStaleWarnings() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        editor.documentID = "fixture"
+        editor.load("Keep this memo\r\n")
+        #expect(try await editor.snapshot() == "Keep this memo\r\n")
+        var warnings: [String] = []
+        editor.onWarning = { warnings.append($0) }
+        _ = try await editor.webView.evaluateJavaScript("window.editor.blur = () => ({commandError:'preservation',code:'preservation',message:'PRIVATE exception',generation:1,revision:3,reason:'reopen-mismatch'}); true")
+        editor.releaseFocus()
+        for _ in 0..<100 where warnings.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(warnings == ["That edit couldn’t be applied. Your previous text is unchanged."])
+        #expect(editor.isReady)
+        #expect(try await editor.snapshot() == "Keep this memo\r\n")
+        editor.receive(.incident(EditorIncident(code: "preservation", generation: 0, revision: 1)))
+        #expect(warnings.count == 1)
+        // The reply belongs to the outgoing memo even if JavaScript returns it after loading the next.
+        editor.releaseFocus()
+        editor.documentID = "next"
+        editor.load("Next\n")
+        #expect(try await editor.snapshot() == "Next\n")
+        #expect(warnings.count == 1)
+    }
+
+    @Test func diagnosticReportDoesNotUseSnapshotAndCanRetainARefusedCommand() async throws {
+        let name = "native-diagnostics-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        let folder = try temporaryFolder()
+        defer { defaults.removePersistentDomain(forName: name); discard(folder) }
+        let diagnostics = EditorDiagnostics(defaults: defaults, incidentURL: folder.appending(path: "incident.json"))
+        diagnostics.setEnabled(true)
+        let editor = EditorController(images: FakeImageStore())
+        editor.diagnostics = diagnostics
+        editor.documentID = "PRIVATE memo identity"
+        editor.load("PRIVATE memo contents\r\n")
+        _ = try await editor.snapshot()
+        _ = try await editor.webView.evaluateJavaScript("window.editor.snapshot = () => ({snapshotError:'composition',message:'PRIVATE composition'}); true")
+        let report = try await editor.diagnosticReport()
+        let encoded = String(decoding: report, as: UTF8.self)
+        #expect(encoded.contains("schemaVersion"))
+        #expect(!encoded.contains("PRIVATE"))
+        editor.receive(.incident(EditorIncident(code: "preservation", reason: "reopen-mismatch", generation: 1, revision: 3)))
+        for _ in 0..<100 {
+            if FileManager.default.fileExists(atPath: folder.appending(path: "incident.json").path) { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(diagnostics.report()?.contains("reopen-mismatch") == true)
+        #expect(editor.isReady)
+        diagnostics.reset()
+    }
+
     @Test func blockMovementUsesScopedCommandsAndRetainsCRLF() async throws {
         let editor = EditorController(images: FakeImageStore())
         let window = ReadingPanel(contentRect: NSRect(x: 100, y: 100, width: 500, height: 600),
@@ -395,7 +445,7 @@ struct InkKitBridgeTests {
             if !warnings.isEmpty { break }
             try await Task.sleep(for: .milliseconds(20))
         }
-        #expect(warnings == ["options.destination must be relative, or an address with an allowed scheme (http, https, mailto, tel or one of linkSchemes), with no control characters"])
+        #expect(warnings == ["The editor couldn’t complete that action. Your text is still open."])
         #expect(try await editor.snapshot() == "Keep this memo\n")
     }
 
@@ -414,7 +464,7 @@ struct InkKitBridgeTests {
             if warnings.count == 2 { break }
             try await Task.sleep(for: .milliseconds(20))
         }
-        #expect(warnings == ["Text composition is in progress", "Text composition is in progress"])
+        #expect(warnings == ["Finish entering text before trying again.", "Finish entering text before trying again."])
         _ = try await editor.webView.evaluateJavaScript("document.querySelector('.ProseMirror').dispatchEvent(new CompositionEvent('compositionend', {bubbles: true}))")
         #expect(try await editor.snapshot() == table)
     }

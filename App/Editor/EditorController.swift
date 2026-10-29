@@ -30,6 +30,13 @@ enum TextSize: Double, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class EditorController: NSObject, Editing {
+    var diagnostics: EditorDiagnostics? {
+        didSet {
+            guard pageReady else { return }
+            call("setDiagnosticsEnabled", diagnostics?.enabled == true ? "true" : "false")
+        }
+    }
+    @ObservationIgnored private var incidentCapture: Task<Void, Never>?
     private(set) var caret = CaretState()
     private(set) var counts: EditorCounts?
     private(set) var isReady = false
@@ -82,6 +89,14 @@ final class EditorController: NSObject, Editing {
         imageHandler = handler
         webView = EditorWebView(frame: .zero, configuration: configuration)
         super.init()
+        webView.onInputActivity = { [weak self] in
+            guard let self else { return }
+            self.diagnostics?.record(.input, generation: self.generation)
+        }
+        webView.onFocusActivity = { [weak self] focused in
+            guard let self else { return }
+            self.diagnostics?.record(focused ? .focus : .blur, generation: self.generation)
+        }
         webView.onPaste = { [weak self] in self?.pasteCapturedClipboard(requiringFocus: true) ?? false }
         webView.onDropFiles = { [weak self] urls, point in self?.onDropFiles(urls, point) }
         #if DEBUG
@@ -91,11 +106,11 @@ final class EditorController: NSObject, Editing {
         configuration.userContentController.add(MessageProxy(target: self), name: "host")
         configuration.userContentController.addUserScript(WKUserScript(
             source: """
-            window.addEventListener('error', (event) => {
-              webkit.messageHandlers.host.postMessage({ type: 'error', message: String(event.message) })
+            window.addEventListener('error', () => {
+              webkit.messageHandlers.host.postMessage({ type: 'error', classification: 'script-error' })
             })
-            window.addEventListener('unhandledrejection', (event) => {
-              webkit.messageHandlers.host.postMessage({ type: 'error', message: String(event.reason) })
+            window.addEventListener('unhandledrejection', () => {
+              webkit.messageHandlers.host.postMessage({ type: 'error', classification: 'unhandled-rejection' })
             })
             """,
             injectionTime: .atDocumentStart, forMainFrameOnly: true
@@ -131,6 +146,7 @@ final class EditorController: NSObject, Editing {
         refreshChanges.removeAll()
         refreshCounts.removeAll()
         generation += 1
+        diagnostics?.record(.loaded, operation: keepingCaret ? .reload : .load, generation: generation)
         pendingMarkdown = markdown
         isReady = false
         caret = CaretState()
@@ -171,6 +187,7 @@ final class EditorController: NSObject, Editing {
     }
 
     func releaseFocus() {
+        diagnostics?.record(.blur, operation: .blur, generation: generation)
         wantsFocus = false
         if pageReady { call("blur", String(generation)) }
         guard let window = webView.window, let responder = window.firstResponder as? NSView,
@@ -179,6 +196,7 @@ final class EditorController: NSObject, Editing {
     }
 
     func focus() {
+        diagnostics?.record(.focus, operation: .focus, generation: generation)
         guard allowsFocus, webView.window?.isKeyWindow == true else { wantsFocus = false; return }
         guard isReady else { wantsFocus = true; return }
         wantsFocus = false
@@ -198,6 +216,7 @@ final class EditorController: NSObject, Editing {
         guard isReady else { return }
         let expectedGeneration = generation
         let expectedDocumentID = documentID
+        diagnostics?.record(.command, operation: EditorDiagnostics.Operation(rawValue: function), generation: generation)
         let expectedWindow = NSApp.keyWindow
         let expectedResponder = expectedWindow?.firstResponder
         Task { @MainActor [weak self, weak expectedWindow, weak expectedResponder] in
@@ -211,14 +230,14 @@ final class EditorController: NSObject, Editing {
                 }
                 let result = try await webView.evaluateJavaScript("window.editor.\(function)(\(arguments.joined(separator: ", ")))")
                 guard expectedGeneration == generation, expectedDocumentID == documentID else { return }
-                if let rejection = result as? [String: Any], let message = rejection["message"] as? String {
-                    onWarning(message)
+                if let rejection = result as? [String: Any], let incident = EditorIncident(rejection, codeKey: "commandError") {
+                    handleRefusal(incident)
                 } else if let notAppliedWarning, result as? Bool == false {
                     onWarning(notAppliedWarning)
                 }
             } catch {
                 guard expectedGeneration == generation, expectedDocumentID == documentID else { return }
-                onWarning(error.localizedDescription)
+                handleRefusal(EditorIncident(code: "script", generation: expectedGeneration))
             }
         }
     }
@@ -281,6 +300,7 @@ final class EditorController: NSObject, Editing {
     }
 
     func snapshot() async throws -> String {
+        diagnostics?.record(.snapshot, operation: .snapshot, generation: generation)
         let expectedGeneration = generation
         let deadline = ContinuousClock.now + .seconds(15)
         while !pageReady, failure == nil, ContinuousClock.now < deadline {
@@ -295,6 +315,7 @@ final class EditorController: NSObject, Editing {
         guard expectedGeneration == generation else { throw MemoEditorError.documentChanged }
         if let rejected = result as? [String: Any],
            let code = rejected["snapshotError"] as? String, let message = rejected["message"] as? String {
+            captureIncident(EditorIncident(rejected, codeKey: "snapshotError") ?? EditorIncident(code: code, generation: expectedGeneration))
             if retryableSnapshotCodes.contains(code) {
                 throw MemoEditorError.snapshotRejected(code: code, message: message)
             }
@@ -542,7 +563,7 @@ final class EditorController: NSObject, Editing {
             guard let destination = await choose(image) else { return }
             try image.write(to: destination)
         } catch {
-            log.error("image not saved: \(error.localizedDescription, privacy: .public)")
+            log.error("image not saved")
             onWarning("Couldn’t save the image.")
         }
     }
@@ -572,10 +593,59 @@ final class EditorController: NSObject, Editing {
     }
 
     private func call(_ function: String, _ arguments: String...) {
-        webView.evaluateJavaScript("window.editor.\(function)(\(arguments.joined(separator: ", ")))") { _, error in
-            if let error {
-                let detail = (error as NSError).userInfo["WKJavaScriptExceptionMessage"] as? String ?? error.localizedDescription
-                log.error("\(function, privacy: .public): \(detail, privacy: .public)")
+        let expectedGeneration = generation
+        let expectedDocumentID = documentID
+        diagnostics?.record(.command, operation: EditorDiagnostics.Operation(rawValue: function), generation: generation)
+        webView.evaluateJavaScript("window.editor.\(function)(\(arguments.joined(separator: ", ")))") { [weak self] result, error in
+            guard let self, self.generation == expectedGeneration, self.documentID == expectedDocumentID else { return }
+            if let rejection = result as? [String: Any], let incident = EditorIncident(rejection, codeKey: "commandError") {
+                self.handleRefusal(incident)
+            } else if error != nil {
+                self.captureIncident(EditorIncident(code: "script", generation: expectedGeneration))
+                log.error("editor command failed")
+            }
+        }
+    }
+
+    private func handleRefusal(_ incident: EditorIncident) {
+        guard incident.generation == nil || incident.generation == generation else { return }
+        captureIncident(incident)
+        onWarning(incident.userMessage)
+    }
+
+    private func captureIncident(_ incident: EditorIncident) {
+        diagnostics?.record(.rejected, generation: generation, incident: incident)
+        guard let diagnostics, diagnostics.enabled, incidentCapture == nil else { return }
+        let epoch = diagnostics.recordingEpoch
+        incidentCapture = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.incidentCapture = nil }
+            guard let data = try? await self.diagnosticReport(), diagnostics.enabled, diagnostics.recordingEpoch == epoch,
+                  let report = try? JSONSerialization.jsonObject(with: data) else { return }
+            diagnostics.acceptEngineReport(report)
+            diagnostics.persistIncident()
+        }
+    }
+
+    /// Report retrieval is independent of document snapshots, composition, and generation changes.
+    func diagnosticReport() async throws -> Data {
+        guard let diagnostics, diagnostics.enabled else { throw MemoEditorError.unavailable }
+        let epoch = diagnostics.recordingEpoch
+        return try await withCheckedThrowingContinuation { continuation in
+            let request = DiagnosticReportRequest(continuation)
+            webView.evaluateJavaScript("window.editor.diagnosticReport()") { [weak self] value, error in
+                guard let self, self.diagnostics === diagnostics, diagnostics.enabled, diagnostics.recordingEpoch == epoch,
+                      error == nil, let raw = value as? [String: Any],
+                      let data = try? JSONSerialization.data(withJSONObject: EditorDiagnostics.sanitizeReport(raw), options: [.sortedKeys]) else {
+                    request.finish(.failure(MemoEditorError.unavailable))
+                    return
+                }
+                request.finish(.success(data))
+            }
+            request.timeout = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                request.finish(.failure(MemoEditorError.unavailable))
             }
         }
     }
@@ -620,6 +690,7 @@ final class EditorController: NSObject, Editing {
             applyAccent()
             applyTextSize()
             applyKeymap()
+            call("setDiagnosticsEnabled", diagnostics?.enabled == true ? "true" : "false")
             if let pendingMarkdown {
                 self.pendingMarkdown = nil
                 applyDocument(pendingMarkdown, keepingCaret: false)
@@ -637,6 +708,7 @@ final class EditorController: NSObject, Editing {
                 guard sequence > lastChangeSequence else { return }
                 lastChangeSequence = sequence
             }
+            diagnostics?.record(.changed, generation: generation)
             onChanged(markdown)
         case .commandState(let state, let documentID, let generation):
             guard generation == self.generation, documentID == self.documentID else { return }
@@ -658,9 +730,12 @@ final class EditorController: NSObject, Editing {
             onCopy(text)
         case .warning(let message):
             onWarning(message)
-        case .error(let message):
-            failure = MemoEditorError.script(message)
-            log.error("editor script error: \(message, privacy: .public)")
+        case .incident(let incident):
+            handleRefusal(incident)
+        case .error(let classification):
+            captureIncident(EditorIncident(code: "script", reason: classification, generation: generation))
+            failure = MemoEditorError.script("script-error")
+            log.error("editor script error")
         }
     }
 }
@@ -681,7 +756,7 @@ enum MemoEditorError: LocalizedError {
             case "operation-pending": "An image is still being added. Try again in a moment."
             case "not-ready": "The editor is still loading. Try again in a moment."
             case "stale-document": "Your memo changed. Try again."
-            default: "Couldn’t preserve your memo’s Markdown. Your text is still open."
+            default: "That edit couldn’t be applied. Your previous text is unchanged."
             }
         }
     }
@@ -707,8 +782,8 @@ private final class MessageProxy: NSObject, WKScriptMessageHandler {
             }
         }
         guard let parsed = EditorMessage(body: message.body) else {
-            // The body may hold the memo, which does not belong in the log; its type says what went wrong.
-            log.error("unreadable editor message of type \(String(describing: (message.body as? [String: Any])?["type"]), privacy: .public)")
+            // A malformed body or type may contain memo content.
+            log.error("unreadable editor message")
             return
         }
         target?.receive(parsed)
@@ -725,6 +800,7 @@ extension EditorController: WKNavigationDelegate {
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        diagnostics?.record(.processTerminated, generation: generation)
         pageReady = false
         isReady = false
         failure = MemoEditorError.unavailable
@@ -737,10 +813,26 @@ extension EditorController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
         failure = error
         isReady = false
-        log.error("editor navigation failed: \(error.localizedDescription, privacy: .public)")
+        captureIncident(EditorIncident(code: "navigation", generation: generation))
+        log.error("editor navigation failed")
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
-        log.error("editor load failed: \(error.localizedDescription, privacy: .public)")
+        captureIncident(EditorIncident(code: "navigation", generation: generation))
+        log.error("editor load failed")
+    }
+}
+
+@MainActor
+private final class DiagnosticReportRequest {
+    private var continuation: CheckedContinuation<Data, any Error>?
+    var timeout: Task<Void, Never>?
+    init(_ continuation: CheckedContinuation<Data, any Error>) { self.continuation = continuation }
+    func finish(_ result: Result<Data, any Error>) {
+        guard let continuation else { return }
+        self.continuation = nil
+        timeout?.cancel()
+        timeout = nil
+        continuation.resume(with: result)
     }
 }

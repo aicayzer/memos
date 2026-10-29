@@ -10,6 +10,7 @@ private let log = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "ap
 @MainActor
 @Observable
 final class AppModel {
+    let diagnostics: EditorDiagnostics
     let editor: any Editing
     let store: any MemoStore
     let images: any ImageStore
@@ -195,12 +196,14 @@ final class AppModel {
         images: any ImageStore,
         defaults: UserDefaults = .standard,
         editor: (any Editing)? = nil,
+        diagnostics: EditorDiagnostics? = nil,
         presentError: @escaping @MainActor (any Error) -> Void = { error in
             NSApp.activate()
             NSApp.presentError(error)
         },
         copyText: @escaping @MainActor (String) -> Void = { AppModel.copy($0) }
     ) {
+        self.diagnostics = diagnostics ?? EditorDiagnostics(defaults: defaults, incidentURL: defaults === UserDefaults.standard ? EditorDiagnostics.defaultIncidentURL : nil)
         self.presentError = presentError
         self.copyText = copyText
         self.store = store
@@ -235,6 +238,7 @@ final class AppModel {
         menuBarIcon = defaults.string(forKey: Self.menuBarIconKey).flatMap(MenuBarIcon.init(rawValue:)) ?? .squiggle
         let storedSize = defaults.object(forKey: Self.textSizeKey) as? Double ?? Self.defaultTextSize
         textSize = TextSize(nearest: storedSize).points
+        editor.diagnostics = self.diagnostics
         editor.accentOverride = accent.color
         editor.textSize = textSize
         editor.keymap = shortcuts.editorKeymap
@@ -251,6 +255,35 @@ final class AppModel {
             Task { await self.dropped(urls, at: point) }
         }
 
+    }
+
+    func setDiagnosticsEnabled(_ enabled: Bool) {
+        diagnostics.setEnabled(enabled)
+        // Updating the same recorder does not trigger the editor's property observer.
+        editor.diagnostics = diagnostics
+    }
+
+    func copyDiagnosticReport(to pasteboard: NSPasteboard = .general) async {
+        guard diagnostics.reportAvailable else { return }
+        let epoch = diagnostics.recordingEpoch
+        diagnostics.record(.reportRequested, operation: .report)
+        do {
+            let data = try await editor.diagnosticReport()
+            guard diagnostics.enabled, diagnostics.recordingEpoch == epoch else { return }
+            if let report = try JSONSerialization.jsonObject(with: data) as? [String: Any] { diagnostics.acceptEngineReport(report) }
+        } catch {
+            guard diagnostics.enabled, diagnostics.recordingEpoch == epoch else { return }
+            diagnostics.record(.reportUnavailable, operation: .report)
+        }
+        guard diagnostics.enabled, diagnostics.recordingEpoch == epoch, let report = diagnostics.report() else { return }
+        let item = NSPasteboardItem()
+        guard item.setString(report, forType: .string) else { return }
+        do { try MemoClipboard.write(item, to: pasteboard) }
+        catch { reportDiagnosticCopyFailure() }
+    }
+
+    private func reportDiagnosticCopyFailure() {
+        presentError(MemoClipboardError.unavailable("Couldn’t copy the diagnostic report. Try again."))
     }
 
     /// Shared files wait here for the service that took them; a sandboxed app's temporary items are not purged
@@ -589,7 +622,7 @@ final class AppModel {
         do {
             return try await store.list(matching: query)
         } catch {
-            log.error("list: \(error.localizedDescription, privacy: .public)")
+            log.error("memo list unavailable")
             return []
         }
     }
@@ -794,8 +827,10 @@ final class AppModel {
     private func save() async -> Bool {
         guard let id = current?.id, let markdown = unsaved else { return true }
         unsaved = nil
+        diagnostics.record(.command, operation: .save)
         do {
             let saved = try await store.update(id, markdown: markdown, expecting: savedMarkdown)
+            diagnostics.record(.saved, operation: .save)
             if current?.id == id { current?.updatedAt = saved.updatedAt; savedMarkdown = saved.markdown }
             return true
         } catch StorageError.conflict {
@@ -808,6 +843,7 @@ final class AppModel {
                 return true
             } catch {
                 if unsaved == nil { unsaved = markdown }
+                diagnostics.record(.saveFailed, operation: .save)
                 report(error)
                 return false
             }
@@ -822,11 +858,13 @@ final class AppModel {
                 return true
             } catch {
                 if unsaved == nil { unsaved = markdown }
+                diagnostics.record(.saveFailed, operation: .save)
                 report(error)
                 return false
             }
         } catch {
             if unsaved == nil { unsaved = markdown }
+            diagnostics.record(.saveFailed, operation: .save)
             report(error)
             return false
         }
@@ -848,7 +886,8 @@ final class AppModel {
     }
 
     private func report(_ error: any Error) {
-        log.error("\(error.localizedDescription, privacy: .public)")
+        diagnostics.record(.rejected, incident: EditorIncident(code: "unavailable"))
+        log.error("app operation failed")
         // An alert from an inactive app lands behind the app in front.
         presentError(error)
     }
