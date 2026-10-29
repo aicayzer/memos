@@ -179,9 +179,16 @@ final class EditorDiagnostics {
         return version
     }
 
+    private var osVersion: String {
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        let components = [version.majorVersion, version.minorVersion, version.patchVersion]
+        guard components.allSatisfy({ (0...9_999).contains($0) }) else { return "unknown" }
+        return components.map(String.init).joined(separator: ".")
+    }
+
     private func encoded(includePrevious: Bool) -> Data? {
         var result: [String: Any] = ["schemaVersion": 1, "enabled": enabled, "sessionId": sessionID,
-            "appVersion": Bundle.main.shortVersion, "appBuild": Bundle.main.buildNumber, "editorVersion": editorVersion, "events": events]
+            "appVersion": Bundle.main.shortVersion, "appBuild": Bundle.main.buildNumber, "editorVersion": editorVersion, "osVersion": osVersion, "events": events]
         if let engine { result["engine"] = engine }
         if let nativeIncident { result["nativeIncident"] = nativeIncident }
         if includePrevious, let previousIncident { result["previousIncident"] = previousIncident }
@@ -252,6 +259,8 @@ final class EditorDiagnostics {
             else if key == "fontFamily", let value = value as? String { result[key] = sanitizeFontFamily(value) }
             else if key == "caretColor", let value = value as? String, value.count <= 64,
                     value.range(of: "^(#[0-9a-fA-F]{3,8}|rgba?\\([0-9.,% ]+\\))$", options: .regularExpression) != nil { result[key] = value }
+            else if key == "osVersion", let value = value as? String, value.count <= 14,
+                    value.range(of: "\\A[0-9]{1,4}(\\.[0-9]{1,4}){2}\\z", options: .regularExpression) != nil { result[key] = value }
             else if ["sessionId"].contains(key), let value = value as? String, let uuid = UUID(uuidString: value) { result[key] = uuid.uuidString }
             else if ["editorVersion", "appVersion", "appBuild"].contains(key), let value = value as? String, value.count <= 32, value.range(of: "^[0-9]+(\\.[0-9]+){0,3}$", options: .regularExpression) != nil { result[key] = value }
         }

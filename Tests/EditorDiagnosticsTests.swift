@@ -200,6 +200,22 @@ import Testing
         #expect(EditorIncident(error: MemoEditorError.documentChanged).code == "stale-document")
     }
 
+    @Test(arguments: ["27.0.1", "PRIVATE-OS-DESCRIPTION", "27.0.1.2", "27000.0.1", "27.0.1\r\n"])
+    func reportsUseNumericOperatingSystemVersionsAndRevalidateCachedMetadata(cachedVersion: String) throws {
+        let (_, defaults, folder, name) = try fixture()
+        defer { discard(folder); defaults.removePersistentDomain(forName: name) }
+        let file = folder.appending(path: "incident.json")
+        defaults.set(true, forKey: EditorDiagnostics.enabledKey)
+        try JSONSerialization.data(withJSONObject: ["schemaVersion": 1, "osVersion": cachedVersion]).write(to: file)
+        let recorder = EditorDiagnostics(defaults: defaults, incidentURL: file)
+        let report = try #require(recorder.report())
+        let parsed = try #require(JSONSerialization.jsonObject(with: Data(report.utf8)) as? [String: Any])
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        #expect(parsed["osVersion"] as? String == "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)")
+        let previous = try #require(parsed["previousIncident"] as? [String: Any])
+        #expect(previous["osVersion"] as? String == (cachedVersion == "27.0.1" ? cachedVersion : nil))
+    }
+
     @Test func fontStacksKeepOnlyKnownFamilies() throws {
         let report = EditorDiagnostics.sanitizeReport(["presentation": ["fontFamily": "-apple-system, BlinkMacSystemFont, system-ui, sans-serif, \"Times New Roman\", Georgia, ui-rounded, PRIVATE-memo-title", "fontWeight": 600, "fontStyle": "italic", "headingLevel": 2]])
         let presentation = try #require(report["presentation"] as? [String: Any])
