@@ -19,7 +19,7 @@ Xcode Cloud is configured for product **Memos** with the **Release** workflow:
 - One **Archive macOS** action using the `Memos` scheme, **Any Mac**, and **App Store Connect** distribution.
 - One **TestFlight Internal Testing** post-action for **Internal Testers**.
 
-The post-clone hook validates the tag against `MARKETING_VERSION`, renders automatic signing, installs Node/pnpm for the bundled editor, and sets the build number from `CI_BUILD_NUMBER`. Keep Cloud's next build number above every uploaded build. As of October 16, 2026, the next number is **8**; the latest uploaded build is **0.4.7 (7)**.
+The post-clone hook validates the tag against `MARKETING_VERSION`, renders automatic signing, installs Node/pnpm for the bundled editor, and sets the build number from `CI_BUILD_NUMBER`. Before each release, check the latest uploaded build in App Store Connect and Cloud's next build number. Keep Cloud's next build number above every uploaded build.
 
 To release the app:
 

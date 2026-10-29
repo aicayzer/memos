@@ -5,14 +5,14 @@
   "packageManager": "pnpm@11.0.9",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/copy-inkkit-notices.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@aicayzer/inkkit": "0.3.1"
+    "@aicayzer/inkkit": "0.4.1"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",
