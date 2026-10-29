@@ -275,4 +275,3 @@ final class EditorDiagnostics {
     }
 
 }
-
