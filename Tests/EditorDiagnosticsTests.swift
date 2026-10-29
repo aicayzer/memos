@@ -60,6 +60,31 @@ import Testing
         #expect(!FileManager.default.fileExists(atPath: file.path))
     }
 
+    @Test func failedOptOutDeletionIsVisibleAndRetriedOnOffStateLaunchAndReset() throws {
+        let (recorder, defaults, folder, name) = try fixture()
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: folder.path)
+            discard(folder)
+            defaults.removePersistentDomain(forName: name)
+        }
+        let file = folder.appending(path: "incident.json")
+        recorder.setEnabled(true)
+        recorder.record(.rejected, incident: EditorIncident(code: "preservation"))
+        try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: folder.path)
+        recorder.setEnabled(false)
+        #expect(!recorder.enabled)
+        #expect(recorder.report() == nil)
+        #expect(recorder.deletionError == "Couldn’t delete recorded diagnostic activity.")
+        #expect(FileManager.default.fileExists(atPath: file.path))
+        let relaunched = EditorDiagnostics(defaults: defaults, incidentURL: file)
+        #expect(!relaunched.enabled)
+        #expect(relaunched.deletionError != nil)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: folder.path)
+        relaunched.reset()
+        #expect(relaunched.deletionError == nil)
+        #expect(!FileManager.default.fileExists(atPath: file.path))
+    }
+
     @Test func historyAndIncidentAreBoundedAndUntrustedFieldsNeverSurvive() throws {
         let (recorder, defaults, folder, name) = try fixture()
         defer { discard(folder); defaults.removePersistentDomain(forName: name) }

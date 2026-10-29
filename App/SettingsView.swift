@@ -122,6 +122,10 @@ struct SettingsView: View {
                 Button("Copy Diagnostic Report") { Task { await model.copyDiagnosticReport() } }
                     .disabled(!model.diagnostics.reportAvailable)
                     .accessibilityIdentifier("copyDiagnosticReport")
+                if let error = model.diagnostics.deletionError {
+                    Text(error).foregroundStyle(.red)
+                    Button("Try Again") { model.diagnostics.reset() }
+                }
             } header: {
                 Text("Diagnostics")
             } footer: {

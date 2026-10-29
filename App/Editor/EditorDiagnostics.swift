@@ -71,6 +71,7 @@ final class EditorDiagnostics {
 
     private(set) var enabled: Bool
     private(set) var eventCount = 0
+    private(set) var deletionError: String?
     let sessionID = UUID().uuidString
     @ObservationIgnored private var events: [[String: Any]] = []
     @ObservationIgnored private var nativeIncident: [String: Any]?
@@ -94,6 +95,7 @@ final class EditorDiagnostics {
            let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             previousIncident = Self.sanitizeReport(raw)
         }
+        if !enabled { deleteCachedIncident() }
         record(.started)
     }
 
@@ -108,14 +110,24 @@ final class EditorDiagnostics {
         sequence = 0
         previousIncident = nil
         eventCount = 0
-        if value { record(.started) }
-        else if let incidentURL { try? FileManager.default.removeItem(at: incidentURL) }
+        if value {
+            deletionError = nil
+            record(.started)
+        } else { deleteCachedIncident() }
     }
 
     func reset() {
         setEnabled(false)
         defaults.removeObject(forKey: Self.enabledKey)
-        if let incidentURL { try? FileManager.default.removeItem(at: incidentURL) }
+        deleteCachedIncident()
+    }
+
+    private func deleteCachedIncident() {
+        deletionError = nil
+        guard let incidentURL else { return }
+        do { try FileManager.default.removeItem(at: incidentURL) }
+        catch let error as CocoaError where error.code == .fileNoSuchFile { }
+        catch { deletionError = "Couldn’t delete recorded diagnostic activity." }
     }
 
     func record(_ event: Event, operation: Operation? = nil, generation: Int? = nil, incident: EditorIncident? = nil, composing: Bool? = nil) {
