@@ -31,6 +31,7 @@ import Testing
         recorder.acceptEngineReport(["events": [["kind": "input"]]])
         recorder.persistIncident()
         #expect(!recorder.enabled)
+        #expect(recorder.deletionError == nil)
         #expect(!recorder.reportAvailable)
         #expect(recorder.eventCount == 0)
         #expect(recorder.report() == nil)
