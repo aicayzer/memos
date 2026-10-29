@@ -16,6 +16,15 @@ func discard(_ url: URL) {
 /// The editor without a window: what the app put on screen, and what the reader typed back.
 @MainActor
 final class FakeEditor: Editing {
+    var diagnostics: EditorDiagnostics?
+    var diagnosticData = Data("{}".utf8)
+    var diagnosticError: (any Error)?
+    var duringDiagnosticReport: (() -> Void)?
+    func diagnosticReport() async throws -> Data {
+        duringDiagnosticReport?()
+        if let diagnosticError { throw diagnosticError }
+        return diagnosticData
+    }
     var caret = CaretState()
     var counts: EditorCounts?
     var allowsFocus = true

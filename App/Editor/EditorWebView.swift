@@ -5,6 +5,25 @@ import WebKit
 /// dropped on a memo should read as its path.
 final class EditorWebView: WKWebView {
     var onPaste: () -> Bool = { false }
+    var onInputActivity: () -> Void = {}
+    var onFocusActivity: (Bool) -> Void = { _ in }
+
+    override func keyDown(with event: NSEvent) {
+        onInputActivity()
+        super.keyDown(with: event)
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted { onFocusActivity(true) }
+        return accepted
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let accepted = super.resignFirstResponder()
+        if accepted { onFocusActivity(false) }
+        return accepted
+    }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         // Key equivalents traverse every subview, including editors that do not own the keyboard.

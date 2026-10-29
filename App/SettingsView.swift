@@ -113,6 +113,24 @@ struct SettingsView: View {
                     ), supportsOpacity: false)
                 }
             }
+            Section {
+                Toggle("Record diagnostic activity", isOn: Binding(
+                    get: { model.diagnostics.enabled },
+                    set: { model.setDiagnosticsEnabled($0) }
+                ))
+                .accessibilityIdentifier("recordDiagnosticActivity")
+                Button("Copy Diagnostic Report") { Task { await model.copyDiagnosticReport() } }
+                    .disabled(!model.diagnostics.reportAvailable)
+                    .accessibilityIdentifier("copyDiagnosticReport")
+                if let error = model.diagnostics.deletionError {
+                    Text(error).foregroundStyle(.red)
+                    Button("Try Again") { model.diagnostics.reset() }
+                }
+            } header: {
+                Text("Diagnostics")
+            } footer: {
+                Text("Records editor activity on this Mac without memo contents, filenames, or file paths. Keeps the latest incident for the next launch. Copy a report to share it manually. Turning this off deletes recorded activity.")
+            }
             Section("About") {
                 LabeledContent("Version", value: "\(Bundle.main.shortVersion) (\(Bundle.main.buildNumber))")
                 Link(destination: URL(string: "https://github.com/aicayzer/memos")!) {

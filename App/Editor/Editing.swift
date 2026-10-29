@@ -4,6 +4,8 @@ import AppKit
 /// something simpler in its place, so saving, history and memo switching can be driven without a window.
 @MainActor
 protocol Editing: AnyObject {
+    var diagnostics: EditorDiagnostics? { get set }
+    func diagnosticReport() async throws -> Data
     /// The marks and block under the caret, for the formatting bar.
     var caret: CaretState { get }
     var counts: EditorCounts? { get }

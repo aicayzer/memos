@@ -12,6 +12,11 @@ import {
 } from '@aicayzer/inkkit'
 import '@aicayzer/inkkit/style.css'
 import './style.css'
+import { errorFields } from './diagnostics'
+
+declare const __INKKIT_VERSION__: string
+let diagnosticsEnabled = false
+let diagnosticsEditor: InkKitEditor | undefined
 
 function post(message: Record<string, unknown>): void {
   const host = (
@@ -206,24 +211,42 @@ const editor = await InkKitEditor.mount(
       post({ type: 'copy', text })
     },
     error(error) {
-      post({ type: 'editorWarning', message: error.message })
+      post({
+        type: 'editorWarning',
+        ...errorFields(error, generation, diagnosticsEditor, diagnosticsEnabled),
+      })
     },
     clipboard: writeClipboard,
   },
   { images, textInput: { smartPunctuation: false }, slashMenu: { enabled: false } },
 )
 countsEditor = editor
+diagnosticsEditor = editor
 editor.setViewport({ scrollContainer: root, insets: { top: 24, bottom: 96 } })
 function command<T>(operation: () => T): T | { commandError: string; message: string } {
   try {
     return operation()
   } catch (error) {
     // Expected command guards must not poison the native document through a global script error.
-    if (error instanceof InkKitError) return { commandError: error.code, message: error.message }
+    if (error instanceof InkKitError)
+      return {
+        commandError: error.code,
+        ...errorFields(error, generation, editor, diagnosticsEnabled),
+      }
     throw error
   }
 }
 const facade = {
+  setDiagnosticsEnabled(enabled: boolean) {
+    diagnosticsEnabled = enabled
+    editor.setDiagnosticsEnabled(enabled)
+  },
+  diagnosticReport() {
+    return {
+      ...editor.diagnosticReport(),
+      editorVersion: __INKKIT_VERSION__,
+    }
+  },
   load(text: string, nextGeneration: number, documentId = String(nextGeneration)) {
     editor.loadDocument({ text, generation: nextGeneration, documentId, format: 'md' })
     generation = nextGeneration
@@ -249,9 +272,8 @@ const facade = {
       return {
         rejected: true,
         snapshotError: error.code,
-        generation,
         documentId: expectedDocumentId,
-        message: String(error),
+        ...errorFields(error, generation, editor, diagnosticsEnabled),
       }
     }
     if (snapshot.documentId !== expectedDocumentId) throw new Error('The memo changed')
@@ -282,9 +304,8 @@ const facade = {
       return {
         rejected: true,
         snapshotError: error.code,
-        generation,
         documentId: expectedDocumentId,
-        message: String(error),
+        ...errorFields(error, generation, editor, diagnosticsEnabled),
       }
     }
     if (snapshot.documentId !== expectedDocumentId) throw new Error('The memo changed')
@@ -300,7 +321,11 @@ const facade = {
       return editor.snapshot(expectedGeneration)
     } catch (error) {
       // An expected rejection must not reach WKWebView's global script-error listener.
-      if (error instanceof InkKitError) return { snapshotError: error.code, message: error.message }
+      if (error instanceof InkKitError)
+        return {
+          snapshotError: error.code,
+          ...errorFields(error, generation, editor, diagnosticsEnabled),
+        }
       throw error
     }
   },
@@ -333,7 +358,11 @@ const facade = {
         warnings: output.warnings,
       }
     } catch (error) {
-      if (error instanceof InkKitError) return { snapshotError: error.code, message: error.message }
+      if (error instanceof InkKitError)
+        return {
+          snapshotError: error.code,
+          ...errorFields(error, generation, editor, diagnosticsEnabled),
+        }
       throw error
     }
   },
@@ -377,7 +406,7 @@ const facade = {
       .catch((error) =>
         post({
           type: 'editorWarning',
-          message: error instanceof Error ? error.message : String(error),
+          ...errorFields(error, payload.generation, editor, diagnosticsEnabled),
         }),
       )
   },
@@ -401,8 +430,8 @@ const facade = {
   setKeymap: editor.setKeymap.bind(editor),
 }
 Object.assign(window, { editor: facade })
-window.addEventListener('error', (event) => post({ type: 'error', message: event.message }))
-window.addEventListener('unhandledrejection', (event) =>
-  post({ type: 'error', message: String(event.reason) }),
+window.addEventListener('error', () => post({ type: 'error', classification: 'script-error' }))
+window.addEventListener('unhandledrejection', () =>
+  post({ type: 'error', classification: 'unhandled-rejection' }),
 )
 post({ type: 'ready' })

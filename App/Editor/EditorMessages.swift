@@ -54,6 +54,7 @@ enum EditorMessage: Sendable {
     case imageMenu(reference: String, at: CGPoint)
     case copy(String)
     case warning(String)
+    case incident(EditorIncident)
     case error(String)
 
     init?(body: Any) {
@@ -92,9 +93,10 @@ enum EditorMessage: Sendable {
             guard let text = dict["text"] as? String else { return nil }
             self = .copy(text)
         case "editorWarning":
-            self = .warning(dict["message"] as? String ?? "")
+            if let incident = EditorIncident(dict) { self = .incident(incident) }
+            else { self = .warning("The editor couldn’t complete that action. Your text is still open.") }
         case "error":
-            self = .error(dict["message"] as? String ?? "")
+            self = .error(dict["classification"] as? String == "unhandled-rejection" ? "unhandled-rejection" : "script-error")
         default:
             return nil
         }

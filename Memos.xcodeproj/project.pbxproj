@@ -10,6 +10,7 @@
 		00A00D5185D7D10FC310859C /* MemoLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6083CC54ACB0CECCBCA2FFC /* MemoLookup.swift */; };
 		011C3633D3B8396960A6A8CB /* LibraryWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C3A035C50905967B389C3E4 /* LibraryWatcher.swift */; };
 		06399D505F4F1BB354A72F62 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF8D88BF8B49B1CAC75DAC9 /* AppModel.swift */; };
+		0826EEAB1E8229DA399AA1A4 /* EditorDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08CEC0BC4E855F9F318D69F9 /* EditorDiagnostics.swift */; };
 		0AD4EC9238A7B8B581F051EF /* TopRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2786CCFEEE5A203C75DE51 /* TopRow.swift */; };
 		0B4EBA44A9A8741E9CC115DE /* MemoLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6083CC54ACB0CECCBCA2FFC /* MemoLookup.swift */; };
 		1278A41881A967DF564DF844 /* PaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37CA2C61606EFE9D2CF07C73 /* PaletteView.swift */; };
@@ -37,6 +38,7 @@
 		4FEEB0234124AA4B37209694 /* MarkdownDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9A9A5B456F8BF4E3235589 /* MarkdownDocument.swift */; };
 		5384D403CEAB20B12E633A5A /* WindowChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3477E0C6176B03F3F0445FB /* WindowChrome.swift */; };
 		58E80CB90D7D2F76C32E7BE6 /* MemoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84F15876092AE4444B4305FC /* MemoStore.swift */; };
+		5C84448D5D65D1DAEDDD2602 /* EditorDiagnosticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0314600DC7FA80BE6D21BD4A /* EditorDiagnosticsTests.swift */; };
 		5D46EEFD12F8CAC06445E0CD /* EditorWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E67A904E658070FDBAD394 /* EditorWebView.swift */; };
 		5FAD7EEB65EF90A092C2BAF5 /* ColorsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CA8E50B55DA8FA70DF9F182 /* ColorsTests.swift */; };
 		605E283C144C07AAACC391D5 /* ArgumentParser in Frameworks */ = {isa = PBXBuildFile; productRef = FA661170D8EB00DD09B4D400 /* ArgumentParser */; };
@@ -113,9 +115,11 @@
 /* Begin PBXFileReference section */
 		01FE465AA3C193C095317832 /* LibraryStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStoreTests.swift; sourceTree = "<group>"; };
 		02CBC67E5B84E4E2D1F40D4C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		0314600DC7FA80BE6D21BD4A /* EditorDiagnosticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorDiagnosticsTests.swift; sourceTree = "<group>"; };
 		05750D9C590C4B72C13E50A6 /* AppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceTests.swift; sourceTree = "<group>"; };
 		06A4031ECE1ACEA9CC672288 /* FindBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindBar.swift; sourceTree = "<group>"; };
 		08C157E367F3348B8D4A6E9A /* StorageSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageSettings.swift; sourceTree = "<group>"; };
+		08CEC0BC4E855F9F318D69F9 /* EditorDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorDiagnostics.swift; sourceTree = "<group>"; };
 		091FB88337733422096147C5 /* MemosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MemosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0AC61AB0614ACAFCB6E9352C /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
 		10582A225A27966B99080601 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -305,6 +309,7 @@
 				05750D9C590C4B72C13E50A6 /* AppearanceTests.swift */,
 				1CA8E50B55DA8FA70DF9F182 /* ColorsTests.swift */,
 				E539466B536FBFA433610F93 /* EditorCommandStateTests.swift */,
+				0314600DC7FA80BE6D21BD4A /* EditorDiagnosticsTests.swift */,
 				3C65E47D8D17B043460A8C31 /* EditorPolishTests.swift */,
 				4967B82863FF5C8D7D97748C /* Fakes.swift */,
 				A173D37EC0A86D02131CA004 /* HistoryTests.swift */,
@@ -379,6 +384,7 @@
 			children = (
 				16F9AF4349EAE1C3D493E7D1 /* Editing.swift */,
 				A6175989A62D018758C8FED8 /* EditorController.swift */,
+				08CEC0BC4E855F9F318D69F9 /* EditorDiagnostics.swift */,
 				B30C960E636E363D2B6D5FF2 /* EditorMessages.swift */,
 				23EC7962F7BC8184D4BB0361 /* EditorView.swift */,
 				D4E67A904E658070FDBAD394 /* EditorWebView.swift */,
@@ -572,7 +578,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/zsh;
-			shellScript = "set -euo pipefail\nexport PATH=\"$HOME/Library/pnpm:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nexport CI=true\ncd \"$SRCROOT/editor\"\npnpm install --frozen-lockfile --silent\npnpm build --logLevel warn\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Editor\"\nmkdir -p \"$DEST\"\ncp dist/index.html \"$DEST/index.html\"\ncp -R dist/licenses \"$DEST/\"\n";
+			shellScript = "set -euo pipefail\nexport PATH=\"$HOME/Library/pnpm:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nexport CI=true\ncd \"$SRCROOT/editor\"\npnpm install --frozen-lockfile --silent\npnpm build --logLevel warn\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Editor\"\nmkdir -p \"$DEST\"\ncp dist/index.html \"$DEST/index.html\"\ncp dist/editor-version.json \"$DEST/editor-version.json\"\ncp -R dist/licenses \"$DEST/\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -584,6 +590,7 @@
 				C4585781C6611811831A867F /* AppearanceTests.swift in Sources */,
 				5FAD7EEB65EF90A092C2BAF5 /* ColorsTests.swift in Sources */,
 				FCEA8AF13ED87D9953293E34 /* EditorCommandStateTests.swift in Sources */,
+				5C84448D5D65D1DAEDDD2602 /* EditorDiagnosticsTests.swift in Sources */,
 				96A70CB9C205FE4AD175B19D /* EditorPolishTests.swift in Sources */,
 				8DFD09DC341C4A3E4E3BFD6E /* Fakes.swift in Sources */,
 				CC748EC43BA5FD14FABA6604 /* HistoryTests.swift in Sources */,
@@ -641,6 +648,7 @@
 				E90E1E62C388755F6757E683 /* Controls.swift in Sources */,
 				7892105FDDB03D0F102CD72D /* Editing.swift in Sources */,
 				6E7226529A1EE104AF103140 /* EditorController.swift in Sources */,
+				0826EEAB1E8229DA399AA1A4 /* EditorDiagnostics.swift in Sources */,
 				F333CD3EC733415F3993D94A /* EditorMessages.swift in Sources */,
 				8643F8C296FDD880A1F27926 /* EditorView.swift in Sources */,
 				5D46EEFD12F8CAC06445E0CD /* EditorWebView.swift in Sources */,
@@ -832,7 +840,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.4.12;
+				MARKETING_VERSION = 0.4.13;
 				MEMOS_APP_IDENTIFIER = me.cyzr.memos.dev;
 				MEMOS_DISPLAY_NAME = "Memos Dev";
 				MEMOS_URL_SCHEME = "memos-dev";
@@ -973,7 +981,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.4.12;
+				MARKETING_VERSION = 0.4.13;
 				MEMOS_APP_IDENTIFIER = me.cyzr.memos;
 				MEMOS_DISPLAY_NAME = Memos;
 				MEMOS_URL_SCHEME = memos;
