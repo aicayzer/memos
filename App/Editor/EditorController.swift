@@ -39,6 +39,9 @@ final class EditorController: NSObject, Editing {
     @ObservationIgnored private var incidentCapture: Task<Void, Never>?
     private(set) var caret = CaretState()
     private(set) var counts: EditorCounts?
+    private(set) var searchState = EditorSearchState()
+    @ObservationIgnored private var searchQuery = ""
+    @ObservationIgnored private var findInset = 0.0
     private(set) var isReady = false
     var allowsFocus = true
     var documentID = ""
@@ -64,6 +67,7 @@ final class EditorController: NSObject, Editing {
 
     @ObservationIgnored private var pendingMarkdown: String?
     @ObservationIgnored private var wantsFocus = false
+    @ObservationIgnored private let pendingFocusInput = PendingInputResponder()
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var refreshPreviousGeneration: Int?
     @ObservationIgnored private var refreshCounts: [Int: (documentID: String, value: EditorCounts)] = [:]
@@ -141,7 +145,7 @@ final class EditorController: NSObject, Editing {
     func reload(_ markdown: String) { replace(markdown, keepingCaret: true) }
 
     private func replace(_ markdown: String, keepingCaret: Bool) {
-        if !keepingCaret { wantsFocus = false }
+        if !keepingCaret { wantsFocus = false; pendingFocusInput.discardEvents() }
         refreshPreviousGeneration = nil
         refreshChanges.removeAll()
         refreshCounts.removeAll()
@@ -151,6 +155,8 @@ final class EditorController: NSObject, Editing {
         isReady = false
         caret = CaretState()
         counts = nil
+        searchState = EditorSearchState()
+        if !keepingCaret { searchQuery = "" }
         guard pageReady else { return }
         applyDocument(markdown, keepingCaret: keepingCaret)
     }
@@ -168,7 +174,11 @@ final class EditorController: NSObject, Editing {
                 guard self.generation == expectedGeneration, self.documentID == expectedDocumentID else { throw MemoEditorError.documentChanged }
                 self.failure = nil
                 self.isReady = true
-                if self.wantsFocus { self.focus() }
+                self.setFindInset(self.findInset)
+                if self.wantsFocus {
+                    if self.webView.window?.firstResponder === self.pendingFocusInput { self.focus() }
+                    else { self.wantsFocus = false; self.pendingFocusInput.discardEvents() }
+                }
             } catch {
                 if self.generation == expectedGeneration, self.documentID == expectedDocumentID { self.failure = error }
                 throw error
@@ -189,6 +199,7 @@ final class EditorController: NSObject, Editing {
     func releaseFocus() {
         diagnostics?.record(.blur, operation: .blur, generation: generation)
         wantsFocus = false
+        pendingFocusInput.discardEvents()
         if pageReady { call("blur", String(generation)) }
         guard let window = webView.window, let responder = window.firstResponder as? NSView,
               responder === webView || responder.isDescendant(of: webView) else { return }
@@ -197,14 +208,37 @@ final class EditorController: NSObject, Editing {
 
     func focus() {
         diagnostics?.record(.focus, operation: .focus, generation: generation)
-        guard allowsFocus, webView.window?.isKeyWindow == true else { wantsFocus = false; return }
-        guard isReady else { wantsFocus = true; return }
+        guard allowsFocus, let window = webView.window, window.isKeyWindow else {
+            wantsFocus = false
+            pendingFocusInput.discardEvents()
+            return
+        }
+        guard isReady else {
+            wantsFocus = true
+            window.makeFirstResponder(pendingFocusInput)
+            return
+        }
         wantsFocus = false
-        webView.window?.makeFirstResponder(webView)
-        call("focus", String(generation))
+        let buffering = window.firstResponder === pendingFocusInput
+        if !buffering { window.makeFirstResponder(webView) }
+        call("focus", String(generation)) { [weak self, weak window] in
+            guard let self, let window, self.allowsFocus, window.isKeyWindow,
+                  window.firstResponder === self.pendingFocusInput || self.webView.ownsFirstResponder(in: window) else { return }
+            window.makeFirstResponder(self.webView)
+            for event in self.pendingFocusInput.takeEvents() { window.sendEvent(event) }
+        }
     }
 
-    func find(_ text: String) { guardedCall("find", json(text), String(generation)) }
+    func find(_ text: String, direction: Int) {
+        searchQuery = text
+        if searchState.query != text { searchState = EditorSearchState(query: text) }
+        guardedCall("find", json(text), String(generation), String(direction))
+    }
+
+    func setFindInset(_ height: Double) {
+        findInset = height
+        guardedCall("setFindInset", String(height), String(generation))
+    }
     func setSourceMode(_ source: Bool) { guardedCall("setEditingMode", json(source ? "source" : "formatted"), String(generation)) }
     func undo() { guardedCall("undo", String(generation)) }
     func redo() { guardedCall("redo", String(generation)) }
@@ -592,7 +626,7 @@ final class EditorController: NSObject, Editing {
         call("clipboardResponse", json(requestID), json(response))
     }
 
-    private func call(_ function: String, _ arguments: String...) {
+    private func call(_ function: String, _ arguments: String..., completion: (() -> Void)? = nil) {
         let expectedGeneration = generation
         let expectedDocumentID = documentID
         diagnostics?.record(.command, operation: EditorDiagnostics.Operation(rawValue: function), generation: generation)
@@ -603,6 +637,8 @@ final class EditorController: NSObject, Editing {
             } else if error != nil {
                 self.captureIncident(EditorIncident(code: "script", generation: expectedGeneration))
                 log.error("editor command failed")
+            } else {
+                completion?()
             }
         }
     }
@@ -713,6 +749,9 @@ final class EditorController: NSObject, Editing {
         case .commandState(let state, let documentID, let generation):
             guard generation == self.generation, documentID == self.documentID else { return }
             if state != caret { caret = state }
+        case .searchState(let state, let documentID, let generation):
+            guard generation == self.generation, documentID == self.documentID, state.query == searchQuery else { return }
+            searchState = state
         case .textCounts(let counts, let documentID, let generation):
             if let previous = refreshPreviousGeneration, generation == previous || generation == self.generation {
                 refreshCounts[generation] = (documentID, counts)

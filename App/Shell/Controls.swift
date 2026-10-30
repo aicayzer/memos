@@ -27,6 +27,7 @@ enum Chrome {
 struct ChromeMetrics: Equatable {
     let pillHeight: CGFloat
     let iconSize: CGFloat
+    let findIconSize: CGFloat
     let buttonWidth: CGFloat
     let buttonHeight: CGFloat
     let circleSize: CGFloat
@@ -38,11 +39,11 @@ struct ChromeMetrics: Equatable {
     var barButtonHeight: CGFloat { buttonHeight + 2 }
 
     static let compact = ChromeMetrics(
-        pillHeight: 30, iconSize: 15, buttonWidth: 28, buttonHeight: 24, circleSize: 30, barHeight: 32,
+        pillHeight: 30, iconSize: 15, findIconSize: 12, buttonWidth: 28, buttonHeight: 24, circleSize: 30, barHeight: 32,
         minWidth: 400
     )
     static let standard = ChromeMetrics(
-        pillHeight: 34, iconSize: 17, buttonWidth: 32, buttonHeight: 28, circleSize: 34, barHeight: 36,
+        pillHeight: 34, iconSize: 17, findIconSize: 13, buttonWidth: 32, buttonHeight: 28, circleSize: 34, barHeight: 36,
         minWidth: 440
     )
 }

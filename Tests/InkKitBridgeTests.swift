@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Testing
 import PDFKit
 @testable import Memos
@@ -6,6 +7,43 @@ import PDFKit
 @MainActor
 @Suite(.serialized, .opensWindows)
 struct InkKitBridgeTests {
+    @Test func creatingMemoFromFindRestoresNativeAndDOMFocus() async throws {
+        let name = "find-new-memo-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let store = ChangeableStore([])
+        _ = await store.create(markdown: "Garden one. Garden two.\n")
+        let editor = EditorController(images: FakeImageStore())
+        let model = AppModel(store: store, images: FakeImageStore(), defaults: defaults, editor: editor)
+        let panel = MemoPanel(content: MainView().environment(model), restoresFrame: false)
+        model.attach(panel)
+        defer { panel.orderOut(nil); panel.contentView = nil; panel.close() }
+        panel.makeKeyAndOrderFront(nil)
+        await model.start()
+        _ = try await editor.snapshot()
+        model.overlay = .find
+        model.showingReplacement = true
+        panel.contentView?.layoutSubtreeIfNeeded()
+        await Task.yield()
+        await model.newMemo()
+        let initialKey = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: panel.windowNumber, context: nil, characters: "b", charactersIgnoringModifiers: "b", isARepeat: false, keyCode: 11))
+        panel.sendEvent(initialKey)
+        _ = try await editor.snapshot()
+        panel.contentView?.layoutSubtreeIfNeeded()
+        await Task.yield()
+        let focus = try await editor.webView.evaluateJavaScript("({active:document.activeElement?.outerHTML,focused:document.hasFocus()})")
+        Attachment.record(String(describing: focus), named: "New memo focus")
+        #expect(editor.webView.ownsFirstResponder(in: panel))
+        #expect(try await editor.webView.evaluateJavaScript("document.activeElement?.classList.contains('ProseMirror')") as? Bool == true)
+        let event = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: panel.windowNumber, context: nil, characters: "a", charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0))
+        panel.sendEvent(event)
+        for _ in 0..<100 {
+            if try await editor.snapshot().contains("a") { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(try await editor.snapshot().contains("ba"))
+    }
+
     @Test func fireAndForgetRefusalWarnsWithoutDisablingTheBridgeAndIgnoresStaleWarnings() async throws {
         let editor = EditorController(images: FakeImageStore())
         editor.documentID = "fixture"

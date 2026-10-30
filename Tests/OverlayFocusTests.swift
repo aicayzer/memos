@@ -74,7 +74,7 @@ struct OverlayFocusTests {
         panel.makeKeyAndOrderFront(nil)
         #expect(panel.makeFirstResponder(memo))
         panel.prepareOverlayFocus()
-        #expect(panel.firstResponder is OverlayInputResponder)
+        #expect(panel.firstResponder is PendingInputResponder)
         try sendLetter("b", keyCode: 11, to: panel)
         try sendLetter("r", keyCode: 15, to: panel)
         #expect(memo.string == "Unchanged memo")
@@ -232,6 +232,52 @@ struct OverlayFocusTests {
         #expect(editor.selectedRange() == NSRange(location: 2, length: 1))
         #expect(query.text == "query")
         #expect(memo.string == "Memo stays untouched")
+    }
+
+    @Test(arguments: [320.0, 400.0, 700.0])
+    func findFieldsAlignAndFitWithoutStealingFocus(width: Double) async throws {
+        let panel = panel()
+        defer { close(panel) }
+        panel.setContentSize(NSSize(width: width, height: 260))
+        panel.makeKeyAndOrderFront(nil)
+        let name = "find-layout-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let editor = FakeEditor()
+        let model = AppModel(store: ChangeableStore([]), images: FakeImageStore(), defaults: defaults, editor: editor)
+        model.overlay = .find
+        let host = NSHostingView(rootView: FindBar(model: model).padding(12))
+        host.frame = NSRect(x: 0, y: 100, width: width, height: 110)
+        panel.contentView!.addSubview(host)
+        host.layoutSubtreeIfNeeded()
+        await mainQueueBoundary()
+        let find = try #require(searchField(in: host))
+        #expect(find.placeholderString == "Find")
+        #expect(find.currentEditor() != nil)
+        model.showingReplacement = true
+        host.layoutSubtreeIfNeeded()
+        await mainQueueBoundary()
+        host.layoutSubtreeIfNeeded()
+        func fields(_ view: NSView) -> [OverlayTextField] {
+            if let field = view as? OverlayTextField { return [field] }
+            return view.subviews.flatMap(fields)
+        }
+        let all = fields(host)
+        #expect(all.count == 2)
+        let replacement = try #require(all.first { $0.placeholderString == "Replace with" })
+        let findRect = find.convert(find.bounds, to: host)
+        let replaceRect = replacement.convert(replacement.bounds, to: host)
+        #expect(abs(findRect.minX - replaceRect.minX) < 1)
+        #expect(findRect.width > 80)
+        #expect(findRect.minX >= 0 && findRect.maxX <= width)
+        #expect(replaceRect.minX >= 0 && replaceRect.maxX <= width)
+        #expect(find.currentEditor() != nil)
+        #expect(!replacement.hasFocused)
+        #expect(panel.makeFirstResponder(replacement))
+        #expect(replacement.currentEditor() != nil)
+        let delegate = try #require(replacement.delegate as? OverlaySearchField.Coordinator)
+        #expect(delegate.control(replacement, textView: NSTextView(), doCommandBy: #selector(NSResponder.cancelOperation(_:))))
+        #expect(model.overlay == nil)
     }
 
     @Test func queuedBlurCannotDismissReplacementOverlay() async throws {

@@ -4,6 +4,42 @@ import XCTest
 
 @MainActor
 final class MemosUITests: XCTestCase {
+    func testCompactFindDisclosureNavigationReplacementAndNewMemo() throws {
+        let fixture = try launchMemos()
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
+        app.typeText("Garden one. Garden two. Garden three.")
+        app.typeKey("f", modifierFlags: .command)
+        let find = app.textFields["Find"]
+        XCTAssertTrue(find.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertFalse(app.textFields["Replace with"].exists)
+        app.typeText("Garden")
+        XCTAssertTrue(app.staticTexts["1 of 3 matches"].waitForExistence(timeout: 5), app.debugDescription)
+        attach(app, name: "Compact find collapsed")
+        app.buttons["Next Match"].click()
+        XCTAssertTrue(app.staticTexts["2 of 3 matches"].waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["Previous Match"].click()
+        XCTAssertTrue(app.staticTexts["1 of 3 matches"].waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["find.disclosure"].click()
+        let replacement = app.textFields["Replace with"]
+        XCTAssertTrue(replacement.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(find.frame.minX, replacement.frame.minX, accuracy: 1)
+        replacement.click()
+        app.typeText("Park")
+        attach(app, name: "Compact find expanded with aligned fields")
+        app.buttons["Replace"].click()
+        expectText("Park one", in: editor)
+        XCTAssertTrue(app.staticTexts["1 of 2 matches"].waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["Replace All"].click()
+        expectText("Park two. Park three.", in: editor)
+        app.typeKey("n", modifierFlags: .command)
+        XCTAssertTrue(find.waitForNonExistence(timeout: 5), app.debugDescription)
+        app.typeText("New memo accepts typing")
+        expectText("New memo accepts typing", in: editor)
+        attach(app, name: "New memo dismisses search")
+    }
+
     func testFormatShortcutsStayWithNativeFields() throws {
         let fixture = try launchMemos()
         let app = fixture.app
@@ -38,10 +74,11 @@ final class MemosUITests: XCTestCase {
         }
 
         app.typeKey("f", modifierFlags: .command)
-        let find = app.textFields["Find in memo"]
+        let find = app.textFields["Find"]
         XCTAssertTrue(find.waitForExistence(timeout: 5), app.debugDescription)
         app.typeText("Middle")
         check(find, verifyMenu: true)
+        app.buttons["find.disclosure"].click()
         check(app.textFields["Replace with"])
         app.typeKey("f", modifierFlags: .command)
         editor.click()
@@ -177,7 +214,8 @@ final class MemosUITests: XCTestCase {
         let settings = app.windows["com_apple_SwiftUI_Settings_window"]
         XCTAssertTrue(settings.waitForExistence(timeout: 5), app.debugDescription)
         selectTab("General", in: settings)
-        XCTAssertTrue(settings.staticTexts["Version"].exists)
+        XCTAssertFalse(settings.staticTexts["Version"].exists)
+        XCTAssertFalse(settings.switches["recordDiagnosticActivity"].exists)
         XCTAssertFalse(settings.buttons["Check for Updates…"].exists)
         XCTAssertFalse(settings.toolbars.buttons["TextPad"].exists)
         attach(app, name: "Memos General settings")
@@ -196,6 +234,11 @@ final class MemosUITests: XCTestCase {
         selectTab("Shortcuts", in: settings)
         XCTAssertFalse(settings.staticTexts["Show or hide TextPad"].exists)
         attach(app, name: "Memos Shortcuts settings")
+        selectTab("About", in: settings)
+        XCTAssertTrue(settings.staticTexts["Version"].exists)
+        XCTAssertTrue(settings.switches["recordDiagnosticActivity"].exists)
+        XCTAssertTrue(settings.buttons["copyDiagnosticReport"].exists)
+        attach(app, name: "Memos About settings")
         selectTab("General", in: settings)
         dock.click()
         expectPolicy(.regular, process: process)
@@ -211,6 +254,8 @@ final class MemosUITests: XCTestCase {
     }
 
     func testBlankParagraphsSurviveMemoSwitchAndRelaunch() throws {
+        let previousClipboard = captureClipboard()
+        defer { restoreClipboard(previousClipboard) }
         let fixture = try launchMemos()
         let app = fixture.app
         let editor = app.webViews.textViews.firstMatch
@@ -226,6 +271,10 @@ final class MemosUITests: XCTestCase {
         expectText("Last paragraph", in: editor)
         let before = try XCTUnwrap(editor.value as? String)
         attach(app, name: "Authored paragraph spacing")
+        NSPasteboard.general.clearContents()
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.contains("<br />") && $0.contains("Last paragraph") }
+        let sourceBefore = try XCTUnwrap(NSPasteboard.general.string(forType: .string))
         app.typeKey("n", modifierFlags: .command)
         app.typeText("Other disposable memo")
         expectText("Other disposable memo", in: editor)
@@ -236,16 +285,15 @@ final class MemosUITests: XCTestCase {
         app.typeKey(.return, modifierFlags: [])
         expectValue(before, in: editor)
         attach(app, name: "Paragraph spacing after switching back")
-        let data = try Data(contentsOf: fixture.folder.appending(path: "store.json"))
-        let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        let memos = try XCTUnwrap(saved["memos"] as? [[String: Any]])
-        XCTAssertTrue(memos.contains { ($0["markdown"] as? String)?.contains("<br />") == true },
-                      "The saved memo must retain authored spacer paragraphs.")
         app.terminate()
         app.launch()
         XCTAssertTrue(editor.waitForExistence(timeout: 15))
         expectValue(before, in: editor)
         attach(app, name: "Paragraph spacing after relaunch")
+        // Read persisted source through the app, without crossing its protected container.
+        NSPasteboard.general.clearContents()
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0 == sourceBefore }
     }
 
     func testDevelopmentGlobalShortcutsDoNotActivatePad() throws {

@@ -47,6 +47,46 @@ import Testing
         #expect(editor.focusCount == before + 1)
     }
 
+    @Test func newMemoDismissesFindAndRestoresEditing() async throws {
+        let (model, _, editor) = await model("Existing memo")
+        model.overlay = .find
+        model.findText = "memo"
+        model.showingReplacement = true
+        editor.setFindInset(82)
+        let previous = try #require(model.current?.id)
+        let focusCount = editor.focusCount
+        await model.newMemo()
+        #expect(model.current?.id != previous)
+        #expect(model.overlay == nil)
+        #expect(model.findText.isEmpty)
+        #expect(!model.showingReplacement)
+        #expect(editor.findInset == 0)
+        #expect(editor.focusCount == focusCount + 1)
+        #expect(editor.searches.last == "")
+    }
+
+    @Test func switchingMemosDismissesFindWithoutFocusingOutgoingDocument() async throws {
+        let (model, store, editor) = await model("Existing memo")
+        let other = try await store.create(markdown: "Other memo")
+        model.overlay = .find
+        model.findText = "memo"
+        let before = editor.focusCount
+        await model.open(other.id)
+        #expect(model.overlay == nil)
+        #expect(model.current?.id == other.id)
+        #expect(editor.focusCount == before)
+    }
+
+    @Test func findNavigationKeepsQueryUpdatesSeparateFromMoving() async {
+        let (model, _, editor) = await model("Memo memo")
+        model.overlay = .find
+        model.findText = "memo"
+        model.find()
+        model.moveFind(-1)
+        model.moveFind(1)
+        #expect(editor.searchDirections == [0, -1, 1])
+    }
+
     @Test func overlaysOwnFocusUntilDismissed() async {
         let (model, _, editor) = await model("Keep this memo")
         for overlay in [Overlay.palette, .browse, .find] {
@@ -154,6 +194,15 @@ import Testing
         #expect(await store.get(first.id)?.markdown == "First\n")
         #expect(copied.isEmpty)
         #expect(errors == 3)
+        model.overlay = .find
+        model.findText = "Unsaved"
+        model.showingReplacement = true
+        await model.newMemo()
+        #expect(model.current?.id == first.id)
+        #expect(model.overlay == .find)
+        #expect(model.findText == "Unsaved")
+        #expect(model.showingReplacement)
+        #expect(editor.text == "Unsaved\n")
     }
 
     @Test func quittingWritesWhatIsOnScreen() async throws {

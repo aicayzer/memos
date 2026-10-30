@@ -16,6 +16,12 @@ struct EditorCounts: Equatable, Sendable {
     }
 }
 
+struct EditorSearchState: Equatable, Sendable {
+    var query = ""
+    var current = 0
+    var total = 0
+}
+
 enum Mark: String, Sendable {
     case bold, italic, strikethrough, code, link
 }
@@ -50,6 +56,7 @@ enum EditorMessage: Sendable {
     case changed(String, generation: Int, sequence: Int? = nil)
     case commandState(CaretState, documentID: String, generation: Int)
     case textCounts(EditorCounts, documentID: String, generation: Int)
+    case searchState(EditorSearchState, documentID: String, generation: Int)
     case openLink(String)
     case imageMenu(reference: String, at: CGPoint)
     case copy(String)
@@ -81,6 +88,14 @@ enum EditorMessage: Sendable {
                   let characters = dict["characters"] as? Int, characters >= 0,
                   let words = dict["words"] as? Int, words >= 0 else { return nil }
             self = .textCounts(EditorCounts(characters: characters, words: words), documentID: documentID, generation: generation)
+        case "searchState":
+            guard let documentID = dict["documentId"] as? String,
+                  let generation = dict["generation"] as? Int,
+                  let query = dict["query"] as? String,
+                  let current = dict["current"] as? Int, current >= 0,
+                  let total = dict["total"] as? Int, total >= current,
+                  total != 0 || current == 0 else { return nil }
+            self = .searchState(EditorSearchState(query: query, current: current, total: total), documentID: documentID, generation: generation)
         case "openLink":
             guard let href = dict["href"] as? String else { return nil }
             self = .openLink(href)

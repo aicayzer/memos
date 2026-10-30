@@ -9,6 +9,7 @@ protocol Editing: AnyObject {
     /// The marks and block under the caret, for the formatting bar.
     var caret: CaretState { get }
     var counts: EditorCounts? { get }
+    var searchState: EditorSearchState { get }
     var allowsFocus: Bool { get set }
     var documentID: String { get set }
 
@@ -31,7 +32,8 @@ protocol Editing: AnyObject {
     func moveBlock(up: Bool)
     func releaseFocus()
     func focus()
-    func find(_ text: String)
+    func find(_ text: String, direction: Int)
+    func setFindInset(_ height: Double)
     /// Inserts the paths as lines at a point in the view.
     func insertPaths(_ paths: [String], at point: CGPoint)
     /// Inserts the images as blocks at a point in the view, or at the caret when there is none.
@@ -61,6 +63,8 @@ enum EditorRefresh {
 }
 
 extension Editing {
+    func find(_ text: String) { find(text, direction: 0) }
+
     func format(_ command: FormatCommand) {
         format(command, argument: nil)
     }

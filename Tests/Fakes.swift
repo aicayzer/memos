@@ -27,6 +27,9 @@ final class FakeEditor: Editing {
     }
     var caret = CaretState()
     var counts: EditorCounts?
+    var searchState = EditorSearchState()
+    var findInset = 0.0
+    var searchDirections: [Int] = []
     var allowsFocus = true
     var documentID = ""
     private(set) var focusCount = 0
@@ -71,7 +74,8 @@ final class FakeEditor: Editing {
     func releaseFocus() {}
     func focus() { if allowsFocus { focusCount += 1 } }
     private(set) var searches: [String] = []
-    func find(_ text: String) { searches.append(text) }
+    func find(_ text: String, direction: Int) { searches.append(text); searchDirections.append(direction) }
+    func setFindInset(_ height: Double) { findInset = height }
     func insertPaths(_ paths: [String], at point: CGPoint) {}
 
     func insertImages(_ references: [ImageReference], at point: CGPoint?) {

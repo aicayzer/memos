@@ -114,6 +114,7 @@ struct StorageSettingsView: View {
                 Text("Available after a storage conversion. This is a recovery copy, not an automatic backup.")
             }
         }
+        .tint(.primary)
         .confirmationDialog("Change memo storage?", isPresented: $confirmingConversion, titleVisibility: .visible) {
             Button(requestedMarkdown ? "Use Markdown Files…" : "Keep Memos Internally") {
                 let enabled = requestedMarkdown
