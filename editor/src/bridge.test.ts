@@ -810,9 +810,17 @@ describe('native find controls', () => {
   it('guards the find inset against invalid and stale updates', () => {
     open('memo\n')
     expect(bridge().setFindInset(80, generation)).toBeUndefined()
-    expect(document.querySelector<HTMLElement>('#editor')?.style.getPropertyValue('--inkkit-padding-top')).toBe('88px')
+    expect(
+      document
+        .querySelector<HTMLElement>('#editor')
+        ?.style.getPropertyValue('--inkkit-padding-top'),
+    ).toBe('88px')
     expect(bridge().setFindInset(0, generation)).toBeUndefined()
-    expect(document.querySelector<HTMLElement>('#editor')?.style.getPropertyValue('--inkkit-padding-top')).toBe('24px')
+    expect(
+      document
+        .querySelector<HTMLElement>('#editor')
+        ?.style.getPropertyValue('--inkkit-padding-top'),
+    ).toBe('24px')
     expect(bridge().setFindInset(-1, generation)).toMatchObject({
       commandError: 'invalid-argument',
     })
