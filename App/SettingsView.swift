@@ -19,6 +19,7 @@ struct SettingsView: View {
             Tab("Appearance", systemImage: "paintbrush") { appearance }
             Tab("Storage", systemImage: "externaldrive") { storage }
             Tab("Shortcuts", systemImage: "keyboard") { shortcuts }
+            Tab("About", systemImage: "info.circle") { about }
         }
         .frame(width: 460, height: 560)
         .tint(model.accentColor)
@@ -113,6 +114,22 @@ struct SettingsView: View {
                     ), supportsOpacity: false)
                 }
             }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var about: some View {
+        Form {
+            Section {
+                HStack(spacing: 12) {
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath))
+                        .resizable()
+                        .frame(width: 48, height: 48)
+                        .accessibilityHidden(true)
+                    Text(Bundle.main.displayName).font(.headline)
+                }
+                LabeledContent("Version", value: "\(Bundle.main.shortVersion) (\(Bundle.main.buildNumber))")
+            }
             Section {
                 Toggle("Record diagnostic activity", isOn: Binding(
                     get: { model.diagnostics.enabled },
@@ -120,29 +137,24 @@ struct SettingsView: View {
                 ))
                 .accessibilityIdentifier("recordDiagnosticActivity")
                 Button("Copy Diagnostic Report") { Task { await model.copyDiagnosticReport() } }
+                    .tint(.primary)
                     .disabled(!model.diagnostics.reportAvailable)
                     .accessibilityIdentifier("copyDiagnosticReport")
                 if let error = model.diagnostics.deletionError {
                     Text(error).foregroundStyle(.red)
-                    Button("Try Again") { model.diagnostics.reset() }
+                    Button("Try Again") { model.diagnostics.reset() }.tint(.primary)
                 }
             } header: {
                 Text("Diagnostics")
             } footer: {
                 Text("Records editor activity on this Mac without memo contents, filenames, or file paths. Keeps the latest incident for the next launch. Copy a report to share it manually. Turning this off deletes recorded activity.")
             }
-            Section("About") {
-                LabeledContent("Version", value: "\(Bundle.main.shortVersion) (\(Bundle.main.buildNumber))")
-                Link(destination: URL(string: "https://github.com/aicayzer/memos")!) {
-                    Text("Source Code").foregroundStyle(model.accentColor)
-                }
-                Link(destination: URL(string: "https://github.com/aicayzer/memos/releases")!) {
-                    Text("Releases").foregroundStyle(model.accentColor)
-                }
-                Link(destination: URL(string: "https://github.com/aicayzer/memos/blob/main/LICENSE")!) {
-                    Text("License").foregroundStyle(model.accentColor)
-                }
+            Section {
+                Link("Source Code", destination: URL(string: "https://github.com/aicayzer/memos")!)
+                Link("Releases", destination: URL(string: "https://github.com/aicayzer/memos/releases")!)
+                Link("License", destination: URL(string: "https://github.com/aicayzer/memos/blob/main/LICENSE")!)
             }
+            .tint(.primary)
         }
         .formStyle(.grouped)
     }
