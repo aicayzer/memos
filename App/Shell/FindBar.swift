@@ -73,11 +73,17 @@ struct FindBar: View {
 }
 
 private struct FindFieldStyle: ViewModifier {
+    @Environment(\.displayScale) private var displayScale
+
     func body(content: Content) -> some View {
         content
             .frame(minWidth: 0, maxWidth: .infinity)
             .frame(height: 28)
             .padding(.horizontal, 8)
-            .background(.primary.opacity(0.06), in: .rect(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(.primary.opacity(0.22), lineWidth: 1 / displayScale)
+                    .allowsHitTesting(false)
+            }
     }
 }
