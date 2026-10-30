@@ -248,6 +248,8 @@ final class MemosUITests: XCTestCase {
     }
 
     func testBlankParagraphsSurviveMemoSwitchAndRelaunch() throws {
+        let previousClipboard = captureClipboard()
+        defer { restoreClipboard(previousClipboard) }
         let fixture = try launchMemos()
         let app = fixture.app
         let editor = app.webViews.textViews.firstMatch
@@ -263,6 +265,10 @@ final class MemosUITests: XCTestCase {
         expectText("Last paragraph", in: editor)
         let before = try XCTUnwrap(editor.value as? String)
         attach(app, name: "Authored paragraph spacing")
+        NSPasteboard.general.clearContents()
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.contains("<br />") && $0.contains("Last paragraph") }
+        let sourceBefore = try XCTUnwrap(NSPasteboard.general.string(forType: .string))
         app.typeKey("n", modifierFlags: .command)
         app.typeText("Other disposable memo")
         expectText("Other disposable memo", in: editor)
@@ -273,16 +279,15 @@ final class MemosUITests: XCTestCase {
         app.typeKey(.return, modifierFlags: [])
         expectValue(before, in: editor)
         attach(app, name: "Paragraph spacing after switching back")
-        let data = try Data(contentsOf: fixture.folder.appending(path: "store.json"))
-        let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        let memos = try XCTUnwrap(saved["memos"] as? [[String: Any]])
-        XCTAssertTrue(memos.contains { ($0["markdown"] as? String)?.contains("<br />") == true },
-                      "The saved memo must retain authored spacer paragraphs.")
         app.terminate()
         app.launch()
         XCTAssertTrue(editor.waitForExistence(timeout: 15))
         expectValue(before, in: editor)
         attach(app, name: "Paragraph spacing after relaunch")
+        // Read persisted source through the app, without crossing its protected container.
+        NSPasteboard.general.clearContents()
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0 == sourceBefore }
     }
 
     func testDevelopmentGlobalShortcutsDoNotActivatePad() throws {
