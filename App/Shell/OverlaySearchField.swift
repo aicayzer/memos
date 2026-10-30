@@ -12,6 +12,8 @@ struct OverlaySearchField: NSViewRepresentable {
     let dismiss: () -> Void
     var move: ((Int) -> Void)?
     var blur: (() -> Void)?
+    var initiallyFocused = true
+    var previousSubmit: (() -> Void)?
 
     func makeNSView(context: Context) -> OverlayTextField {
         let field = OverlayTextField()
@@ -33,6 +35,7 @@ struct OverlaySearchField: NSViewRepresentable {
         field.font = .systemFont(ofSize: fontSize)
         field.isCurrent = isCurrent
         if field.stringValue != text { field.stringValue = text }
+        field.initiallyFocused = initiallyFocused
         field.requestInitialFocus()
     }
 
@@ -55,7 +58,9 @@ struct OverlaySearchField: NSViewRepresentable {
         func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
             guard parent.isCurrent() else { return false }
             switch selector {
-            case #selector(NSResponder.insertNewline(_:)): parent.submit()
+            case #selector(NSResponder.insertNewline(_:)):
+                if NSApp.currentEvent?.modifierFlags.contains(.shift) == true, let previous = parent.previousSubmit { previous() }
+                else { parent.submit() }
             case #selector(NSResponder.cancelOperation(_:)): parent.dismiss()
             case #selector(NSResponder.moveUp(_:)):
                 guard let move = parent.move else { return false }
@@ -83,6 +88,7 @@ struct OverlaySearchField: NSViewRepresentable {
 
 final class OverlayTextField: NSTextField {
     var isCurrent: () -> Bool = { false }
+    var initiallyFocused = true
     private(set) var hasFocused = false
     private var generation = 0
     private var scheduled = false
@@ -102,14 +108,14 @@ final class OverlayTextField: NSTextField {
     @objc private func windowBecameKey() { requestInitialFocus() }
 
     func requestInitialFocus() {
-        guard !hasFocused, !scheduled, window != nil, isCurrent() else { return }
+        guard initiallyFocused, !hasFocused, !scheduled, window != nil, isCurrent() else { return }
         scheduled = true
         let request = generation
         DispatchQueue.main.async { [weak self] in
             guard let self, request == self.generation else { return }
             self.scheduled = false
             guard !self.hasFocused, self.isCurrent(), let window = self.window, window.isKeyWindow else { return }
-            let pending = window.firstResponder as? OverlayInputResponder
+            let pending = window.firstResponder as? PendingInputResponder
             self.hasFocused = window.makeFirstResponder(self)
             if self.hasFocused {
                 for event in pending?.takeEvents() ?? [] {
@@ -128,8 +134,8 @@ final class OverlayTextField: NSTextField {
     }
 }
 
-/// SwiftUI mounts the field after the shortcut returns. Keep those first keystrokes out of the memo.
-final class OverlayInputResponder: NSResponder {
+/// Retain initial keystrokes until the destination field or document is ready.
+final class PendingInputResponder: NSResponder {
     private var events: [NSEvent] = []
     override var acceptsFirstResponder: Bool { true }
     override func keyDown(with event: NSEvent) { events.append(event) }

@@ -42,7 +42,11 @@ The production `LibraryStore` deliberately retains image files rather than sweep
 
 `commandState` messages carry `documentId`, `generation`, editing `mode`, `caret`, and the public `commands` maps, and are the only source of caret state. Ignore messages for another scope. Menu availability follows these maps, where headings are the `heading1` to `heading6` entries of `commands.format`; source mode shares the same document and undo history.
 
-`format(command, destination, generation)`, `moveBlock(direction, generation)`, `find(text, generation)`, `replace(search, replacement, generation)`, `replaceAll(search, replacement, generation)`, `setEditingMode(mode, generation)`, `undo(generation)`, `redo(generation)`, `table`, `pasteAsPlainText`, `insertImages` and `insertPaths` call the public facade. Search and replacement are literal. Reload retains mode; loading another memo resets history.
+`format(command, destination, generation)`, `moveBlock(direction, generation)`, `replace(search, replacement, generation)`, `replaceAll(search, replacement, generation)`, `setEditingMode(mode, generation)`, `undo(generation)`, `redo(generation)`, `table`, `pasteAsPlainText`, `insertImages` and `insertPaths` call the public facade. Search and replacement are literal. Reload retains mode; loading another memo resets history.
+
+`find(text, generation, direction = 0)` updates the query without advancing the current match. Direction `1` selects the next match and `-1` selects the previous match, wrapping at either end. The host uses Inkkit's `searchMatches` ranges so counts, navigation and replacement share the engine's rules, including excluding embedded labels from formatted searches. The bridge uses `find` to establish persistent highlights and `selectTextRange` to navigate without transferring focus out of the native field. Replacement acts on the indicated match and selects the next remaining match after a successful edit. Empty replacement text deletes a match.
+
+`searchState` messages carry `documentId`, `generation`, `query`, `current` and `total`. `current` is one-based, or zero if no match is selected. Native code ignores messages from another scope or query. Changes, undo, redo and editing-mode changes refresh the count. Loading another memo clears the query; reloading the current memo retains it. Composition and pending imports retain the last valid count while command state disables editing actions.
 
 InkKit always enables the typed table-row shortcut; it has no option for it. Block movement defaults to Option-Up and Option-Down, and its Move Up and Move Down titles and keys come from the shared shortcut definitions, as every editor shortcut's do. The Format menu follows `commands.moveBlockUp` and `commands.moveBlockDown`. InkKit's smart punctuation and the slash menu are disabled at mount. No wiki-link adapter is supplied, so `[[` stays literal.
 
@@ -54,7 +58,9 @@ InkKit throws from a facade call that it refuses, and sends nothing to its error
 
 ## Reading viewport and counts
 
-The host registers the scrolling editor root with `setViewport`, with 24 CSS pixels at the top for the fade and 96 at the bottom for the formatting bar and count. InkKit uses these insets when revealing the caret and search results.
+The native controller buffers initial typing while a requested document loads, and replays it only after that generation has focus. Moving focus elsewhere or loading another document discards pending input.
+
+The host registers the scrolling editor root with `setViewport`, with 24 CSS pixels at the top for the fade and 96 at the bottom for the formatting bar and count. `setFindInset(height, generation)` replaces the top inset with the measured find-panel height, including its outer spacing, or the 24-pixel baseline, whichever is larger. Closing Find restores the baseline. InkKit uses these insets when revealing the caret and search results.
 
 The page posts `textCounts` with `documentId`, `generation`, `characters`, and `words`. Counts come from InkKit's public `textSnapshot()`: formatted text omits Markdown delimiters and hidden comments; source mode counts the literal text it displays. Characters are Unicode grapheme clusters, including spaces and line breaks. Words use `Intl.Segmenter` word boundaries. The native controller rejects counts for another memo or generation. Composition and pending imports retain the last valid count until the editor can report again.
 

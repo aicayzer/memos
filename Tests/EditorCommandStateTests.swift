@@ -38,6 +38,19 @@ struct EditorCommandStateTests {
         #expect(state.formats["heading"] == nil)
     }
 
+    @Test func searchMessagesRequireScopeAndValidCounts() throws {
+        let body: [String: Any] = ["type": "searchState", "documentId": "memo", "generation": 3,
+                                  "query": "a", "current": 2, "total": 4]
+        guard case .searchState(let state, let id, let generation) = try #require(EditorMessage(body: body)) else {
+            Issue.record("Expected search state"); return
+        }
+        #expect(state == EditorSearchState(query: "a", current: 2, total: 4))
+        #expect(id == "memo" && generation == 3)
+        #expect(EditorMessage(body: body.merging(["current": 5]) { _, new in new }) == nil)
+        #expect(EditorMessage(body: body.merging(["total": -1]) { _, new in new }) == nil)
+        #expect(EditorMessage(body: body.filter { $0.key != "documentId" }) == nil)
+    }
+
     @Test func unscopedCommandStateIsRejected() {
         #expect(EditorMessage(body: ["type": "commandState", "generation": 1]) == nil)
     }

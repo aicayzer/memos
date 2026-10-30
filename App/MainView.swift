@@ -93,7 +93,11 @@ struct MainView: View {
                 }
                 .overlay(alignment: .topTrailing) {
                     if model.overlay == .find {
-                        FindBar(model: model).padding(12)
+                        FindBar(model: model)
+                            .padding(12)
+                            .onGeometryChange(for: Double.self) { Double($0.size.height) } action: { height in
+                                if model.overlay == .find { model.editor.setFindInset(height) }
+                            }
                     }
                 }
         }

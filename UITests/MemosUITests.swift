@@ -4,6 +4,42 @@ import XCTest
 
 @MainActor
 final class MemosUITests: XCTestCase {
+    func testCompactFindDisclosureNavigationReplacementAndNewMemo() throws {
+        let fixture = try launchMemos()
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
+        app.typeText("Garden one. Garden two. Garden three.")
+        app.typeKey("f", modifierFlags: .command)
+        let find = app.textFields["Find"]
+        XCTAssertTrue(find.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertFalse(app.textFields["Replace with"].exists)
+        app.typeText("Garden")
+        XCTAssertTrue(app.staticTexts["1 of 3 matches"].waitForExistence(timeout: 5), app.debugDescription)
+        attach(app, name: "Compact find collapsed")
+        app.buttons["Next Match"].click()
+        XCTAssertTrue(app.staticTexts["2 of 3 matches"].waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["Previous Match"].click()
+        XCTAssertTrue(app.staticTexts["1 of 3 matches"].waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["find.disclosure"].click()
+        let replacement = app.textFields["Replace with"]
+        XCTAssertTrue(replacement.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(find.frame.minX, replacement.frame.minX, accuracy: 1)
+        replacement.click()
+        app.typeText("Park")
+        attach(app, name: "Compact find expanded with aligned fields")
+        app.buttons["Replace"].click()
+        expectText("Park one", in: editor)
+        XCTAssertTrue(app.staticTexts["1 of 2 matches"].waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["Replace All"].click()
+        expectText("Park two. Park three.", in: editor)
+        app.typeKey("n", modifierFlags: .command)
+        XCTAssertTrue(find.waitForNonExistence(timeout: 5), app.debugDescription)
+        app.typeText("New memo accepts typing")
+        expectText("New memo accepts typing", in: editor)
+        attach(app, name: "New memo dismisses search")
+    }
+
     func testFormatShortcutsStayWithNativeFields() throws {
         let fixture = try launchMemos()
         let app = fixture.app
@@ -38,10 +74,11 @@ final class MemosUITests: XCTestCase {
         }
 
         app.typeKey("f", modifierFlags: .command)
-        let find = app.textFields["Find in memo"]
+        let find = app.textFields["Find"]
         XCTAssertTrue(find.waitForExistence(timeout: 5), app.debugDescription)
         app.typeText("Middle")
         check(find, verifyMenu: true)
+        app.buttons["find.disclosure"].click()
         check(app.textFields["Replace with"])
         app.typeKey("f", modifierFlags: .command)
         editor.click()

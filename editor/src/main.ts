@@ -13,6 +13,7 @@ import {
 import '@aicayzer/inkkit/style.css'
 import './style.css'
 import { errorFields } from './diagnostics'
+import { MemoFind } from './find'
 
 declare const __INKKIT_VERSION__: string
 let diagnosticsEnabled = false
@@ -158,6 +159,7 @@ const characterSegments = new Intl.Segmenter(undefined, { granularity: 'grapheme
 const wordSegments = new Intl.Segmenter(undefined, { granularity: 'word' })
 let countsEditor: InkKitEditor | undefined
 let countsPending = false
+let findController: MemoFind
 let countedText: { text: string; documentId: string; generation: number } | undefined
 function scheduleCounts(): void {
   if (countsPending) return
@@ -167,6 +169,7 @@ function scheduleCounts(): void {
     if (!countsEditor) return
     try {
       const snapshot = countsEditor.textSnapshot(generation)
+      findController?.refresh(generation)
       if (
         countedText?.text === snapshot.text &&
         countedText.documentId === snapshot.documentId &&
@@ -222,6 +225,7 @@ const editor = await InkKitEditor.mount(
 )
 countsEditor = editor
 diagnosticsEditor = editor
+findController = new MemoFind(editor, (state) => post({ type: 'searchState', ...state }))
 editor.setViewport({ scrollContainer: root, insets: { top: 24, bottom: 96 } })
 function command<T>(operation: () => T): T | { commandError: string; message: string } {
   try {
@@ -250,11 +254,13 @@ const facade = {
   load(text: string, nextGeneration: number, documentId = String(nextGeneration)) {
     editor.loadDocument({ text, generation: nextGeneration, documentId, format: 'md' })
     generation = nextGeneration
+    findController.reset(generation)
     scheduleCounts()
   },
   reload(text: string, nextGeneration: number, documentId = String(nextGeneration)) {
     editor.reloadDocument({ text, generation: nextGeneration, documentId, format: 'md' })
     generation = nextGeneration
+    findController.restore(generation)
     scheduleCounts()
   },
   rebind(
@@ -284,6 +290,7 @@ const facade = {
       format: 'md',
     })
     generation = nextGeneration
+    findController.restore(generation)
     scheduleCounts()
     return { ...snapshot, generation: nextGeneration, documentId }
   },
@@ -313,6 +320,7 @@ const facade = {
       return { ...snapshot, applied: false, sequence: changeSequence }
     editor.reloadDocument({ text, generation: nextGeneration, documentId, format: 'md' })
     generation = nextGeneration
+    findController.restore(generation)
     scheduleCounts()
     return { text, applied: true, generation: nextGeneration, documentId, sequence: changeSequence }
   },
@@ -338,13 +346,26 @@ const facade = {
   focus: (expected: number) => command(() => editor.focus(expected)),
   // Native responder resignation does not clear WebKit's retained DOM text focus.
   blur: (expected: number) => command(() => editor.blur(expected)),
-  find: (text: string, expected: number) => command(() => editor.find(text, expected)),
+  find: (text: string, expected: number, direction = 0) =>
+    command(() => findController.find(text, expected, direction)),
+  setFindInset: (height: number, expected: number) =>
+    command(() => {
+      if (expected !== generation) throw new InkKitError('stale-document', 'The memo changed')
+      if (!Number.isFinite(height) || height < 0)
+        throw new InkKitError('invalid-argument', 'Find inset must be a nonnegative height')
+      const top = Math.max(24, height + (height > 0 ? 8 : 0))
+      root.style.setProperty('--inkkit-padding-top', `${top}px`)
+      editor.setViewport({ scrollContainer: root, insets: { top, bottom: 96 } })
+    }),
   replace: (search: string, replacement: string, expected: number) =>
-    command(() => editor.replace(search, replacement, expected)),
+    command(() => findController.replace(search, replacement, expected, false)),
   replaceAll: (search: string, replacement: string, expected: number) =>
-    command(() => editor.replaceAll(search, replacement, expected)),
+    command(() => findController.replace(search, replacement, expected, true)),
   setEditingMode: (mode: 'source' | 'formatted', expected: number) =>
-    command(() => editor.setEditingMode(mode, expected)),
+    command(() => {
+      editor.setEditingMode(mode, expected)
+      findController.restore(expected)
+    }),
   undo: (expected: number) => command(() => editor.undo(expected)),
   redo: (expected: number) => command(() => editor.redo(expected)),
   async printable(expected: number) {

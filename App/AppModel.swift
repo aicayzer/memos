@@ -28,12 +28,15 @@ final class AppModel {
             }
             if oldValue == .find, overlay != .find {
                 findText = ""
+                showingReplacement = false
                 editor.find("")
+                editor.setFindInset(0)
             }
         }
     }
     var findText = ""
     var replacementText = ""
+    var showingReplacement = false
     var storageStatus: StorageStatus?
     var convertingStorage = false
     var storageError: String?
@@ -647,6 +650,10 @@ final class AppModel {
         editor.find(findText)
     }
 
+    func moveFind(_ direction: Int) {
+        editor.find(findText, direction: direction)
+    }
+
     func attach(_ window: NSWindow) {
         self.window = window
         windowBehavior = window.collectionBehavior
@@ -737,6 +744,7 @@ final class AppModel {
     }
 
     private func show(_ memo: Memo, recording: Bool = true, keepingCaret: Bool = false) {
+        if memo.id != current?.id, overlay == .find { dismissOverlay(restoringEditor: false) }
         current = memo
         editor.documentID = String(describing: memo.id)
         savedMarkdown = memo.markdown

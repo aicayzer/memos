@@ -50,6 +50,8 @@ interface Bridge {
   setKeymap(keymap: Record<string, string[]>): void
   focus(generation: number): unknown
   blur(generation: number): unknown
+  find(text: string, generation: number, direction?: number): unknown
+  setFindInset(height: number, generation: number): unknown
   setAccent(color: string): void
 }
 
@@ -659,5 +661,163 @@ describe('local diagnostic reports', () => {
     expect(bridge().diagnosticReport()).toMatchObject({ enabled: false, events: [] })
     expect(bridge().diagnosticReport().incident).toBeUndefined()
     expect(saved()).toBe('PRIVATE source canary\r\n')
+  })
+})
+
+describe('native find controls', () => {
+  const state = () => of('searchState').at(-1)
+
+  it('navigates both directions, wraps, and keeps query updates on the current match', () => {
+    open('Garden garden GARDEN\n')
+    caret('Garden', true)
+    expect(bridge().find('garden', generation)).toBe(true)
+    expect(state()).toMatchObject({ query: 'garden', current: 1, total: 3, generation })
+    bridge().find('garden', generation, -1)
+    expect(state()).toMatchObject({ current: 3, total: 3 })
+    bridge().find('garden', generation, 1)
+    expect(state()).toMatchObject({ current: 1, total: 3 })
+    bridge().find('garden', generation)
+    expect(state()).toMatchObject({ current: 1, total: 3 })
+    expect(saved()).toBe('Garden garden GARDEN\n')
+  })
+
+  it('advances past an unchanged replacement without adding history', () => {
+    open('memo memo\n')
+    caret('memo', true)
+    bridge().find('memo', generation)
+    const revision = inkkit.snapshot(generation).revision
+    expect(bridge().replace('memo', 'memo', generation)).toBe(false)
+    expect(state()).toMatchObject({ current: 2, total: 2 })
+    expect(inkkit.snapshot(generation).revision).toBe(revision)
+  })
+
+  it('restores query and selection when replacement is refused', () => {
+    open('memo note memo\n')
+    bridge().find('memo', generation)
+    const before = inkkit.textSnapshot(generation)
+    const beforeState = state()
+    const replace = vi.spyOn(inkkit, 'replace').mockImplementationOnce(() => {
+      throw new InkKitError('preservation', 'Refused edit')
+    })
+    try {
+      expect(bridge().replace('note', 'changed', generation)).toMatchObject({
+        commandError: 'preservation',
+      })
+      expect(inkkit.textSnapshot(generation).selection).toEqual(before.selection)
+      expect(state()).toEqual(beforeState)
+      expect(saved()).toBe('memo note memo\n')
+    } finally {
+      replace.mockRestore()
+    }
+  })
+
+  it('reuses match ranges while only the caret changes', async () => {
+    open('memo memo\n')
+    const matches = vi.spyOn(inkkit, 'searchMatches')
+    try {
+      bridge().find('memo', generation)
+      const calls = matches.mock.calls.length
+      bridge().find('memo', generation, 1)
+      await Promise.resolve()
+      expect(matches).toHaveBeenCalledTimes(calls)
+    } finally {
+      matches.mockRestore()
+    }
+  })
+
+  it('replaces the indicated match, accepts an empty replacement, and refreshes after undo', async () => {
+    open('Garden garden GARDEN\r\n')
+    caret('Garden', true)
+    bridge().find('garden', generation)
+    bridge().find('garden', generation, 1)
+    bridge().replace('garden', '$&', generation)
+    expect(saved()).toBe('Garden $& GARDEN\r\n')
+    expect(state()).toMatchObject({ current: 2, total: 2 })
+    bridge().replace('garden', '', generation)
+    // The serializer preserves the new trailing space as an entity in Markdown.
+    expect(saved()).toBe('Garden $&&#x20;\r\n')
+    bridge().undo(generation)
+    await Promise.resolve()
+    expect(saved()).toBe('Garden $& GARDEN\r\n')
+    expect(state()).toMatchObject({ total: 2 })
+  })
+
+  it('counts only engine-searchable text, without image labels or cross-block matches', () => {
+    open('needle\n\n![needle](images/missing.png)\n\nneedle\n')
+    bridge().find('needle', generation)
+    expect(state()).toMatchObject({ total: 2 })
+    bridge().find('needle\nneedle', generation)
+    expect(state()).toMatchObject({ total: 0, current: 0 })
+  })
+
+  it('preserves Unicode offsets and literal punctuation', () => {
+    open('İ a.b 🙂 a.b\n')
+    bridge().find('a.b', generation)
+    expect(state()).toMatchObject({ total: 2 })
+    bridge().find('a.b', generation, -1)
+    bridge().replace('a.b', 'é', generation)
+    expect(saved()).toBe('İ a.b 🙂 é\n')
+  })
+
+  it('clears empty and missing searches and rejects an obsolete generation', () => {
+    open('memo memo\n')
+    bridge().find('memo', generation)
+    const oldGeneration = generation
+    open('new memo\n')
+    expect(state()).toMatchObject({ query: '', current: 0, total: 0, generation })
+    expect(bridge().find('old', oldGeneration)).toMatchObject({ commandError: 'stale-document' })
+    expect(state()).toMatchObject({ query: '', generation })
+    bridge().find('missing', generation)
+    expect(state()).toMatchObject({ current: 0, total: 0 })
+    bridge().find('', generation)
+    expect(state()).toMatchObject({ query: '', current: 0, total: 0 })
+  })
+
+  it('retains native search focus while navigating and replacing', () => {
+    open('memo memo\n')
+    const input = document.createElement('input')
+    document.body.append(input)
+    input.focus()
+    bridge().find('memo', generation)
+    bridge().find('memo', generation, 1)
+    bridge().replace('memo', 'note', generation)
+    expect(document.activeElement).toBe(input)
+    input.remove()
+  })
+
+  it('updates counts after typing and mode changes, and restores highlights after reload', async () => {
+    open('**memo** memo\n')
+    bridge().find('memo', generation)
+    bridge().replaceAll('memo', 'note', generation)
+    expect(state()).toMatchObject({ total: 0, current: 0 })
+    bridge().undo(generation)
+    await Promise.resolve()
+    expect(state()).toMatchObject({ total: 2 })
+    bridge().setEditingMode('source', generation)
+    await Promise.resolve()
+    bridge().find('**', generation)
+    expect(state()).toMatchObject({ total: 2 })
+    bridge().setEditingMode('formatted', generation)
+    await Promise.resolve()
+    expect(state()).toMatchObject({ total: 0 })
+    bridge().find('memo', generation)
+    const text = saved()
+    generation += 1
+    bridge().reload(text, generation, `memo-${generation}`)
+    expect(state()).toMatchObject({ query: 'memo', total: 2, generation })
+  })
+
+  it('guards the find inset against invalid and stale updates', () => {
+    open('memo\n')
+    expect(bridge().setFindInset(80, generation)).toBeUndefined()
+    expect(document.querySelector<HTMLElement>('#editor')?.style.getPropertyValue('--inkkit-padding-top')).toBe('88px')
+    expect(bridge().setFindInset(0, generation)).toBeUndefined()
+    expect(document.querySelector<HTMLElement>('#editor')?.style.getPropertyValue('--inkkit-padding-top')).toBe('24px')
+    expect(bridge().setFindInset(-1, generation)).toMatchObject({
+      commandError: 'invalid-argument',
+    })
+    expect(bridge().setFindInset(80, generation - 1)).toMatchObject({
+      commandError: 'stale-document',
+    })
   })
 })
