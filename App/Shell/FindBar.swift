@@ -1,11 +1,18 @@
 import SwiftUI
 
 struct FindBar: View {
+    @Environment(\.chrome) private var chrome
     @Bindable var model: AppModel
 
     private var matches: EditorSearchState { model.editor.searchState }
     private var hasMatches: Bool { matches.query == model.findText && matches.total > 0 }
     private var canReplace: Bool { hasMatches && model.editor.caret.commands["replace"] == true }
+    private var matchLabel: String {
+        matches.current == 0 && matches.total > 0 ? "\(matches.total) matches" : "\(matches.current)/\(matches.total)"
+    }
+    private var matchAccessibilityLabel: String {
+        matches.current == 0 ? "\(matches.total) matches" : "\(matches.current) of \(matches.total) matches"
+    }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -24,11 +31,11 @@ struct FindBar: View {
                                            dismiss: model.dismissOverlay, previousSubmit: { model.moveFind(-1) })
                             .onChange(of: model.findText) { _, _ in model.find() }
                         if !model.findText.isEmpty {
-                            Text("\(matches.current)/\(matches.total)")
+                            Text(matchLabel)
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
                                 .fixedSize()
-                                .accessibilityLabel("\(matches.current) of \(matches.total) matches")
+                                .accessibilityLabel(matchAccessibilityLabel)
                         }
                     }
                     .modifier(FindFieldStyle())
@@ -64,7 +71,10 @@ struct FindBar: View {
 
     private func iconButton(_ label: String, symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol).frame(width: 26, height: 26).contentShape(Rectangle())
+            Image(systemName: symbol)
+                .font(.system(size: chrome.findIconSize))
+                .frame(width: 26, height: 26)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(label)
