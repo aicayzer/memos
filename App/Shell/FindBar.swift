@@ -7,11 +7,12 @@ struct FindBar: View {
     private var matches: EditorSearchState { model.editor.searchState }
     private var hasMatches: Bool { matches.query == model.findText && matches.total > 0 }
     private var canReplace: Bool { hasMatches && model.editor.caret.commands["replace"] == true }
+    private var totalLabel: String { matches.total == 1 ? "1 match" : "\(matches.total) matches" }
     private var matchLabel: String {
-        matches.current == 0 && matches.total > 0 ? "\(matches.total) matches" : "\(matches.current)/\(matches.total)"
+        matches.current == 0 && matches.total > 0 ? totalLabel : "\(matches.current)/\(matches.total)"
     }
     private var matchAccessibilityLabel: String {
-        matches.current == 0 ? "\(matches.total) matches" : "\(matches.current) of \(matches.total) matches"
+        matches.current == 0 ? totalLabel : "\(matches.current) of \(matches.total) matches"
     }
 
     var body: some View {
