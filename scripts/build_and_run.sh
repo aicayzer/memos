@@ -5,7 +5,7 @@ cd "${0:a:h}/.."
 mode="${1:-run}"
 case "$mode" in
   run|--build-only|--verify) ;;
-  *) print -u2 'usage: script/build_and_run.sh [--build-only|--verify]'; exit 2 ;;
+  *) print -u2 'usage: scripts/build_and_run.sh [--build-only|--verify]'; exit 2 ;;
 esac
 
 xcodegen generate -q
