@@ -760,9 +760,7 @@ final class EditorController: NSObject, Editing {
             guard generation == self.generation, documentID == self.documentID else { return }
             self.counts = counts
         case .openLink(let href):
-            if let url = URL(string: href), let scheme = url.scheme, ["http", "https", "mailto"].contains(scheme) {
-                onOpenLink(url)
-            }
+            if let url = URL(string: href) { onOpenLink(url) }
         case .imageMenu(let reference, let point):
             showImageMenu(for: reference, at: point)
         case .copy(let text):
