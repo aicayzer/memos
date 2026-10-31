@@ -32,7 +32,7 @@ Apple references: [project requirements](https://developer.apple.com/documentati
 
 ## Manual TestFlight fallback
 
-Use a manual archive only when Cloud is unavailable, with an isolated checkout and the existing credential manager. Supply `APPLE_DEVELOPMENT_TEAM`, an installed `APPLE_PROVISIONING_PROFILE`, and the appropriate `APPLE_DISTRIBUTION_IDENTITY` and `APPLE_INSTALLER_IDENTITY`. An existing task keychain can be selected with `MEMOS_SIGNING_KEYCHAIN` and unlocked using injected `MEMOS_KEYCHAIN_PASSWORD`. Run:
+Use a manual archive only when Cloud is unavailable, with an isolated checkout and the existing credential manager. Supply `APPLE_DEVELOPMENT_TEAM`, an installed `APPLE_PROVISIONING_PROFILE`, and the appropriate `APPLE_DISTRIBUTION_IDENTITY` and `APPLE_INSTALLER_IDENTITY`. Keep signing out of the login keychain: name a dedicated keychain with `MEMOS_SIGNING_KEYCHAIN` and inject `MEMOS_KEYCHAIN_PASSWORD`; `scripts/render-local-signing.sh` unlocks it and selects it with `OTHER_CODE_SIGN_FLAGS`. Run the build in the same credential-manager session, because the keychain locks again in a new SSH session. With `ASC_KEY_ID`, `ASC_ISSUER_ID` and `ASC_PRIVATE_KEY`, archive and export authenticate provisioning with the API key instead of the Xcode account. Run:
 
 ```sh
 scripts/archive-testflight.sh BUILD_NUMBER
