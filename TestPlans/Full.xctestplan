@@ -1,0 +1,31 @@
+{
+  "configurations": [
+    {
+      "id": "1F7C2E54-8A31-4B6D-9C0E-46756C6C0000",
+      "name": "Debug",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "testTimeoutsEnabled": true,
+    "defaultTestExecutionTimeAllowance": 120,
+    "maximumTestExecutionTimeAllowance": 240,
+    "environmentVariableEntries": [
+      {
+        "key": "MEMOS_WINDOW_TESTS",
+        "value": "1"
+      }
+    ]
+  },
+  "testTargets": [
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:Memos.xcodeproj",
+        "identifier": "45C458259F076A8E9B71A0DB",
+        "name": "MemosTests"
+      }
+    }
+  ],
+  "version": 1
+}

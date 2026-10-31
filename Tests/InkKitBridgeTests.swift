@@ -94,7 +94,7 @@ struct InkKitBridgeTests {
         diagnostics.reset()
     }
 
-    @Test func blockMovementUsesScopedCommandsAndRetainsCRLF() async throws {
+    @Test func blockMovementFollowsCaretAndIgnoresQueuedMoveAfterMemoSwitch() async throws {
         let editor = EditorController(images: FakeImageStore())
         let window = ReadingPanel(contentRect: NSRect(x: 100, y: 100, width: 500, height: 600),
                                   styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -103,7 +103,7 @@ struct InkKitBridgeTests {
         defer { window.orderOut(nil); window.contentView = nil; window.close() }
         window.makeKeyAndOrderFront(nil)
         editor.documentID = "moving"
-        let source = "First\r\n\r\nSecond\r\n"
+        let source = "First\n\nSecond\n"
         editor.load(source)
         #expect(try await editor.snapshot() == source)
         editor.focus()
@@ -116,10 +116,10 @@ struct InkKitBridgeTests {
         #expect(editor.caret.commands["moveBlockUp"] == true)
         editor.moveBlock(up: true)
         for _ in 0..<200 {
-            if try await editor.snapshot() == "Second\r\n\r\nFirst\r\n" { break }
+            if try await editor.snapshot() == "Second\n\nFirst\n" { break }
             try await Task.sleep(for: .milliseconds(20))
         }
-        #expect(try await editor.snapshot() == "Second\r\n\r\nFirst\r\n")
+        #expect(try await editor.snapshot() == "Second\n\nFirst\n")
         for _ in 0..<200 {
             if editor.caret.commands["moveBlockDown"] == true { break }
             try await Task.sleep(for: .milliseconds(20))
@@ -145,7 +145,7 @@ struct InkKitBridgeTests {
         """)
         editor.moveBlock(up: true)
         editor.documentID = "next"
-        let next = "Next first\r\n\r\nNext second\r\n"
+        let next = "Next first\n\nNext second\n"
         editor.load(next)
         #expect(try await editor.snapshot() == next)
         // The facade also rejects stale generations, so unchanged text alone cannot prove native cancellation.

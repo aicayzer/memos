@@ -1,0 +1,25 @@
+{
+  "configurations": [
+    {
+      "id": "1F7C2E54-8A31-4B6D-9C0E-554900000000",
+      "name": "Debug",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "testTimeoutsEnabled": true,
+    "defaultTestExecutionTimeAllowance": 180,
+    "maximumTestExecutionTimeAllowance": 300
+  },
+  "testTargets": [
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:Memos.xcodeproj",
+        "identifier": "C5CBBCBCA57EB13862D06174",
+        "name": "MemosUITests"
+      }
+    }
+  ],
+  "version": 1
+}
