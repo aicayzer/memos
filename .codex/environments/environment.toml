@@ -3,4 +3,4 @@ version = 1
 [[actions]]
 name = "Run"
 icon = "run"
-command = "./script/build_and_run.sh --verify"
+command = "./scripts/build_and_run.sh --verify"

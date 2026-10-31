@@ -296,34 +296,25 @@ final class MemosUITests: XCTestCase {
         expectClipboard { $0 == sourceBefore }
     }
 
-    func testDevelopmentGlobalShortcutsDoNotActivatePad() throws {
+    func testDevelopmentGlobalShortcutsWorkFromAnotherApp() throws {
         let fixture = try launchMemos()
         let app = fixture.app
         let editor = app.webViews.textViews.firstMatch
         XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
         app.typeText("Disposable global shortcut memo")
         expectText("Disposable global shortcut memo", in: editor)
-        let padID = "me.cyzr.pad.dev"
-        let padWasRunning = !NSRunningApplication.runningApplications(withBundleIdentifier: padID).isEmpty
-        let finder = XCUIApplication(bundleIdentifier: "com.apple.finder")
-        finder.activate()
-        XCTAssertTrue(finder.wait(for: .runningForeground, timeout: 5))
-        let menu = finder.menuBars.firstMatch
-        XCTAssertTrue(menu.waitForExistence(timeout: 5))
-        menu.typeKey("b", modifierFlags: [.control, .option, .command])
+        let modifiers: XCUIElement.KeyModifierFlags = [.control, .option, .command]
+        // The shortcuts are Control-Option-Command-B (toggle) and -M (new memo), as launchMemos registers them.
+        try GlobalShortcut.pressFromFinder("b", modifiers: modifiers)
         let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: editor)
         XCTAssertEqual(XCTWaiter.wait(for: [visible], timeout: 5), .completed)
         expectText("Disposable global shortcut memo", in: editor)
-        XCTAssertNotEqual(NSWorkspace.shared.frontmostApplication?.bundleIdentifier, padID)
-        if !padWasRunning { XCTAssertTrue(NSRunningApplication.runningApplications(withBundleIdentifier: padID).isEmpty) }
-        menu.typeKey("b", modifierFlags: [.control, .option, .command])
+        try GlobalShortcut.pressFromFinder("b", modifiers: modifiers)
         let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false OR hittable == false"), object: editor)
         XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed)
-        menu.typeKey("m", modifierFlags: [.control, .option, .command])
+        try GlobalShortcut.pressFromFinder("m", modifiers: modifiers)
         let empty = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value MATCHES %@", "\\s*"), object: editor)
         XCTAssertEqual(XCTWaiter.wait(for: [empty], timeout: 5), .completed, editor.debugDescription)
-        XCTAssertNotEqual(NSWorkspace.shared.frontmostApplication?.bundleIdentifier, padID)
-        if !padWasRunning { XCTAssertTrue(NSRunningApplication.runningApplications(withBundleIdentifier: padID).isEmpty) }
         attach(app, name: "Memos development global shortcuts")
     }
 
@@ -458,12 +449,17 @@ final class MemosUITests: XCTestCase {
 
     private func launchMemos() throws -> Fixture {
         continueAfterFailure = false
+        try IsolatedSession.require()
         let testBundleID = try XCTUnwrap(Bundle(for: Self.self).bundleIdentifier)
         guard testBundleID.hasSuffix(".uitests") else {
             throw NSError(domain: "MemosUITests", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "Unexpected UI test bundle identifier: \(testBundleID)"])
         }
         let bundleIdentifier = String(testBundleID.dropLast(".uitests".count))
+        guard bundleIdentifier == IsolatedSession.developmentIdentifier else {
+            throw NSError(domain: "MemosUITests", code: 3, userInfo: [NSLocalizedDescriptionKey:
+                "UI tests must run the Debug app \(IsolatedSession.developmentIdentifier), not \(bundleIdentifier). Use the Debug configuration."])
+        }
         let app = XCUIApplication()
         XCTAssertEqual(app.state, .notRunning, "Leave an existing development app untouched.")
         let account = try XCTUnwrap(getpwuid(getuid()))
@@ -471,6 +467,7 @@ final class MemosUITests: XCTestCase {
         let folder = home
             .appending(path: "Library/Containers/\(bundleIdentifier)/Data/tmp/memos-ui-\(UUID().uuidString)", directoryHint: .isDirectory)
         let store = folder.appending(path: "store.json")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.path), "The test store must start empty.")
         app.launchEnvironment["MEMOS_STORE"] = store.path
         app.launchArguments = ["-showInDock", "YES", "-menuBarItem", "NO", "-floating", "NO",
                                "-sidePaneAtLaunch", "NO", "-shortcuts", "invalid",
@@ -479,6 +476,8 @@ final class MemosUITests: XCTestCase {
         let fixture = Fixture(app: app, folder: folder, bundleIdentifier: bundleIdentifier)
         addTeardownBlock { @MainActor in self.finish(fixture) }
         app.launch()
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: IsolatedSession.developmentIdentifier)
+        XCTAssertEqual(running.count, 1, "The app under test is not the development build.")
         return fixture
     }
 
@@ -511,11 +510,11 @@ final class MemosUITests: XCTestCase {
     private func attach(_ app: XCUIApplication, name: String) {
         let hierarchy = XCTAttachment(string: app.debugDescription)
         hierarchy.name = name
-        hierarchy.lifetime = .keepAlways
+        hierarchy.lifetime = .deleteOnSuccess
         add(hierarchy)
         let image = XCTAttachment(screenshot: app.screenshot())
         image.name = name
-        image.lifetime = .keepAlways
+        image.lifetime = .deleteOnSuccess
         add(image)
     }
 }

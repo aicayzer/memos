@@ -5,7 +5,7 @@ import Testing
 
 @MainActor
 @Suite(.serialized, .opensWindows)
-struct EditorPolishTests {
+struct EditorCountsAndSidebarTests {
     @Test func nativeViewportCountsAndResizableSidebar() async throws {
         let now = Date.now
         let titles = ["A quieter place to collect unfinished thoughts", "Things worth trying", "Notes for Friday", "Ideas for the next Memos update", "The books I keep coming back to", "Kitchen measurements and the shelf by the window", "Walking route from the station to the lake"]
@@ -59,7 +59,7 @@ struct EditorPolishTests {
         split = try #require(findSplit(in: contentView))
         #expect(abs(split.subviews[0].frame.width - 300) <= 1)
         if ProcessInfo.processInfo.environment["MEMOS_CAPTURE_PREVIEW"] == "1" {
-            let directory = FileManager.default.temporaryDirectory.appending(path: "EditorPolishPreview")
+            let directory = FileManager.default.temporaryDirectory.appending(path: "EditorSidebarPreview")
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             print("Native Memos previews: \(directory.path)")
             try await capture(window, editor: editor, to: directory.appending(path: "memos-sidebar-wide.png"))

@@ -108,8 +108,11 @@ targets:
           export PATH="$HOME/Library/pnpm:/opt/homebrew/bin:/usr/local/bin:$PATH"
           export CI=true
           cd "$SRCROOT/editor"
-          pnpm install --frozen-lockfile --silent
-          pnpm build --logLevel warn
+          # One build serves every xcodebuild call: rebuild only when an input is newer than the bundle.
+          if [[ ! -f dist/index.html ]] || [[ -n "$(find . \( -name node_modules -o -name dist \) -prune -o -type f -newer dist/index.html -print -quit)" ]]; then
+            pnpm install --frozen-lockfile --silent
+            pnpm build --logLevel warn
+          fi
           DEST="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Editor"
           mkdir -p "$DEST"
           cp dist/index.html "$DEST/index.html"
@@ -176,9 +179,9 @@ schemes:
         MemosUITests: [test]
     test:
       config: Debug
-      targets:
-        - name: MemosUITests
-          parallelizable: false
+      testPlans:
+        - path: TestPlans/UI.xctestplan
+          defaultPlan: true
   Memos:
     build:
       targets:
@@ -188,9 +191,11 @@ schemes:
       config: Debug
     test:
       config: Debug
-      targets:
-        - name: MemosTests
-          parallelizable: false
+      # Unit leaves out the suites that open windows, which gate themselves on MEMOS_WINDOW_TESTS; Full sets it.
+      testPlans:
+        - path: TestPlans/Unit.xctestplan
+          defaultPlan: true
+        - path: TestPlans/Full.xctestplan
     archive:
       config: Release
   MemosTool:
