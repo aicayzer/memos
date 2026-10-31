@@ -18,7 +18,7 @@ if [[ "$mode" == --distribution ]]; then
     exit 1
   }
 fi
-# A dedicated signing keychain, rendered by aic-signing-keychain, keeps codesign out of the login keychain.
+# A dedicated signing keychain keeps codesign out of the login keychain and its approval prompts.
 keychain="${MEMOS_SIGNING_KEYCHAIN:-}"
 if [[ -n "$keychain" ]]; then
   [[ -f "$keychain" && "$keychain" != *[\'$'\n'\\]* ]] || {
