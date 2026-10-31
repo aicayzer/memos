@@ -1,20 +1,42 @@
 name: CI
 
+# One run per pull request, on its merge base. Strict branch protection makes the
+# merged tree the tested tree, so main needs no run of its own.
 on:
-  push:
-    branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      build: ${{ steps.scope.outputs.build }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - run: node --test scripts/ci-scope.test.mjs
+      - id: scope
+        run: node scripts/ci-scope.mjs
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+
   editor:
     name: Editor
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -38,9 +60,14 @@ jobs:
 
   app:
     name: App
+    needs: changes
+    # Drafts run only the fast lanes; marking the pull request ready runs the rest.
+    if: needs.changes.outputs.build == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     # Public pull requests run only on hosted workers.
     runs-on: xcode-27
     timeout-minutes: 30
+    env:
+      SIGNING: CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -58,46 +85,18 @@ jobs:
           xcodegen generate
           git diff --exit-code -- Memos.xcodeproj App/Info.plist App/Memos.entitlements CLI/Info.plist
           test -z "$(git ls-files --others --exclude-standard Memos.xcodeproj App/Info.plist App/Memos.entitlements CLI/Info.plist)"
-      - name: Build and test
+      # The editor bundle builds here once; the later steps find it up to date.
+      - name: Build for testing
         run: |
-          set -o pipefail
-          xcodebuild \
-            -project Memos.xcodeproj \
-            -scheme Memos \
-            -configuration Debug \
-            -destination 'platform=macOS' -parallel-testing-enabled NO \
-            -skip-testing:MemosTests/OverlayFocusTests \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
-            test | tee build.log | grep -E 'error:|warning: |Test .* (passed|failed)|\*\* '
-      - name: Surface failures
-        if: failure()
-        run: grep -E '(^|[[:space:]])(error|failed):' build.log | sort -u | head -40 || true
-      - name: Native window tests
-        env:
-          TEST_RUNNER_MEMOS_WINDOW_TESTS: 1
+          xcodebuild -project Memos.xcodeproj -scheme Memos -configuration Debug -destination 'platform=macOS' \
+            -derivedDataPath build $SIGNING build-for-testing > build.log 2>&1 \
+            || { grep -E 'error:' build.log | sort -u | head -40; exit 1; }
+      - name: Unit and window tests
         run: |
-          xcodebuild -quiet -project Memos.xcodeproj -scheme Memos -configuration Debug \
-            -destination 'platform=macOS' -derivedDataPath build -parallel-testing-enabled NO \
-            -only-testing:MemosTests/OverlayFocusTests -only-testing:MemosTests/InkKitBridgeTests \
-            CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= test
-      - name: Native paste routing tests
-        env:
-          TEST_RUNNER_MEMOS_WINDOW_TESTS: 1
-        run: |
-          xcodebuild -quiet -project Memos.xcodeproj -scheme Memos -configuration Debug \
-            -destination 'platform=macOS' -derivedDataPath build -parallel-testing-enabled NO \
-            -only-testing:MemosTests/PasteRoutingTests \
-            CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= test
-      - name: Test application interactions
-        timeout-minutes: 8
-        run: |
-          set -o pipefail
-          sudo /usr/sbin/DevToolsSecurity -enable
-          xcodebuild -project Memos.xcodeproj -scheme 'Memos UI Tests' -configuration Debug \
-            -destination 'platform=macOS' -derivedDataPath build-ui \
-            -resultBundlePath build-ui/Interactions.xcresult -parallel-testing-enabled NO \
-            CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= test | tee -a build.log
+          xcodebuild -project Memos.xcodeproj -scheme Memos -configuration Debug -destination 'platform=macOS' \
+            -derivedDataPath build -testPlan Full -resultBundlePath build/Full.xcresult \
+            $SIGNING test-without-building > test.log 2>&1 \
+            || { grep -E 'error:|failed' test.log | sort -u | head -40; exit 1; }
       - name: Build Release app
         run: |
           xcodebuild -quiet -project Memos.xcodeproj -scheme Memos -configuration Release \
@@ -111,8 +110,62 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: native-test-results
+          name: app-test-results
+          retention-days: 7
           path: |
-            build.log
-            build/Logs/Test/*.xcresult
+            *.log
+            build/*.xcresult
+
+  ui:
+    name: UI
+    needs: changes
+    if: needs.changes.outputs.build == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    runs-on: xcode-27
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: editor/package.json
+      - name: Select Xcode
+        run: |
+          XCODE="$(ls -d /Applications/Xcode_27*.app | sort -V | tail -1)"
+          echo "DEVELOPER_DIR=$XCODE/Contents/Developer" >> "$GITHUB_ENV"
+          "$XCODE/Contents/Developer/usr/bin/xcodebuild" -version
+      - name: Test application interactions
+        env:
+          TEST_RUNNER_MEMOS_UI_TESTS: 1
+        run: |
+          sudo /usr/sbin/DevToolsSecurity -enable
+          xcodebuild -project 'Memos.xcodeproj' -scheme 'Memos UI Tests' -configuration Debug \
+            -destination 'platform=macOS' -derivedDataPath build-ui -resultBundlePath build-ui/Interactions.xcresult \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            test > ui.log 2>&1 \
+            || { grep -E 'error:|failed' ui.log | sort -u | head -40; exit 1; }
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ui-test-results
+          retention-days: 7
+          path: |
+            ui.log
             build-ui/*.xcresult
+
+  # The one required check. A lane its scope skipped counts as a pass; a failed
+  # or cancelled lane, or a failed classifier, does not.
+  result:
+    name: CI result
+    needs: [changes, editor, app, ui]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            case "$result" in
+              success|skipped) ;;
+              *) echo "A lane finished as: $result" >&2; exit 1 ;;
+            esac
+          done
