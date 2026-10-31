@@ -62,3 +62,10 @@ Before this policy (30 October 2026):
 - The editor built about 5 times per `App` run.
 - The global shortcut test spent about 30 seconds waiting for idle after its keys.
 - `EditorPolishTests` never ran, because the window gate was set for other suites only.
+
+After (31 October 2026):
+
+- A pull request runs `Changes`, then `Editor` (under 30 seconds), `App` (about 4 minutes) and `UI` (about 7 minutes) in parallel, so it finishes in about 7 minutes. `main` does not run again.
+- A pull request that changes only prose runs `Changes` and `CI result` and no build.
+- The editor builds once per run.
+- The global shortcut test still waits about 10 seconds for each key it sends to another app while Memos takes the key: XCTest waits for the targeted app to become idle, and no setting removes the wait. Keep such keys to a minimum in new tests.
