@@ -142,6 +142,28 @@ final class MemosUITests: XCTestCase {
         attach(app, name: "InkKit editing preferences")
     }
 
+    func testLinkAddressIsPreparedBeforeItIsStored() throws {
+        let fixture = try launchMemos()
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
+        let previousClipboard = captureClipboard()
+        defer { restoreClipboard(previousClipboard) }
+        app.typeText("Docs")
+        app.typeKey("a", modifierFlags: .command)
+        let link = app.buttons["Link"]
+        if !link.exists {
+            app.menuBars.menuBarItems["View"].click()
+            app.menuItems["Formatting Bar"].click()
+        }
+        XCTAssertTrue(link.waitForExistence(timeout: 5), app.debugDescription)
+        link.click()
+        XCTAssertTrue(app.textFields["https://"].waitForExistence(timeout: 5), app.debugDescription)
+        app.typeText("example.com\n")
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.contains("[Docs](https://example.com)") }
+    }
+
     func testExistingMemoSelectionReadsUntilClickAndNewMemoComposes() throws {
         let fixture = try launchMemos()
         let app = fixture.app
