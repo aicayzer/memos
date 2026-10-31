@@ -18,6 +18,20 @@ if [[ "$mode" == --distribution ]]; then
     exit 1
   }
 fi
+# A dedicated signing keychain, rendered by aic-signing-keychain, keeps codesign out of the login keychain.
+keychain="${MEMOS_SIGNING_KEYCHAIN:-}"
+if [[ -n "$keychain" ]]; then
+  [[ -f "$keychain" && "$keychain" != *[\'$'\n'\\]* ]] || {
+    print -u2 'MEMOS_SIGNING_KEYCHAIN must name an existing signing keychain.'
+    exit 1
+  }
+  if [[ -n "${MEMOS_KEYCHAIN_PASSWORD:-}" ]]; then
+    /usr/bin/security unlock-keychain -p "$MEMOS_KEYCHAIN_PASSWORD" "$keychain" > /dev/null 2>&1 || {
+      print -u2 'Could not unlock the signing keychain; check its injected credentials.'
+      exit 1
+    }
+  fi
+fi
 umask 077
 temp=$(mktemp Config/Local.xcconfig.XXXXXX)
 trap 'rm -f "$temp"' EXIT
@@ -25,6 +39,7 @@ trap 'rm -f "$temp"' EXIT
   print 'CODE_SIGNING_ALLOWED = YES'
   print 'CODE_SIGN_STYLE = Automatic'
   print "DEVELOPMENT_TEAM = $team"
+  [[ -z "$keychain" ]] || print "OTHER_CODE_SIGN_FLAGS = --keychain '$keychain'"
   if [[ "$mode" == --distribution ]]; then
     print 'MEMOS_DISTRIBUTION_SIGNING_STYLE = Manual'
     print "MEMOS_DISTRIBUTION_PROFILE = $profile"

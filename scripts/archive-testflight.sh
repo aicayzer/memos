@@ -27,37 +27,22 @@ output="build/TestFlight-$build_number"
   exit 1
 }
 mkdir -p "$output"
-keychain="${MEMOS_SIGNING_KEYCHAIN:-}"
-if [[ -z "$keychain" && -f "$PWD/_local/signing.keychain-db" ]]; then
-  keychain="$PWD/_local/signing.keychain-db"
-fi
-keychain_flags=()
-if [[ -n "$keychain" ]]; then
-  [[ -f "$keychain" && -n "${MEMOS_KEYCHAIN_PASSWORD:-}" ]] || {
-    print -u2 'Task signing requires an existing keychain and an injected MEMOS_KEYCHAIN_PASSWORD.'
+# Selects and unlocks the dedicated signing keychain (MEMOS_SIGNING_KEYCHAIN) through the rendered configuration.
+scripts/render-local-signing.sh --distribution
+unset MEMOS_KEYCHAIN_PASSWORD
+
+# Provisioning authenticates with the App Store Connect API key, never the Xcode account.
+auth_flags=()
+if [[ -n "${ASC_KEY_ID:-}" ]]; then
+  [[ -n "${ASC_ISSUER_ID:-}" && -n "${ASC_PRIVATE_KEY:-}" ]] || {
+    print -u2 'ASC_KEY_ID needs ASC_ISSUER_ID and ASC_PRIVATE_KEY from the credential manager.'
     exit 1
   }
-  python3 - "$keychain" <<'PY_UNLOCK'
-import os, subprocess, sys
-try:
-    result = subprocess.run(
-        ['/usr/bin/security', 'unlock-keychain', '-p', os.environ['MEMOS_KEYCHAIN_PASSWORD'], sys.argv[1]],
-        capture_output=True,
-        check=False,
-    )
-except (OSError, KeyError):
-    print('Could not unlock the task signing keychain.', file=sys.stderr)
-    sys.exit(1)
-if result.returncode:
-    print('Could not unlock the task signing keychain; check its injected credentials.', file=sys.stderr)
-    sys.exit(1)
-PY_UNLOCK
-  # Xcode parses this setting into arguments; quote paths rather than splitting on spaces.
-  quoted_keychain=$(python3 -c 'import shlex,sys; print(shlex.quote(sys.argv[1]))' "$keychain")
-  keychain_flags=("OTHER_CODE_SIGN_FLAGS=--keychain $quoted_keychain")
+  key_file=$(mktemp "${TMPDIR:-/tmp}/asc-key.XXXXXX")
+  trap 'rm -f "$key_file"' EXIT
+  print -r -- "$ASC_PRIVATE_KEY" > "$key_file"
+  auth_flags=(-allowProvisioningUpdates -authenticationKeyPath "$key_file" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
 fi
-unset MEMOS_KEYCHAIN_PASSWORD
-scripts/render-local-signing.sh --distribution
 xcodegen generate > "$output/generation.log" 2>&1 || {
   print -u2 "Project generation failed; inspect $output/generation.log privately."
   exit 1
@@ -72,7 +57,7 @@ if ! (
   -destination 'generic/platform=macOS' -archivePath "$output/Memos.xcarchive" \
   -derivedDataPath "$output/DerivedData" CURRENT_PROJECT_VERSION="$build_number" \
   CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$team" CODE_SIGN_IDENTITY="$identity" \
-  "${keychain_flags[@]}" archive
+  "${auth_flags[@]}" archive
 ) > "$output/archive.log" 2>&1; then
   print -u2 "Archive failed; inspect $output/archive.log privately."
   exit 1
@@ -123,7 +108,7 @@ with open(path, 'wb') as file:
 PY
 if ! (
   umask 022
-  xcodebuild -quiet -exportArchive -archivePath "$output/Memos.xcarchive" \
+  xcodebuild -quiet "${auth_flags[@]}" -exportArchive -archivePath "$output/Memos.xcarchive" \
   -exportPath "$output/Export" -exportOptionsPlist "$output/ExportOptions.plist"
 ) > "$output/export.log" 2>&1; then
   print -u2 "Export failed; inspect $output/export.log privately."
