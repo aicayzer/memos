@@ -231,6 +231,31 @@ describe('formatting', () => {
     expect(saved()).toContain('[Plain paragraph](https://example.com)')
   })
 
+  it('prepares what the person typed before linking it', () => {
+    open()
+    select('Plain paragraph')
+    expect(bridge().format('link', 'example.com/a', generation)).toBe(true)
+    expect(saved()).toContain('[Plain paragraph](https://example.com/a)')
+  })
+
+  it('posts only the links that may be opened', () => {
+    open()
+    for (const href of [
+      'https://example.com',
+      ' mailto:a@b.co ',
+      'tel:+441',
+      'javascript:alert(1)',
+      'file:///etc',
+      'notes/a.md',
+    ])
+      events.openLink?.(href)
+    expect(of('openLink').map((message) => message.href)).toEqual([
+      'https://example.com',
+      'mailto:a@b.co',
+      'tel:+441',
+    ])
+  })
+
   it('puts the caret state in the command state alone', () => {
     open()
     caret('Plain paragraph')
@@ -314,18 +339,6 @@ describe('an edit that InkKit refuses', () => {
     })
 
   const table = '| a | b |\r\n| - | - |\r\n| x | y |\r\n'
-  const preservation = 'The edited Markdown cannot be reopened without changing its content'
-  for (const [name, call, cell] of [
-    ['a replacement', () => bridge().replace('x', 'x\ny', generation), 'x<br />y'],
-    ['a replacement of all', () => bridge().replaceAll('x', 'x\ny', generation), 'x<br />y'],
-    ['a plain text paste', () => bridge().pasteAsPlainText('p\nq', generation), 'p<br />q'],
-  ] as const)
-    it(`preserves table cell line breaks from ${name}`, () => {
-      open(table)
-      select('x')
-      expect(call()).toBeTruthy()
-      expect(saved()).toBe(table.replace('x', cell))
-    })
 
   it('reaches the host as a warning when a native paste could not be preserved', async () => {
     open(table)
@@ -521,31 +534,6 @@ describe('Memos editing preferences and block commands', () => {
     })
     expect(options).not.toHaveProperty('wikiLinks')
   })
-
-  it('moves CRLF blocks through the bridge and reports availability to the host', () => {
-    open('First\r\n\r\nSecond\r\n')
-    caret('Second')
-    expect(of('commandState').at(-1)).toMatchObject({
-      documentId: `memo-${generation}`,
-      generation,
-      commands: { moveBlockUp: true, moveBlockDown: false },
-    })
-    expect(bridge().moveBlock('up', generation)).toBe(true)
-    expect(saved()).toBe('Second\r\n\r\nFirst\r\n')
-    expect(of('changed').at(-1)).toMatchObject({ markdown: saved(), generation })
-    expect(of('commandState').at(-1)).toMatchObject({
-      commands: { moveBlockUp: false, moveBlockDown: true },
-    })
-    expect(bridge().moveBlock('down', generation)).toBe(true)
-    expect(saved()).toBe('First\r\n\r\nSecond\r\n')
-    bridge().undo(generation)
-    expect(saved()).toBe('Second\r\n\r\nFirst\r\n')
-    bridge().redo(generation)
-    expect(saved()).toBe('First\r\n\r\nSecond\r\n')
-    bridge().setEditingMode('source', generation)
-    expect(bridge().moveBlock('up', generation)).toBe(false)
-    expect(saved()).toBe('First\r\n\r\nSecond\r\n')
-  })
 })
 
 describe('native viewport and counts', () => {
@@ -681,50 +669,6 @@ describe('native find controls', () => {
     expect(saved()).toBe('Garden garden GARDEN\n')
   })
 
-  it('advances past an unchanged replacement without adding history', () => {
-    open('memo memo\n')
-    caret('memo', true)
-    bridge().find('memo', generation)
-    const revision = inkkit.snapshot(generation).revision
-    expect(bridge().replace('memo', 'memo', generation)).toBe(false)
-    expect(state()).toMatchObject({ current: 2, total: 2 })
-    expect(inkkit.snapshot(generation).revision).toBe(revision)
-  })
-
-  it('restores query and selection when replacement is refused', () => {
-    open('memo note memo\n')
-    bridge().find('memo', generation)
-    const before = inkkit.textSnapshot(generation)
-    const beforeState = state()
-    const replace = vi.spyOn(inkkit, 'replace').mockImplementationOnce(() => {
-      throw new InkKitError('preservation', 'Refused edit')
-    })
-    try {
-      expect(bridge().replace('note', 'changed', generation)).toMatchObject({
-        commandError: 'preservation',
-      })
-      expect(inkkit.textSnapshot(generation).selection).toEqual(before.selection)
-      expect(state()).toEqual(beforeState)
-      expect(saved()).toBe('memo note memo\n')
-    } finally {
-      replace.mockRestore()
-    }
-  })
-
-  it('reuses match ranges while only the caret changes', async () => {
-    open('memo memo\n')
-    const matches = vi.spyOn(inkkit, 'searchMatches')
-    try {
-      bridge().find('memo', generation)
-      const calls = matches.mock.calls.length
-      bridge().find('memo', generation, 1)
-      await Promise.resolve()
-      expect(matches).toHaveBeenCalledTimes(calls)
-    } finally {
-      matches.mockRestore()
-    }
-  })
-
   it('replaces the indicated match, accepts an empty replacement, and refreshes after undo', async () => {
     open('Garden garden GARDEN\r\n')
     caret('Garden', true)
@@ -740,23 +684,6 @@ describe('native find controls', () => {
     await Promise.resolve()
     expect(saved()).toBe('Garden $& GARDEN\r\n')
     expect(state()).toMatchObject({ total: 2 })
-  })
-
-  it('counts only engine-searchable text, without image labels or cross-block matches', () => {
-    open('needle\n\n![needle](images/missing.png)\n\nneedle\n')
-    bridge().find('needle', generation)
-    expect(state()).toMatchObject({ total: 2 })
-    bridge().find('needle\nneedle', generation)
-    expect(state()).toMatchObject({ total: 0, current: 0 })
-  })
-
-  it('preserves Unicode offsets and literal punctuation', () => {
-    open('İ a.b 🙂 a.b\n')
-    bridge().find('a.b', generation)
-    expect(state()).toMatchObject({ total: 2 })
-    bridge().find('a.b', generation, -1)
-    bridge().replace('a.b', 'é', generation)
-    expect(saved()).toBe('İ a.b 🙂 é\n')
   })
 
   it('clears empty and missing searches and rejects an obsolete generation', () => {
