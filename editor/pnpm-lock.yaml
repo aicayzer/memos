@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@aicayzer/inkkit':
-        specifier: 0.7.1
-        version: 0.7.1
+        specifier: 0.7.2
+        version: 0.7.2
     devDependencies:
       '@types/node':
         specifier: ^26.6.2
@@ -36,8 +36,8 @@ importers:
 
 packages:
 
-  '@aicayzer/inkkit@0.7.1':
-    resolution: {integrity: sha512-D8kl5kbwEa5luc5XpvjTpRQGowYOC9hzKy4cVM60815mw5jeQNlGOirUN55NMMa6JpW541wMkcyBqO8rO8owsw==}
+  '@aicayzer/inkkit@0.7.2':
+    resolution: {integrity: sha512-qIQNn06WSDLGjPHyDadzCwcCCXzQUSWFvFUBy/RGAHv/3cm3DH53jrmrhXgNUDujCmcabNvP/zTd/7OJ6xhPrg==}
     engines: {node: '>=26'}
 
   '@asamuzakjp/css-color@7.0.0':
@@ -758,7 +758,7 @@ packages:
 
 snapshots:
 
-  '@aicayzer/inkkit@0.7.1': {}
+  '@aicayzer/inkkit@0.7.2': {}
 
   '@asamuzakjp/css-color@7.0.0':
     dependencies:

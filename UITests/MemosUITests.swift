@@ -4,6 +4,48 @@ import XCTest
 
 @MainActor
 final class MemosUITests: XCTestCase {
+    func testWrappedSelectionAndUnclosedWikiLinkSurviveRelaunch() throws {
+        let previousClipboard = captureClipboard()
+        defer { restoreClipboard(previousClipboard) }
+        let fixture = try launchMemos()
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
+        let paragraph = String(repeating: "A wrapped memo keeps its caret and selection beside the text. ", count: 5)
+        let brackets = "Unclosed [[ beside [[Valid note|Readable label]] and [a link](https://example.com)."
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(paragraph + "\n\n" + brackets, forType: .string)
+        app.typeKey("v", modifierFlags: .command)
+        expectText("Unclosed [[ beside [[Valid note|Readable label]]", in: editor)
+        app.typeKey(.upArrow, modifierFlags: .command)
+        app.typeKey(.rightArrow, modifierFlags: [])
+        app.typeKey(.downArrow, modifierFlags: [])
+        func record(_ name: String) {
+            let image = XCTAttachment(screenshot: app.screenshot())
+            image.name = name
+            image.lifetime = .keepAlways
+            add(image)
+        }
+        record("Caret on a wrapped memo line")
+        app.typeKey(.downArrow, modifierFlags: .shift)
+        app.typeKey(.downArrow, modifierFlags: .shift)
+        record("Selection across wrapped memo lines")
+        NSPasteboard.general.clearContents()
+        app.typeKey("c", modifierFlags: .command)
+        expectClipboard { $0.count > 20 && paragraph.contains($0) }
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.contains(brackets) }
+        let saved = try XCTUnwrap(NSPasteboard.general.string(forType: .string))
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(editor.waitForExistence(timeout: 15))
+        expectText("Unclosed [[ beside [[Valid note|Readable label]]", in: editor)
+        record("Unclosed brackets beside a valid wiki link after relaunch")
+        NSPasteboard.general.clearContents()
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0 == saved }
+    }
+
     func testCompactFindDisclosureNavigationReplacementAndNewMemo() throws {
         let fixture = try launchMemos()
         let app = fixture.app

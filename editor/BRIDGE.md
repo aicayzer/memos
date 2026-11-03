@@ -60,6 +60,8 @@ InkKit throws from a facade call that it refuses, and sends nothing to its error
 
 ## Reading viewport and counts
 
+Memos keeps `--inkkit-line-height: 1.55` and uses Inkkit's default drawn caret and selection. The native integration tests check their alignment on wrapped lines in the bundled WKWebView; the UI test checks selection, copying, and reopening in the app.
+
 The native controller buffers initial typing while a requested document loads, and replays it only after that generation has focus. Moving focus elsewhere or loading another document discards pending input.
 
 The host registers the scrolling editor root with `setViewport`, with 24 CSS pixels at the top for the fade and 96 at the bottom for the formatting bar and count. `setFindInset(height, generation)` replaces the top inset with the measured find-panel height, including its outer spacing, or the 24-pixel baseline, whichever is larger. Closing Find restores the baseline. InkKit uses these insets when revealing the caret and search results.
