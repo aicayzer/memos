@@ -7,6 +7,78 @@ import PDFKit
 @MainActor
 @Suite(.serialized, .opensWindows)
 struct InkKitBridgeTests {
+    @Test func wrappedCaretAndSelectionUseTheBundledEditorAtMemoLineHeight() async throws {
+        let editor = EditorController(images: FakeImageStore())
+        let window = ReadingPanel(contentRect: NSRect(x: 100, y: 100, width: 400, height: 500),
+                                  styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = editor.webView
+        defer { window.orderOut(nil); window.contentView = nil; window.close() }
+        window.makeKeyAndOrderFront(nil)
+        let paragraph = String(repeating: "A wrapped memo keeps its caret and selection beside the text. ", count: 5)
+        let source = paragraph + "\r\n\r\nUnclosed [[ beside [[Valid note|Readable label]] and [a link](https://example.com).\r\n"
+        editor.load(source)
+        #expect(try await editor.snapshot() == source)
+        editor.focus()
+        func key(_ characters: String, code: UInt16, modifiers: NSEvent.ModifierFlags = []) throws {
+            let event = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
+                characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code))
+            window.sendEvent(event)
+        }
+        try key("\u{F700}", code: 126, modifiers: .command)
+        try key("\u{F703}", code: 124)
+        try key("\u{F701}", code: 125)
+        let caretCheck = """
+        (() => {
+          const p = document.querySelector('.ProseMirror p');
+          const s = getSelection();
+          const bar = document.querySelector('.inkkit-caret');
+          if (!p || !s?.isCollapsed || s.focusNode?.nodeType !== 3 || !bar) return false;
+          const r = document.createRange();
+          r.setStart(s.focusNode, s.focusOffset); r.setEnd(s.focusNode, s.focusOffset + 1);
+          const text = r.getBoundingClientRect();
+          r.setStart(p.firstChild, 0); r.setEnd(p.firstChild, 1);
+          const first = r.getBoundingClientRect();
+          const b = bar.getBoundingClientRect();
+          const style = getComputedStyle(p);
+          return Math.abs(parseFloat(style.lineHeight) / parseFloat(style.fontSize) - 1.55) < .01
+            && text.top > first.top + 10 && getComputedStyle(bar).display !== 'none'
+            && Math.abs(b.top - text.top) <= 1 && Math.abs(b.bottom - text.bottom) <= 1;
+        })()
+        """
+        for _ in 0..<100 {
+            if try await editor.webView.evaluateJavaScript(caretCheck) as? Bool == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(try await editor.webView.evaluateJavaScript(caretCheck) as? Bool == true)
+        try key("\u{F701}", code: 125, modifiers: .shift)
+        try key("\u{F701}", code: 125, modifiers: .shift)
+        let selectionCheck = """
+        (() => {
+          const s = getSelection();
+          if (s.isCollapsed || s.toString().length <= 20) return false;
+          const text = [...s.getRangeAt(0).getClientRects()].filter(r => r.width > 0);
+          const bars = [...document.querySelectorAll('.inkkit-selection-layer > div')].map(n => n.getBoundingClientRect());
+          const height = parseFloat(getComputedStyle(document.querySelector('.ProseMirror p')).lineHeight);
+          return bars.length >= 3 && bars.length === text.length && bars.every(b =>
+            Math.abs(b.height - height) <= 1 && text.some(t =>
+              Math.abs((b.top + b.bottom) / 2 - (t.top + t.bottom) / 2) <= 1
+              && Math.abs(b.left - t.left) <= 1 && Math.abs(b.right - t.right) <= 1));
+        })()
+        """
+        for _ in 0..<100 {
+            if try await editor.webView.evaluateJavaScript(selectionCheck) as? Bool == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(try await editor.webView.evaluateJavaScript(selectionCheck) as? Bool == true)
+        // Memos has no wiki-link adapter: both bracket sequences remain readable literal text.
+        #expect(try await editor.webView.evaluateJavaScript("document.querySelector('.ProseMirror').textContent.includes('Unclosed [[ beside [[Valid note|Readable label]]')") as? Bool == true)
+        #expect(try await editor.snapshot() == source)
+        editor.load(source)
+        #expect(try await editor.snapshot() == source)
+    }
+
     @Test func creatingMemoFromFindRestoresNativeAndDOMFocus() async throws {
         let name = "find-new-memo-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
