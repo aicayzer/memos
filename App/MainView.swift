@@ -75,7 +75,16 @@ struct MainView: View {
             EditorView(editor: model.editor)
                 .overlay(alignment: .bottom) { bottomBar }
                 .overlay(alignment: .bottom) {
-                    if model.showEditorCount && model.formatBarHidden, let counts = model.editor.counts {
+                    if let notice = model.editNotice {
+                        Text(notice)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .glassEffect(.regular, in: .capsule)
+                            .padding(.bottom, model.formatBarHidden ? 12 : model.chromeMetrics.barHeight + 20)
+                            .accessibilityHidden(true)
+                    } else if model.showEditorCount && model.formatBarHidden, let counts = model.editor.counts {
                         Button {
                             model.editorCountUnit = model.editorCountUnit == .characters ? .words : .characters
                         } label: {

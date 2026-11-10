@@ -51,6 +51,7 @@ final class EditorController: NSObject, Editing {
     var onCopy: (String) -> Void = { _ in }
     var onWarning: (String) -> Void = { _ in }
     var onRefusal: (String) -> Void = { _ in }
+    var onEditRefused: (String) -> Void = { _ in }
     var onDropFiles: ([URL], CGPoint) -> Void = { _, _ in }
     var accentOverride: NSColor? {
         didSet { applyAccent() }
@@ -644,10 +645,10 @@ final class EditorController: NSObject, Editing {
         }
     }
 
-    private func handleRefusal(_ incident: EditorIncident) {
+    private func handleRefusal(_ incident: EditorIncident, typed: Bool = false) {
         guard incident.generation == nil || incident.generation == generation else { return }
         captureIncident(incident)
-        onRefusal(incident.userMessage)
+        if typed { onEditRefused(incident.userMessage) } else { onRefusal(incident.userMessage) }
     }
 
     private func captureIncident(_ incident: EditorIncident) {
@@ -769,7 +770,7 @@ final class EditorController: NSObject, Editing {
         case .warning(let message):
             onWarning(message)
         case .incident(let incident):
-            handleRefusal(incident)
+            handleRefusal(incident, typed: true)
         case .error(let classification):
             captureIncident(EditorIncident(code: "script", reason: classification, generation: generation))
             failure = MemoEditorError.script("script-error")
