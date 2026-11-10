@@ -252,7 +252,8 @@ final class AppModel {
         editor.onChanged = { [weak self] markdown in self?.changed(markdown) }
         editor.onOpenLink = { NSWorkspace.shared.open($0) }
         editor.onCopy = copyText
-        editor.onWarning = { [weak self] message in self?.report(MemoClipboardError.unavailable(message)) }
+        editor.onWarning = { [weak self] message in self?.report(EditorWarning(message: message)) }
+        editor.onRefusal = { [weak self] message in self?.presentError(EditorWarning(message: message)) }
         editor.onDropFiles = { [weak self] urls, point in
             guard let self else { return }
             Task { await self.dropped(urls, at: point) }

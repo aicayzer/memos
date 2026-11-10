@@ -17,6 +17,8 @@ protocol Editing: AnyObject {
     var onOpenLink: (URL) -> Void { get set }
     var onCopy: (String) -> Void { get set }
     var onWarning: (String) -> Void { get set }
+    /// A refused edit the editor has already recorded in diagnostics, so the app only tells the person.
+    var onRefusal: (String) -> Void { get set }
     /// Files dropped on the memo, and where they landed.
     var onDropFiles: ([URL], CGPoint) -> Void { get set }
 
@@ -76,4 +78,10 @@ extension NSView {
               let responder = keyWindow.firstResponder as? NSView else { return false }
         return responder === self || responder.isDescendant(of: self)
     }
+}
+
+/// A message from the editor for the person, shown as an alert.
+struct EditorWarning: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
 }
