@@ -91,6 +91,12 @@ struct SettingsView: View {
                     }
                 }
             }
+            Section("Editing") {
+                Toggle("Slash commands", isOn: $model.slashCommands)
+                Text("Type / on an empty line to add a heading, list, table and more.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
             Section("Appearance") {
                 Picker("Accent", selection: Binding(
                     get: { AccentChoice(model.accent) },
@@ -182,12 +188,6 @@ struct SettingsView: View {
     private var appearance: some View {
         @Bindable var model = model
         return Form {
-            Section("Editing") {
-                Toggle("Slash commands", isOn: $model.slashCommands)
-                Text("Type / on an empty line to add a heading, list, table and more.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
             Section("Window") {
                 Toggle("Always on top", isOn: $model.floating)
                 Toggle("Show sidebar at launch", isOn: $model.sidePaneAtLaunch)
