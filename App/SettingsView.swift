@@ -91,6 +91,12 @@ struct SettingsView: View {
                     }
                 }
             }
+            Section("Editing") {
+                Toggle("Slash commands", isOn: $model.slashCommands)
+                Text("Type / on an empty line to add a heading, list, table and more.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
             Section("Appearance") {
                 Picker("Accent", selection: Binding(
                     get: { AccentChoice(model.accent) },

@@ -42,6 +42,7 @@ final class FakeEditor: Editing {
     var onDropFiles: ([URL], CGPoint) -> Void = { _, _ in }
     var accentOverride: NSColor?
     var textSize = TextSize.medium.points
+    var slashCommands = false
     var keymap: [String: [String]] = [:]
     let contentView = NSView()
 

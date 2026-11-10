@@ -50,7 +50,7 @@ The production `LibraryStore` deliberately retains image files rather than sweep
 
 The `link` format passes the typed address through Inkkit's `normalizeLinkAddress`, so a bare host gets `https://`, and refuses anything it cannot normalize with `invalid-argument`. The page posts `openLink` only for addresses `canOpenLink` allows (http, https, mailto and tel); native code opens the URL it receives.
 
-InkKit always enables the typed table-row shortcut; it has no option for it. Block movement defaults to Option-Up and Option-Down, and its Move Up and Move Down titles and keys come from the shared shortcut definitions, as every editor shortcut's do. The Format menu follows `commands.moveBlockUp` and `commands.moveBlockDown`. InkKit's smart punctuation and the slash menu are disabled at mount. No wiki-link adapter is supplied, so `[[` stays literal.
+InkKit always enables the typed table-row shortcut; it has no option for it. Block movement defaults to Option-Up and Option-Down, and its Move Up and Move Down titles and keys come from the shared shortcut definitions, as every editor shortcut's do. The Format menu follows `commands.moveBlockUp` and `commands.moveBlockDown`. InkKit's smart punctuation and the slash menu are disabled at mount. The Slash commands setting, off by default, turns the menu on through `setSlashMenuEnabled`, sent when the page is ready and whenever the setting changes. No wiki-link adapter is supplied, so `[[` stays literal.
 
 Format menu items for editor shortcuts are disabled unless the editor owns the first responder, so their keys reach a focused native field. A queued `moveBlock` also rechecks its window, responder, and document before it runs.
 
