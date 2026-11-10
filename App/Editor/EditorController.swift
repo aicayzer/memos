@@ -50,6 +50,7 @@ final class EditorController: NSObject, Editing {
     var onOpenLink: (URL) -> Void = { _ in }
     var onCopy: (String) -> Void = { _ in }
     var onWarning: (String) -> Void = { _ in }
+    var onRefusal: (String) -> Void = { _ in }
     var onDropFiles: ([URL], CGPoint) -> Void = { _, _ in }
     var accentOverride: NSColor? {
         didSet { applyAccent() }
@@ -646,7 +647,7 @@ final class EditorController: NSObject, Editing {
     private func handleRefusal(_ incident: EditorIncident) {
         guard incident.generation == nil || incident.generation == generation else { return }
         captureIncident(incident)
-        onWarning(incident.userMessage)
+        onRefusal(incident.userMessage)
     }
 
     private func captureIncident(_ incident: EditorIncident) {

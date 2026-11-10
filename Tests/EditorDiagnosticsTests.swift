@@ -173,6 +173,27 @@ import Testing
         #expect(tail.last?["sequence"] as? Int == 282)
     }
 
+    @Test func aRecordedRefusalIsShownWithoutASecondRejection() throws {
+        let (recorder, defaults, folder, name) = try fixture()
+        defer { discard(folder); defaults.removePersistentDomain(forName: name) }
+        let editor = FakeEditor()
+        var shown: [String] = []
+        let model = AppModel(store: ChangeableStore([]), images: FakeImageStore(), defaults: defaults, editor: editor, diagnostics: recorder,
+                             presentError: { shown.append($0.localizedDescription) })
+        model.setDiagnosticsEnabled(true)
+        let rejections = { () throws -> [[String: Any]] in
+            let report = try #require(recorder.report())
+            let parsed = try #require(JSONSerialization.jsonObject(with: Data(report.utf8)) as? [String: Any])
+            return (parsed["events"] as? [[String: Any]] ?? []).filter { $0["event"] as? String == "rejected" }
+        }
+        recorder.record(.rejected, generation: 1, incident: EditorIncident(code: "preservation", reason: "reopen-mismatch"))
+        editor.onRefusal("That edit couldn’t be applied. Your previous text is unchanged.")
+        #expect(try rejections().map { $0["code"] as? String } == ["preservation"])
+        editor.onWarning("Couldn’t save the image.")
+        #expect(try rejections().map { $0["code"] as? String } == ["preservation", "unavailable"])
+        #expect(shown == ["That edit couldn’t be applied. Your previous text is unchanged.", "Couldn’t save the image."])
+    }
+
     @Test func unavailableEditorReportCopiesTheCachedNativeIncident() async throws {
         let (recorder, defaults, folder, name) = try fixture()
         defer { discard(folder); defaults.removePersistentDomain(forName: name) }

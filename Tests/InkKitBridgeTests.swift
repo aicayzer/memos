@@ -123,6 +123,7 @@ struct InkKitBridgeTests {
         #expect(try await editor.snapshot() == "Keep this memo\r\n")
         var warnings: [String] = []
         editor.onWarning = { warnings.append($0) }
+        editor.onRefusal = { warnings.append($0) }
         _ = try await editor.webView.evaluateJavaScript("window.editor.blur = () => ({commandError:'preservation',code:'preservation',message:'PRIVATE exception',generation:1,revision:3,reason:'reopen-mismatch'}); true")
         editor.releaseFocus()
         for _ in 0..<100 where warnings.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
@@ -520,6 +521,7 @@ struct InkKitBridgeTests {
         _ = try await editor.webView.evaluateJavaScript("window.editor.find('Oops', 1)")
         var warnings: [String] = []
         editor.onWarning = { warnings.append($0) }
+        editor.onRefusal = { warnings.append($0) }
         for _ in 0..<200 {
             if !editor.caret.tables.isEmpty { break }
             try await Task.sleep(for: .milliseconds(20))
@@ -543,6 +545,7 @@ struct InkKitBridgeTests {
         _ = try await editor.snapshot()
         var warnings: [String] = []
         editor.onWarning = { warnings.append($0) }
+        editor.onRefusal = { warnings.append($0) }
         for _ in 0..<200 {
             if !editor.caret.formats.isEmpty { break }
             try await Task.sleep(for: .milliseconds(20))
@@ -567,6 +570,7 @@ struct InkKitBridgeTests {
         _ = try await editor.snapshot()
         var warnings: [String] = []
         editor.onWarning = { warnings.append($0) }
+        editor.onRefusal = { warnings.append($0) }
         _ = try await editor.webView.evaluateJavaScript("document.querySelector('.ProseMirror').dispatchEvent(new CompositionEvent('compositionstart', {bubbles: true}))")
         editor.insertPaths(["/Users/a/File.txt"], at: .zero)
         editor.insertImages([ImageReference(path: "images/\(String(repeating: "a", count: 64)).png", alt: "Pic")], at: nil)
