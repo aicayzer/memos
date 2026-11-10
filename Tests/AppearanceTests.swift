@@ -81,6 +81,19 @@ import Testing
         model.windowTint = .red
         #expect(!model.appearanceIsDefault)
     }
+    @Test func slashCommandsAreOffByDefaultRememberedAndSentToTheEditor() {
+        let (model, defaults) = model()
+        #expect(!model.slashCommands)
+        #expect((model.editor as? FakeEditor)?.slashCommands == false)
+        model.slashCommands = true
+        #expect((model.editor as? FakeEditor)?.slashCommands == true)
+        let again = open(defaults)
+        #expect(again.slashCommands)
+        #expect((again.editor as? FakeEditor)?.slashCommands == true)
+        again.resetAppearance()
+        #expect(again.slashCommands)
+    }
+
     @Test func countVisibilityAndUnitAreRememberedAndReset() {
         let (model, defaults) = model()
         #expect(model.showEditorCount)

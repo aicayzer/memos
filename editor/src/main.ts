@@ -466,6 +466,7 @@ const facade = {
     document.documentElement.style.setProperty('--inkkit-accent-color', color),
   setTextSize: (px: number) => document.documentElement.style.setProperty('font-size', `${px}px`),
   setKeymap: editor.setKeymap.bind(editor),
+  setSlashMenuEnabled: editor.setSlashMenuEnabled.bind(editor),
 }
 Object.assign(window, { editor: facade })
 window.addEventListener('error', () => post({ type: 'error', classification: 'script-error' }))

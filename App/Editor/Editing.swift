@@ -26,6 +26,8 @@ protocol Editing: AnyObject {
 
     var accentOverride: NSColor? { get set }
     var textSize: Double { get set }
+    /// Whether typing `/` on an empty line offers block commands.
+    var slashCommands: Bool { get set }
     var keymap: [String: [String]] { get set }
 
     /// Shows a memo for reading without taking keyboard focus.

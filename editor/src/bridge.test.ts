@@ -48,6 +48,7 @@ interface Bridge {
   clipboardResponse(requestId: string, value: Record<string, string>): void
   printable(generation: number): Promise<Message>
   setKeymap(keymap: Record<string, string[]>): void
+  setSlashMenuEnabled(enabled: boolean): void
   focus(generation: number): unknown
   blur(generation: number): unknown
   find(text: string, generation: number, direction?: number): unknown
@@ -533,6 +534,19 @@ describe('Memos editing preferences and block commands', () => {
       slashMenu: { enabled: false },
     })
     expect(options).not.toHaveProperty('wikiLinks')
+  })
+
+  it('turns slash commands on and off from the setting', () => {
+    const menu = () => document.querySelector('[role=listbox]')
+    open('')
+    expect(inkkit.insertText('/', generation)).toBe(true)
+    expect(menu()).toBeNull()
+    open('')
+    bridge().setSlashMenuEnabled(true)
+    expect(inkkit.insertText('/', generation)).toBe(true)
+    expect(menu()).not.toBeNull()
+    bridge().setSlashMenuEnabled(false)
+    expect(menu()).toBeNull()
   })
 })
 

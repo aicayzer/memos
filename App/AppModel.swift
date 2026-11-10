@@ -63,6 +63,14 @@ final class AppModel {
         didSet { defaults.set(showEditorCount, forKey: Self.showEditorCountKey) }
     }
 
+    /// Off by default: a `/` typed on an empty line stays text until this is turned on.
+    var slashCommands: Bool {
+        didSet {
+            defaults.set(slashCommands, forKey: Self.slashCommandsKey)
+            editor.slashCommands = slashCommands
+        }
+    }
+
     var editorCountUnit: EditorCountUnit {
         didSet { defaults.set(editorCountUnit.rawValue, forKey: Self.editorCountUnitKey) }
     }
@@ -178,6 +186,7 @@ final class AppModel {
     private static let floatingKey = "floating"
     private static let formatBarHiddenKey = "formatBarHidden"
     private static let showEditorCountKey = "showEditorCount"
+    private static let slashCommandsKey = "slashCommands"
     private static let editorCountUnitKey = "editorCountUnit"
     private static let sidePaneWidthKey = "sidePaneWidth"
     private static let sidePaneAtLaunchKey = "sidePaneAtLaunch"
@@ -225,6 +234,7 @@ final class AppModel {
         #endif
         formatBarHidden = defaults.object(forKey: Self.formatBarHiddenKey) as? Bool ?? true
         showEditorCount = defaults.object(forKey: Self.showEditorCountKey) as? Bool ?? true
+        slashCommands = defaults.bool(forKey: Self.slashCommandsKey)
         editorCountUnit = defaults.string(forKey: Self.editorCountUnitKey).flatMap(EditorCountUnit.init(rawValue:)) ?? .characters
         let storedPaneWidth = defaults.object(forKey: Self.sidePaneWidthKey) as? Double ?? Chrome.paneWidth
         sidePaneWidth = storedPaneWidth.isFinite ? min(Chrome.maximumPaneWidth, max(Chrome.paneWidth, storedPaneWidth)) : Chrome.paneWidth
@@ -247,6 +257,7 @@ final class AppModel {
         editor.diagnostics = self.diagnostics
         editor.accentOverride = accent.color
         editor.textSize = textSize
+        editor.slashCommands = slashCommands
         editor.keymap = shortcuts.editorKeymap
         shortcuts.onChange = { [weak self] in
             guard let self else { return }

@@ -59,6 +59,9 @@ final class EditorController: NSObject, Editing {
     var textSize = TextSize.medium.points {
         didSet { applyTextSize() }
     }
+    var slashCommands = false {
+        didSet { applySlashCommands() }
+    }
     /// The editor's key bindings, by shortcut name; the app owns them, since Settings edits them.
     var keymap: [String: [String]] = [:] {
         didSet { applyKeymap() }
@@ -703,6 +706,11 @@ final class EditorController: NSObject, Editing {
         call("setTextSize", json(textSize))
     }
 
+    private func applySlashCommands() {
+        guard isReady else { return }
+        call("setSlashMenuEnabled", json(slashCommands))
+    }
+
     @objc private func systemColorsDidChange() {
         applyAccent()
     }
@@ -727,6 +735,7 @@ final class EditorController: NSObject, Editing {
             isReady = true
             applyAccent()
             applyTextSize()
+            applySlashCommands()
             applyKeymap()
             call("setDiagnosticsEnabled", diagnostics?.enabled == true ? "true" : "false")
             if let pendingMarkdown {
