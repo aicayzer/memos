@@ -194,6 +194,21 @@ import Testing
         #expect(shown == ["That edit couldn’t be applied. Your previous text is unchanged.", "Couldn’t save the image."])
     }
 
+    @Test func aRefusedTypedEditIsANoticeNotAnAlert() throws {
+        let (recorder, defaults, folder, name) = try fixture()
+        defer { discard(folder); defaults.removePersistentDomain(forName: name) }
+        let editor = FakeEditor()
+        var shown = 0
+        let model = AppModel(store: ChangeableStore([]), images: FakeImageStore(), defaults: defaults, editor: editor, diagnostics: recorder,
+                             presentError: { _ in shown += 1 })
+        let message = "That edit couldn’t be applied. Your previous text is unchanged."
+        for _ in 0..<3 { editor.onEditRefused(message) }
+        #expect(shown == 0)
+        #expect(model.editNotice == message)
+        editor.onRefusal(message)
+        #expect(shown == 1)
+    }
+
     @Test func unavailableEditorReportCopiesTheCachedNativeIncident() async throws {
         let (recorder, defaults, folder, name) = try fixture()
         defer { discard(folder); defaults.removePersistentDomain(forName: name) }

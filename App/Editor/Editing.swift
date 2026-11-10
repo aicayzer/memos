@@ -19,6 +19,8 @@ protocol Editing: AnyObject {
     var onWarning: (String) -> Void { get set }
     /// A refused edit the editor has already recorded in diagnostics, so the app only tells the person.
     var onRefusal: (String) -> Void { get set }
+    /// An edit the person typed was refused and recorded; it repeats with each key press, so it is not an alert.
+    var onEditRefused: (String) -> Void { get set }
     /// Files dropped on the memo, and where they landed.
     var onDropFiles: ([URL], CGPoint) -> Void { get set }
 

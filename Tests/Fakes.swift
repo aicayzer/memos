@@ -38,6 +38,7 @@ final class FakeEditor: Editing {
     var onCopy: (String) -> Void = { _ in }
     var onWarning: (String) -> Void = { _ in }
     var onRefusal: (String) -> Void = { _ in }
+    var onEditRefused: (String) -> Void = { _ in }
     var onDropFiles: ([URL], CGPoint) -> Void = { _, _ in }
     var accentOverride: NSColor?
     var textSize = TextSize.medium.points

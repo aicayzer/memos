@@ -42,6 +42,9 @@ final class AppModel {
     var storageError: String?
     var spotlightError: String?
     var storageNotice: String?
+    /// A refused typed edit, shown briefly at the foot of the memo instead of an alert.
+    var editNotice: String?
+    @ObservationIgnored private var editNoticeTimer: Task<Void, Never>?
     @ObservationIgnored private var savedMarkdown: String?
 
 
@@ -254,6 +257,7 @@ final class AppModel {
         editor.onCopy = copyText
         editor.onWarning = { [weak self] message in self?.report(EditorWarning(message: message)) }
         editor.onRefusal = { [weak self] message in self?.presentError(EditorWarning(message: message)) }
+        editor.onEditRefused = { [weak self] message in self?.showEditNotice(message) }
         editor.onDropFiles = { [weak self] urls, point in
             guard let self else { return }
             Task { await self.dropped(urls, at: point) }
@@ -892,6 +896,18 @@ final class AppModel {
         defaults.set(memo.id.uuidString, forKey: Self.lastMemoKey)
         // Rebinding captures even edits whose change message has not reached the app yet.
         changed(latest)
+    }
+
+    func showEditNotice(_ message: String) {
+        NSSound.beep()
+        if editNotice != message { AccessibilityNotification.Announcement(message).post() }
+        editNotice = message
+        editNoticeTimer?.cancel()
+        editNoticeTimer = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+            self?.editNotice = nil
+        }
     }
 
     private func report(_ error: any Error) {
