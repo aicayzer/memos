@@ -6,7 +6,7 @@ The app ships through TestFlight and the App Store. The optional CLI ships separ
 
 Use Xcode 27 and macOS 27. `project.yml` is authoritative; check in the generated project, shared schemes, plist files, entitlements, and package lockfile. Regenerate with `xcodegen generate`; CI rejects differences. The `Memos` scheme archives only the app. `MemosTool` builds the standalone CLI.
 
-For local development signing, inject the repository's existing credential-manager environment and run `scripts/render-local-signing.sh`. This renders ignored `Config/Local.xcconfig`; never edit it or commit signing identifiers. Development has its own bundle identifier, icon, preferences, library, and shortcuts.
+Development builds have their own bundle identifier, icon, preferences, library, and shortcuts. For signing, see [Signing](#signing).
 
 Before shipping, run native and editor tests, then exercise memo editing, search/focus, storage conversion, shortcuts, Settings, and CLI access on an isolated test machine. Keep GUI suites serial and use disposable libraries. App Store delivery must also verify CLI access to the installed app's library; source-level shared store tests do not establish filesystem permission behavior.
 
@@ -30,22 +30,38 @@ To release the app:
 
 Apple references: [project requirements](https://developer.apple.com/documentation/xcode/setting-up-your-project-to-use-xcode-cloud), [distribution workflow](https://developer.apple.com/documentation/xcode/creating-a-workflow-that-builds-your-app-for-distribution), [build numbering](https://developer.apple.com/documentation/xcode/setting-the-next-build-number-for-xcode-cloud-builds), and [internal testing](https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers).
 
+## Signing
+
+`scripts/render-local-signing.sh` writes the ignored `Config/Local.xcconfig` from variables that your credential manager supplies. Never edit or commit that file, and never commit signing identifiers.
+
+| Variable | Use |
+| --- | --- |
+| `APPLE_DEVELOPMENT_TEAM` | Required. The signing team. |
+| `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_PRIVATE_KEY` | The App Store Connect team API key, for provisioning and upload. |
+| `MEMOS_SIGNING_KEYCHAIN`, `MEMOS_KEYCHAIN_PASSWORD` | Optional. A dedicated keychain for signing over SSH. |
+| `APPLE_PROVISIONING_PROFILE`, `APPLE_DISTRIBUTION_IDENTITY`, `APPLE_INSTALLER_IDENTITY` | Manual archives only. The installed App Store profile, and certificate names if they differ from Apple Distribution and 3rd Party Mac Developer Installer. |
+
+- **On a Mac that you're signed in to,** builds sign from the login keychain.
+- **Over SSH,** the login keychain is locked, so name a dedicated keychain. The script unlocks the keychain and selects it with `OTHER_CODE_SIGN_FLAGS`. The keychain locks again in each new session, so build in the same credential-manager session. If the named keychain doesn't exist on the Mac, builds use the login keychain.
+
+With the API key set, archive and export provision through the key instead of an Xcode account.
+
 ## Manual TestFlight fallback
 
-Use a manual archive only when Cloud is unavailable, with an isolated checkout and the existing credential manager. Supply `APPLE_DEVELOPMENT_TEAM`, an installed `APPLE_PROVISIONING_PROFILE`, and the appropriate `APPLE_DISTRIBUTION_IDENTITY` and `APPLE_INSTALLER_IDENTITY`. Keep signing out of the login keychain: name a dedicated keychain with `MEMOS_SIGNING_KEYCHAIN` and inject `MEMOS_KEYCHAIN_PASSWORD`; `scripts/render-local-signing.sh` unlocks it and selects it with `OTHER_CODE_SIGN_FLAGS`. Run the build in the same credential-manager session, because the keychain locks again in a new SSH session. With `ASC_KEY_ID`, `ASC_ISSUER_ID` and `ASC_PRIVATE_KEY`, archive and export authenticate provisioning with the API key instead of the Xcode account. Run:
+Archive manually only when Xcode Cloud is unavailable, from an isolated checkout:
 
 ```sh
 scripts/archive-testflight.sh BUILD_NUMBER
 scripts/upload-testflight.py build/TestFlight-BUILD_NUMBER/Export/Memos.pkg --wait
 ```
 
-The upload requires injected `ASC_KEY_ID`, `ASC_ISSUER_ID`, and PEM `ASC_PRIVATE_KEY`. It renders a temporary private key, uploads, and removes that key. Logs stay private. The archive helper refuses existing output and verifies installed app file permissions before export. Check App Store Connect before retrying any uncertain upload. After a manual upload, raise Cloud's next build number above the uploaded number before the next Cloud release.
+The archive script refuses an existing output directory and checks that every file in the app is readable by all users before export. The upload script writes the key to a private temporary file, removes it, and keeps logs private. If an upload's result is unclear, check App Store Connect before you retry. After a manual upload, raise Xcode Cloud's next build number above the uploaded one before the next Cloud release.
 
 ## Standalone CLI release
 
 Release the CLI only after the corresponding installed app's create/read/update/delete behavior and CLI library access are verified. Public hosted CI builds the CLI unsigned and runs create/read/append/delete against a disposable library. No personal runner or signing secrets are exposed to public PRs.
 
-On the isolated release machine, inject the existing mapped credential-manager environment. The CLI script needs `APPLE_DEVELOPMENT_TEAM`, an unlocked **Developer ID Application** certificate, `ASC_KEY_ID`, `ASC_ISSUER_ID`, and either PEM `ASC_PRIVATE_KEY` or an existing source-rendered `ASC_KEY_PATH`. Use `MEMOS_SIGNING_KEYCHAIN` to select a task keychain. No new hosted signing credentials are required.
+On the isolated release machine, inject the existing mapped credential-manager environment. The CLI script needs `APPLE_DEVELOPMENT_TEAM`, an unlocked **Developer ID Application** certificate, `ASC_KEY_ID`, `ASC_ISSUER_ID`, and either PEM `ASC_PRIVATE_KEY` or an existing source-rendered `ASC_KEY_PATH`. `MEMOS_SIGNING_KEYCHAIN` selects a dedicated keychain, as in [Signing](#signing). No hosted signing credentials are needed.
 
 ```sh
 scripts/release-cli.py

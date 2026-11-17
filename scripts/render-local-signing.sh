@@ -18,8 +18,13 @@ if [[ "$mode" == --distribution ]]; then
     exit 1
   }
 fi
-# A dedicated signing keychain keeps codesign out of the login keychain and its approval prompts.
+# A dedicated signing keychain keeps codesign out of the login keychain and its approval prompts on a
+# machine that signs over SSH. A Mac without one signs from its login keychain.
 keychain="${MEMOS_SIGNING_KEYCHAIN:-}"
+if [[ -n "$keychain" && ! -e "$keychain" ]]; then
+  print 'No dedicated signing keychain on this Mac; signing from the login keychain.'
+  keychain=''
+fi
 if [[ -n "$keychain" ]]; then
   [[ -f "$keychain" && "$keychain" != *[\'$'\n'\\]* ]] || {
     print -u2 'MEMOS_SIGNING_KEYCHAIN must name an existing signing keychain.'
