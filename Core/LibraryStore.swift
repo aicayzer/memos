@@ -34,6 +34,12 @@ actor LibraryStore: MemoStore, ImageStore {
     private var observed: [Memo.ID: String] = [:]
     private var scope: URL?
     private var scopeData: Data?
+    /// Some volumes keep coarse timestamps, so two writes in one tick can leave a file looking unchanged. A
+    /// snapshot is trusted only when every file in it last changed at least this long before it was taken.
+    private let settleTime: Duration
+    private var settled: (snapshot: Snapshot, revision: String)?
+    /// Full reads of the library for a revision, so a test can show that an unchanged library is not reread.
+    private(set) var contentReads = 0
 
     private struct Location: Codable, Equatable {
         var markdown: Bool
@@ -55,9 +61,29 @@ actor LibraryStore: MemoStore, ImageStore {
         var bytes: Data
     }
 
-    init(fileURL: URL, useSecurityScope: Bool = true) {
+    /// A file a revision covers, as the file system describes it without reading the file. A write changes
+    /// the status-change time, which no ordinary editor can set back; a replacement changes the file number.
+    private struct FileStamp: Equatable {
+        var name: String
+        var device: Int32
+        var file: UInt64
+        var size: Int64
+        var modified: Int64
+        var changed: Int64
+    }
+
+    private struct Snapshot: Equatable {
+        var path: String
+        var files: [FileStamp]
+        var taken: Int64
+
+        static func == (lhs: Snapshot, rhs: Snapshot) -> Bool { lhs.path == rhs.path && lhs.files == rhs.files }
+    }
+
+    init(fileURL: URL, useSecurityScope: Bool = true, settleTime: Duration = .seconds(3)) {
         originalFile = fileURL
         self.useSecurityScope = useSecurityScope
+        self.settleTime = settleTime
     }
 
     deinit { scope?.stopAccessingSecurityScopedResource() }
@@ -99,10 +125,18 @@ actor LibraryStore: MemoStore, ImageStore {
         }
     }
 
+    /// Changes whenever a memo or an image changes, in this process or any other. The watcher asks every
+    /// second, so the files are read and hashed only when their stamps have moved since the last answer.
     func revision() throws -> String {
         try locked {
             let location = try active()
-            return location.path + (try fingerprints(location)).sorted { $0.key < $1.key }.map { $0.key + $0.value }.joined()
+            let snapshot = snapshot(location)
+            if let snapshot, let settled, settled.snapshot == snapshot { return settled.revision }
+            settled = nil
+            contentReads += 1
+            let revision = location.path + (try fingerprints(location)).sorted { $0.key < $1.key }.map { $0.key + $0.value }.joined()
+            if let snapshot, isSettled(snapshot) { settled = (snapshot, revision) }
+            return revision
         }
     }
 
@@ -387,10 +421,45 @@ actor LibraryStore: MemoStore, ImageStore {
         }
     }
 
+    /// The files `fingerprints` reads, without reading them; nil when one cannot be described, so the
+    /// revision is read in full and reports the problem itself.
+    private func snapshot(_ location: Location) -> Snapshot? {
+        let taken = Self.now()
+        let folder = directory(location)
+        var named: [(String, URL)]
+        if location.markdown {
+            guard let urls = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { return nil }
+            named = urls.filter { $0.pathExtension.lowercased() == "md" }.map { ($0.lastPathComponent, $0) }
+        } else {
+            let url = URL(fileURLWithPath: location.path)
+            named = [(url.lastPathComponent, url)]
+        }
+        let images = folder.appending(path: ImageReference.folder)
+        if FileManager.default.fileExists(atPath: images.path) {
+            guard let urls = try? FileManager.default.contentsOfDirectory(at: images, includingPropertiesForKeys: nil) else { return nil }
+            named += urls.map { ("\(ImageReference.folder)/\($0.lastPathComponent)", $0) }
+        }
+        var files: [FileStamp] = []
+        for (name, url) in named.sorted(by: { $0.0 < $1.0 }) {
+            var info = stat()
+            guard lstat(url.path, &info) == 0 else { return nil }
+            files.append(FileStamp(name: name, device: info.st_dev, file: info.st_ino, size: info.st_size,
+                                   modified: Self.nanoseconds(info.st_mtimespec), changed: Self.nanoseconds(info.st_ctimespec)))
+        }
+        return Snapshot(path: location.path, files: files, taken: taken)
+    }
+
+    private func isSettled(_ snapshot: Snapshot) -> Bool {
+        let settle = settleTime.components.seconds * 1_000_000_000 + settleTime.components.attoseconds / 1_000_000_000
+        let newest = snapshot.files.map { max($0.modified, $0.changed) }.max() ?? .min
+        return newest <= snapshot.taken - settle
+    }
+
     private func fingerprints(_ location: Location, from snapshot: [Entry]? = nil) throws -> [String: String] {
         let all = try snapshot ?? entries(at: location)
         var result: [String: String] = [:]
-        for entry in all { result[entry.url.lastPathComponent] = Self.digest(entry.bytes) }
+        // Every memo in the internal store shares one file, which needs hashing once.
+        for entry in all where result[entry.url.lastPathComponent] == nil { result[entry.url.lastPathComponent] = Self.digest(entry.bytes) }
         for path in try imagePaths(in: directory(location), memos: all.map(\.memo)) {
             result[path] = Self.digest(try Data(contentsOf: directory(location).appending(path: path)))
         }
@@ -419,6 +488,12 @@ actor LibraryStore: MemoStore, ImageStore {
         return try body()
     }
 
+    private static func nanoseconds(_ time: timespec) -> Int64 { Int64(time.tv_sec) * 1_000_000_000 + Int64(time.tv_nsec) }
+    private static func now() -> Int64 {
+        var time = timespec()
+        clock_gettime(CLOCK_REALTIME, &time)
+        return nanoseconds(time)
+    }
     private static func digest(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
     private static func milliseconds(_ date: Date) -> Date { JSONMemoStore.canonicalDate(date) }
 }

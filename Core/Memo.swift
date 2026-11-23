@@ -93,25 +93,37 @@ struct Memo: Identifiable, Codable, Equatable, Sendable {
         return Substring(inner.trimmingCharacters(in: .whitespaces))
     }
 
+    /// Compiled once: a regex literal inside a function is compiled again on every call. Regex is not marked
+    /// Sendable, but it never changes after it is built and stores its compiled program atomically.
+    nonisolated(unsafe) private static let escapedPunctuation = /\\([!-\/:-@\[-`{-~])/
+    nonisolated(unsafe) private static let codeSpan = /`([^`]+)`/
+    nonisolated(unsafe) private static let inlineLink = /(!?)\[([^\[\]]*)\]\(([^()\s]*)\)/
+    nonisolated(unsafe) private static let imageWidth = /\|\d{1,5}$/
+    nonisolated(unsafe) private static let autolink = /<(https?:\/\/[^<>\s]+)>/
+    nonisolated(unsafe) private static let strongOrStruck = /(\*\*|__|~~)([^*_~]+)\1/
+    nonisolated(unsafe) private static let starEmphasis = /\*([^*\s][^*]*)\*/
+    nonisolated(unsafe) private static let underscoreEmphasis = /\b_([^_\s][^_]*)_\b/
+    nonisolated(unsafe) private static let characterReference = /&#(x[0-9A-Fa-f]{1,6}|[0-9]{1,7});/
+
     private static func withoutInlineMarks(_ text: String) -> String {
         // Escaped punctuation and code span contents are literal; they sit out the stripping as private-use characters.
-        var plain = text.replacing(/\\([!-\/:-@\[-`{-~])/) { shielded($0.1) }
-        plain = plain.replacing(/`([^`]+)`/) { shielded($0.1) }
-        plain = plain.replacing(/(!?)\[([^\[\]]*)\]\(([^()\s]*)\)/) { match in
+        var plain = text.replacing(escapedPunctuation) { shielded($0.1) }
+        plain = plain.replacing(codeSpan) { shielded($0.1) }
+        plain = plain.replacing(inlineLink) { match in
             let text = String(match.2)
             // An image's width rides in its alt text; the title is the words alone.
-            return match.1 == "!" ? text.replacing(/\|\d{1,5}$/, with: "") : text
+            return match.1 == "!" ? text.replacing(imageWidth, with: "") : text
         }
-        plain = plain.replacing(/<(https?:\/\/[^<>\s]+)>/) { String($0.1) }
-        plain = plain.replacing(/(\*\*|__|~~)([^*_~]+)\1/) { String($0.2) }
-        plain = plain.replacing(/\*([^*\s][^*]*)\*/) { String($0.1) }
-        plain = plain.replacing(/\b_([^_\s][^_]*)_\b/) { String($0.1) }
+        plain = plain.replacing(autolink) { String($0.1) }
+        plain = plain.replacing(strongOrStruck) { String($0.2) }
+        plain = plain.replacing(starEmphasis) { String($0.1) }
+        plain = plain.replacing(underscoreEmphasis) { String($0.1) }
         // A backslash ending the line is a hard break.
         if plain.hasSuffix("\\") { plain.removeLast() }
         // remark writes a character that would otherwise change the parse, such as a space ending the line or a
         // letter beside an emphasis marker, as a numeric reference; the only kind the store holds, since `&` is
         // otherwise escaped.
-        plain = plain.replacing(/&#(x[0-9A-Fa-f]{1,6}|[0-9]{1,7});/) { match in
+        plain = plain.replacing(characterReference) { match in
             let reference = match.1
             let value = reference.first == "x" ? UInt32(reference.dropFirst(), radix: 16) : UInt32(reference)
             return value.flatMap(Unicode.Scalar.init).map(String.init) ?? String(match.0)

@@ -59,10 +59,13 @@ struct ImageReference: Hashable, Sendable {
         return true
     }
 
+    /// Compiled once: a regex literal inside a function is compiled again on every call. Regex is not marked
+    /// Sendable, but it never changes after it is built and stores its compiled program atomically.
+    nonisolated(unsafe) private static let inMarkdown = /!\[[^\]]*\]\(\s*<?([^)>\s]+)>?[^)]*\)/
+
     /// Every image this store holds that the markdown refers to.
     static func references(in markdown: String) -> Set<String> {
-        let inMarkdown = /!\[[^\]]*\]\(\s*<?([^)>\s]+)>?[^)]*\)/
-        return Set(markdown.matches(of: inMarkdown).map { String($0.1) }.filter(isOurs))
+        Set(markdown.matches(of: inMarkdown).map { String($0.1) }.filter(isOurs))
     }
 }
 
