@@ -42,6 +42,7 @@
 		5C84448D5D65D1DAEDDD2602 /* EditorDiagnosticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0314600DC7FA80BE6D21BD4A /* EditorDiagnosticsTests.swift */; };
 		5D46EEFD12F8CAC06445E0CD /* EditorWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E67A904E658070FDBAD394 /* EditorWebView.swift */; };
 		5FAD7EEB65EF90A092C2BAF5 /* ColorsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CA8E50B55DA8FA70DF9F182 /* ColorsTests.swift */; };
+		5FE3C679E5A5FDDF525B2AF0 /* LibraryRevisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E51F804EFB72F85F69D781 /* LibraryRevisionTests.swift */; };
 		605E283C144C07AAACC391D5 /* ArgumentParser in Frameworks */ = {isa = PBXBuildFile; productRef = FA661170D8EB00DD09B4D400 /* ArgumentParser */; };
 		61FD3E47E20485F875A5EE51 /* ImageStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4868C3588A4BF8D32BD9961 /* ImageStoreTests.swift */; };
 		65B6FF767D80488C8BEC7C56 /* LoginLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1087267435E098110F0398 /* LoginLaunchTests.swift */; };
@@ -200,6 +201,7 @@
 		E8DF8E3D5DA593A9DCD23C17 /* Controls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Controls.swift; sourceTree = "<group>"; };
 		EDA9C9F8E917B0816065D8A3 /* SidePane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidePane.swift; sourceTree = "<group>"; };
 		EF4205A779A5AB50860003B7 /* FormatBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormatBar.swift; sourceTree = "<group>"; };
+		F0E51F804EFB72F85F69D781 /* LibraryRevisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryRevisionTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -319,6 +321,7 @@
 				B4868C3588A4BF8D32BD9961 /* ImageStoreTests.swift */,
 				14F9979DE063E737BB811744 /* InkKitBridgeTests.swift */,
 				6A47E87DD4CEEC682450000C /* JSONMemoStoreTests.swift */,
+				F0E51F804EFB72F85F69D781 /* LibraryRevisionTests.swift */,
 				01FE465AA3C193C095317832 /* LibraryStoreTests.swift */,
 				BF1087267435E098110F0398 /* LoginLaunchTests.swift */,
 				258751EA03827D8922DA1371 /* MemoGroupsTests.swift */,
@@ -601,6 +604,7 @@
 				61FD3E47E20485F875A5EE51 /* ImageStoreTests.swift in Sources */,
 				2A6A031C6FAEF0A0F4FBE4D7 /* InkKitBridgeTests.swift in Sources */,
 				1A29C57F265D4932D0CF7F3C /* JSONMemoStoreTests.swift in Sources */,
+				5FE3C679E5A5FDDF525B2AF0 /* LibraryRevisionTests.swift in Sources */,
 				AAA34DDF7A3DA00088ABD277 /* LibraryStoreTests.swift in Sources */,
 				65B6FF767D80488C8BEC7C56 /* LoginLaunchTests.swift in Sources */,
 				14F6E4CA6E01E9C13CAFDBA6 /* MemoGroupsTests.swift in Sources */,
@@ -844,7 +848,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.4.17;
+				MARKETING_VERSION = 0.4.18;
 				MEMOS_APP_IDENTIFIER = me.cyzr.memos.dev;
 				MEMOS_DISPLAY_NAME = "Memos Dev";
 				MEMOS_URL_SCHEME = "memos-dev";
@@ -985,7 +989,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.4.17;
+				MARKETING_VERSION = 0.4.18;
 				MEMOS_APP_IDENTIFIER = me.cyzr.memos;
 				MEMOS_DISPLAY_NAME = Memos;
 				MEMOS_URL_SCHEME = memos;

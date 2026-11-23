@@ -1,7 +1,8 @@
 import Foundation
 
 /// Folder notifications miss in-place writes by ordinary editors. A content revision also catches those,
-/// and follows the committed storage location without keeping a watch on a retired snapshot.
+/// and follows the committed storage location without keeping a watch on a retired snapshot. A tick reads
+/// only file stamps unless something changed, so it can run every second.
 @MainActor
 final class LibraryWatcher {
     private var task: Task<Void, Never>?
@@ -20,7 +21,7 @@ final class LibraryWatcher {
                     if error.localizedDescription != lastError { onError(error.localizedDescription) }
                     lastError = error.localizedDescription
                 }
-                do { try await Task.sleep(for: .seconds(1)) } catch { return }
+                do { try await Task.sleep(for: .seconds(1), tolerance: .milliseconds(250)) } catch { return }
             }
         }
     }
