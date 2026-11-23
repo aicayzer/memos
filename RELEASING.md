@@ -15,9 +15,11 @@ Before shipping, run native and editor tests, then exercise memo editing, search
 Xcode Cloud is configured for product **Memos** with the **Release** workflow:
 
 - Tag changes and manual starts for tags beginning with `v`; no branch, pull-request, or scheduled starts.
-- Xcode 27, macOS 27, and clean builds, with `APPLE_DEVELOPMENT_TEAM` set in the workflow environment.
+- **Latest Release** for both Xcode and macOS, and clean builds, with `APPLE_DEVELOPMENT_TEAM` set in the workflow environment. A pinned version stops working when Apple retires its image.
 - One **Archive macOS** action using the `Memos` scheme, **Any Mac**, and **App Store Connect** distribution.
 - One **TestFlight Internal Testing** post-action for **Internal Testers**.
+
+If a run fails within seconds and shows no actions, open the run in App Store Connect. The run page names the cause, such as a retired Xcode and macOS combination, which the API doesn't report.
 
 The post-clone hook validates the tag against `MARKETING_VERSION`, renders automatic signing, installs Node/pnpm for the bundled editor, and sets the build number from `CI_BUILD_NUMBER`. Before each release, check the latest uploaded build in App Store Connect and Cloud's next build number. Keep Cloud's next build number above every uploaded build.
 
