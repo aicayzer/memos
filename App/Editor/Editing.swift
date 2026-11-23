@@ -28,6 +28,7 @@ protocol Editing: AnyObject {
     var textSize: Double { get set }
     /// Whether typing `/` on an empty line offers block commands.
     var slashCommands: Bool { get set }
+    var preferences: EditorPreferences { get set }
     var keymap: [String: [String]] { get set }
 
     /// Shows a memo for reading without taking keyboard focus.
@@ -61,6 +62,14 @@ protocol Editing: AnyObject {
 
     /// The view the memo is drawn in.
     var contentView: NSView { get }
+}
+
+/// The typing and display settings the editor takes from Settings. The rest keep InkKit's defaults.
+struct EditorPreferences: Codable, Equatable {
+    var pairBrackets = false
+    var continueLists = true
+    var foldHeadings = false
+    var plainTextPaste = false
 }
 
 enum EditorRefresh {

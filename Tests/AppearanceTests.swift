@@ -94,6 +94,26 @@ import Testing
         #expect(again.slashCommands)
     }
 
+    @Test func editorPreferencesStartAtInkKitDefaultsAndAreRememberedAndSentToTheEditor() {
+        let (model, defaults) = model()
+        #expect(model.editorPreferences == EditorPreferences())
+        #expect(model.editorPreferences.continueLists)
+        #expect((model.editor as? FakeEditor)?.preferences == EditorPreferences())
+        let chosen = EditorPreferences(pairBrackets: true, continueLists: false, foldHeadings: true, plainTextPaste: true)
+        model.editorPreferences = chosen
+        #expect((model.editor as? FakeEditor)?.preferences == chosen)
+        let again = open(defaults)
+        #expect(again.editorPreferences == chosen)
+        #expect((again.editor as? FakeEditor)?.preferences == chosen)
+        again.resetAppearance()
+        #expect(again.editorPreferences == chosen)
+    }
+
+    @Test func editorPreferencesReadLaunchArgumentStyleValues() {
+        let (model, _) = model(["continueLists": "NO", "pairBrackets": "YES", "foldHeadings": 1])
+        #expect(model.editorPreferences == EditorPreferences(pairBrackets: true, continueLists: false, foldHeadings: true))
+    }
+
     @Test func countVisibilityAndUnitAreRememberedAndReset() {
         let (model, defaults) = model()
         #expect(model.showEditorCount)

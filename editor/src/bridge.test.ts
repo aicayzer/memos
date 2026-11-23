@@ -32,7 +32,7 @@ interface Bridge {
   undo(generation: number): unknown
   redo(generation: number): unknown
   setEditingMode(mode: string, generation: number): unknown
-  pasteNative(payload: { text: string; generation: number; images: [] }): void
+  pasteNative(payload: { text: string; html?: string; generation: number; images: [] }): void
   reload(text: string, generation: number, documentId: string): void
   rebind(generation: number, next: number, documentId: string, nextDocumentId: string): Message
   refresh(
@@ -49,6 +49,12 @@ interface Bridge {
   printable(generation: number): Promise<Message>
   setKeymap(keymap: Record<string, string[]>): void
   setSlashMenuEnabled(enabled: boolean): void
+  setPreferences(preferences: {
+    pairBrackets: boolean
+    continueLists: boolean
+    foldHeadings: boolean
+    plainTextPaste: boolean
+  }): void
   focus(generation: number): unknown
   blur(generation: number): unknown
   find(text: string, generation: number, direction?: number): unknown
@@ -411,6 +417,30 @@ describe('a memo that is reloaded, recovered or refreshed', () => {
     expect(saved()).toBe(result.text)
   })
 
+  it('keeps a typed final space on screen without saving it or treating the memo as edited', () => {
+    open('Milk\n')
+    const previous = generation
+    caret('Milk')
+    const changes = of('changed').length
+    expect(inkkit.insertText(' ', generation)).toBe(true)
+    expect(saved()).toBe('Milk\n')
+    expect(inkkit.textSnapshot(generation).text).toBe('Milk ')
+    expect(of('changed')).toHaveLength(changes)
+    expect(inkkit.insertText('and bread. ', generation)).toBe(true)
+    expect(saved()).toBe('Milk and bread.\n')
+    expect(of('changed').at(-1)).toMatchObject({ markdown: 'Milk and bread.\n' })
+    generation += 1
+    const result = bridge().refresh(
+      previous,
+      generation,
+      `memo-${previous}`,
+      'next',
+      'Milk and bread.\n',
+      'External\n',
+    )
+    expect(result).toMatchObject({ applied: true, text: 'External\n' })
+  })
+
   it('replaces only a source that nobody has edited', () => {
     open()
     const previous = generation
@@ -530,10 +560,100 @@ describe('the page', () => {
 describe('Memos editing preferences and block commands', () => {
   it('disables smart punctuation and slash commands without note suggestions', () => {
     expect(options).toMatchObject({
-      textInput: { smartPunctuation: false },
+      textInput: {
+        smartPunctuation: false,
+        pairBrackets: false,
+        continueLists: true,
+        paste: 'formatted',
+      },
+      display: { foldHeadings: false },
       slashMenu: { enabled: false },
     })
     expect(options).not.toHaveProperty('wikiLinks')
+  })
+
+  const preferences = {
+    pairBrackets: false,
+    continueLists: true,
+    foldHeadings: false,
+    plainTextPaste: false,
+  }
+
+  it('pairs brackets only when the setting is on', () => {
+    try {
+      open('')
+      inkkit.insertText('(', generation)
+      expect(saved()).toBe('(\n')
+      bridge().setPreferences({ ...preferences, pairBrackets: true })
+      open('')
+      inkkit.insertText('(', generation)
+      expect(saved()).toBe('()\n')
+    } finally {
+      bridge().setPreferences(preferences)
+    }
+  })
+
+  it('pastes plain text only when the setting is on, and keeps smart punctuation off', async () => {
+    const paste = async () => {
+      open('')
+      bridge().pasteNative({
+        text: 'bold "quote"',
+        html: '<b>bold</b> "quote"',
+        generation,
+        images: [],
+      })
+      await vi.waitFor(() => expect(saved()).not.toBe(''))
+      return saved()
+    }
+    try {
+      expect(await paste()).toBe('**bold** "quote"\n')
+      bridge().setPreferences({ ...preferences, plainTextPaste: true })
+      expect(await paste()).toBe('bold "quote"\n')
+      open('')
+      inkkit.insertText('"', generation)
+      expect(saved()).toBe('"\n')
+    } finally {
+      bridge().setPreferences(preferences)
+    }
+  })
+
+  it('continues a list on Return in source mode unless the setting is off', () => {
+    const enter = () => {
+      const target = document.activeElement!
+      target.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+      )
+    }
+    const typeReturn = (continueLists: boolean) => {
+      bridge().setPreferences({ ...preferences, continueLists })
+      open('- milk\n')
+      bridge().setEditingMode('source', generation)
+      bridge().focus(generation)
+      caret('milk')
+      enter()
+      return saved()
+    }
+    try {
+      expect(typeReturn(true)).toBe('- milk\n- \n')
+      // Off, InkKit leaves Return to the text surface, which adds a plain line.
+      expect(typeReturn(false)).not.toContain('- \n')
+    } finally {
+      bridge().setPreferences(preferences)
+    }
+  })
+
+  it('shows fold controls beside headings only when the setting is on', () => {
+    const controls = () => document.querySelectorAll('[aria-label^="Fold section"]').length
+    try {
+      open('# One\n\nText\n\n# Two\n\nMore\n')
+      expect(controls()).toBe(0)
+      bridge().setPreferences({ ...preferences, foldHeadings: true })
+      expect(controls()).toBe(2)
+      expect(saved()).toBe('# One\n\nText\n\n# Two\n\nMore\n')
+    } finally {
+      bridge().setPreferences(preferences)
+    }
+    expect(controls()).toBe(0)
   })
 
   it('turns slash commands on and off from the setting', () => {
@@ -597,6 +717,41 @@ describe('native image storage', () => {
       filename: 'picture.png',
     })
     expect(request).not.toHaveProperty('signal')
+  })
+
+  it('hands a link context menu request to the host, with whether the app may open it', () => {
+    open('')
+    const range = { snapshotId: 's', from: 0, to: 4 }
+    const web = (href: string, openable = true) => ({
+      kind: 'web' as const,
+      text: 'Site',
+      range,
+      href,
+      openable,
+    })
+    events.linkMenu!(web(' https://example.com '), { clientX: 3, clientY: 9.5 })
+    expect(of('linkMenu').at(-1)).toEqual({
+      type: 'linkMenu',
+      href: 'https://example.com',
+      openable: true,
+      x: 3,
+      y: 9.5,
+    })
+    events.linkMenu!(web('notes/today.md', false), { clientX: 1, clientY: 1 })
+    expect(of('linkMenu').at(-1)).toMatchObject({ href: 'notes/today.md', openable: false })
+    events.linkMenu!(web('ftp://example.com'), { clientX: 1, clientY: 1 })
+    expect(of('linkMenu').at(-1)).toMatchObject({ openable: false })
+    const count = of('linkMenu').length
+    events.linkMenu!(
+      {
+        kind: 'wiki',
+        text: 'Note',
+        range,
+        reference: { target: 'Note', raw: '[[Note]]' },
+      } as never,
+      { clientX: 1, clientY: 1 },
+    )
+    expect(of('linkMenu')).toHaveLength(count)
   })
 
   it('hands an image context menu request to the host, at the point in the page', () => {
@@ -692,8 +847,8 @@ describe('native find controls', () => {
     expect(saved()).toBe('Garden $& GARDEN\r\n')
     expect(state()).toMatchObject({ current: 2, total: 2 })
     bridge().replace('garden', '', generation)
-    // The serializer preserves the new trailing space as an entity in Markdown.
-    expect(saved()).toBe('Garden $&&#x20;\r\n')
+    // The space left at the end of the edited paragraph is not saved.
+    expect(saved()).toBe('Garden $&\r\n')
     bridge().undo(generation)
     await Promise.resolve()
     expect(saved()).toBe('Garden $& GARDEN\r\n')

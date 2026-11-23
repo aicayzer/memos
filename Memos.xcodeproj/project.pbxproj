@@ -13,6 +13,7 @@
 		0826EEAB1E8229DA399AA1A4 /* EditorDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08CEC0BC4E855F9F318D69F9 /* EditorDiagnostics.swift */; };
 		0AD4EC9238A7B8B581F051EF /* TopRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2786CCFEEE5A203C75DE51 /* TopRow.swift */; };
 		0B4EBA44A9A8741E9CC115DE /* MemoLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6083CC54ACB0CECCBCA2FFC /* MemoLookup.swift */; };
+		0FF065CDD3B73C4F9D08FB51 /* LinkMenuTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33A25C99A181946F1363E82F /* LinkMenuTests.swift */; };
 		1278A41881A967DF564DF844 /* PaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37CA2C61606EFE9D2CF07C73 /* PaletteView.swift */; };
 		14F6E4CA6E01E9C13CAFDBA6 /* MemoGroupsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 258751EA03827D8922DA1371 /* MemoGroupsTests.swift */; };
 		1A29C57F265D4932D0CF7F3C /* JSONMemoStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A47E87DD4CEEC682450000C /* JSONMemoStoreTests.swift */; };
@@ -20,6 +21,7 @@
 		1F34F0271FEE2681FC00CC14 /* JSONMemoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E560C423FC07DFDB29EC1878 /* JSONMemoStore.swift */; };
 		21B6E35585BBD41E970ABBCD /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B0563CDCB30A3EF9BD37792 /* MainView.swift */; };
 		231BD6770184C54FDD54ED30 /* AppCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DC15BDEEE2675CE6130F754 /* AppCommands.swift */; };
+		277197596C693573EF522E89 /* LinkMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF8F7A5602CFFC7A2693D87 /* LinkMenu.swift */; };
 		2A6A031C6FAEF0A0F4FBE4D7 /* InkKitBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14F9979DE063E737BB811744 /* InkKitBridgeTests.swift */; };
 		2E010403C0502A3E350C638F /* MemoTitleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCAE84AA6823EE4F3E8F2B1C /* MemoTitleTests.swift */; };
 		2E22CC7B47896431EB87E2C9 /* Overlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F22224F5D6D601AA05F118D /* Overlay.swift */; };
@@ -139,6 +141,7 @@
 		2E9B9255280795EB7565DB71 /* ShortcutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutTests.swift; sourceTree = "<group>"; };
 		2E9FDD1B0167BFFF1F4916F9 /* WindowBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowBackdrop.swift; sourceTree = "<group>"; };
 		32C109DBDE875AE72470D839 /* ImageSaveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageSaveTests.swift; sourceTree = "<group>"; };
+		33A25C99A181946F1363E82F /* LinkMenuTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkMenuTests.swift; sourceTree = "<group>"; };
 		33BCCFC69D1048C89AC6DF9A /* LoginItemSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItemSettings.swift; sourceTree = "<group>"; };
 		35C56DBF2F2A260DBF0F4DAB /* MemoGroups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoGroups.swift; sourceTree = "<group>"; };
 		37CA2C61606EFE9D2CF07C73 /* PaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaletteView.swift; sourceTree = "<group>"; };
@@ -195,6 +198,7 @@
 		D6CD00FE5843BF4969AFBD8F /* ImageExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageExport.swift; sourceTree = "<group>"; };
 		D7970D35200D9E2932F36915 /* SpotlightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightTests.swift; sourceTree = "<group>"; };
 		DCAE84AA6823EE4F3E8F2B1C /* MemoTitleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoTitleTests.swift; sourceTree = "<group>"; };
+		DDF8F7A5602CFFC7A2693D87 /* LinkMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkMenu.swift; sourceTree = "<group>"; };
 		E3D382FA7A99CF70E224EE1F /* MemoClipboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoClipboard.swift; sourceTree = "<group>"; };
 		E539466B536FBFA433610F93 /* EditorCommandStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorCommandStateTests.swift; sourceTree = "<group>"; };
 		E560C423FC07DFDB29EC1878 /* JSONMemoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONMemoStore.swift; sourceTree = "<group>"; };
@@ -323,6 +327,7 @@
 				6A47E87DD4CEEC682450000C /* JSONMemoStoreTests.swift */,
 				F0E51F804EFB72F85F69D781 /* LibraryRevisionTests.swift */,
 				01FE465AA3C193C095317832 /* LibraryStoreTests.swift */,
+				33A25C99A181946F1363E82F /* LinkMenuTests.swift */,
 				BF1087267435E098110F0398 /* LoginLaunchTests.swift */,
 				258751EA03827D8922DA1371 /* MemoGroupsTests.swift */,
 				B8E2284D64483232E354776B /* MemoLookupTests.swift */,
@@ -396,6 +401,7 @@
 				D4E67A904E658070FDBAD394 /* EditorWebView.swift */,
 				D6CD00FE5843BF4969AFBD8F /* ImageExport.swift */,
 				99DE3FDE8424BB483007AFF2 /* ImageSchemeHandler.swift */,
+				DDF8F7A5602CFFC7A2693D87 /* LinkMenu.swift */,
 				E3D382FA7A99CF70E224EE1F /* MemoClipboard.swift */,
 				250CDB323FEC38E0364735CD /* MemoPrintRenderer.swift */,
 			);
@@ -606,6 +612,7 @@
 				1A29C57F265D4932D0CF7F3C /* JSONMemoStoreTests.swift in Sources */,
 				5FE3C679E5A5FDDF525B2AF0 /* LibraryRevisionTests.swift in Sources */,
 				AAA34DDF7A3DA00088ABD277 /* LibraryStoreTests.swift in Sources */,
+				0FF065CDD3B73C4F9D08FB51 /* LinkMenuTests.swift in Sources */,
 				65B6FF767D80488C8BEC7C56 /* LoginLaunchTests.swift in Sources */,
 				14F6E4CA6E01E9C13CAFDBA6 /* MemoGroupsTests.swift in Sources */,
 				97FDC2843CE196FAA55B70F7 /* MemoLookupTests.swift in Sources */,
@@ -670,6 +677,7 @@
 				76D668749C7EAF438ACCB482 /* KeyRecorder.swift in Sources */,
 				D17B73536D9BDBE0B628B5F4 /* LibraryStore.swift in Sources */,
 				011C3633D3B8396960A6A8CB /* LibraryWatcher.swift in Sources */,
+				277197596C693573EF522E89 /* LinkMenu.swift in Sources */,
 				FA7AF8EA2C35A736A84B4072 /* LoginItemSettings.swift in Sources */,
 				21B6E35585BBD41E970ABBCD /* MainView.swift in Sources */,
 				D90FCB2AA012118C547929E9 /* MarkdownDocument.swift in Sources */,
@@ -848,7 +856,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.4.18;
+				MARKETING_VERSION = 0.4.19;
 				MEMOS_APP_IDENTIFIER = me.cyzr.memos.dev;
 				MEMOS_DISPLAY_NAME = "Memos Dev";
 				MEMOS_URL_SCHEME = "memos-dev";
@@ -989,7 +997,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 0.4.18;
+				MARKETING_VERSION = 0.4.19;
 				MEMOS_APP_IDENTIFIER = me.cyzr.memos;
 				MEMOS_DISPLAY_NAME = Memos;
 				MEMOS_URL_SCHEME = memos;

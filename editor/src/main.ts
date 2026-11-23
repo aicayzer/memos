@@ -12,6 +12,7 @@ import {
   type ImageInsertion,
   type ImageImportContext,
   type PortableImage,
+  type TextInputPreferences,
 } from '@aicayzer/inkkit'
 import '@aicayzer/inkkit/style.css'
 import './style.css'
@@ -157,6 +158,28 @@ function writeClipboard(output: ClipboardOutput): Promise<void> {
     })
   })
 }
+/** The typing and display settings Memos offers. Everything else keeps InkKit's default. */
+type Preferences = {
+  pairBrackets: boolean
+  continueLists: boolean
+  foldHeadings: boolean
+  plainTextPaste: boolean
+}
+const defaultPreferences: Preferences = {
+  pairBrackets: false,
+  continueLists: true,
+  foldHeadings: false,
+  plainTextPaste: false,
+}
+// InkKit replaces the whole set on each call, so the fixed choices travel with the settings.
+function textInput(preferences: Preferences): TextInputPreferences {
+  return {
+    smartPunctuation: false,
+    pairBrackets: preferences.pairBrackets,
+    continueLists: preferences.continueLists,
+    paste: preferences.plainTextPaste ? 'plainText' : 'formatted',
+  }
+}
 const characterSegments = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const wordSegments = new Intl.Segmenter(undefined, { granularity: 'word' })
 let countsEditor: InkKitEditor | undefined
@@ -211,6 +234,17 @@ const editor = await InkKitEditor.mount(
     openLink(href) {
       if (canOpenLink(href)) post({ type: 'openLink', href: href.trim() })
     },
+    linkMenu(link, point) {
+      if (link.kind !== 'web') return
+      const href = link.href.trim()
+      post({
+        type: 'linkMenu',
+        href,
+        openable: link.openable && canOpenLink(href),
+        x: point.clientX,
+        y: point.clientY,
+      })
+    },
     copy(text) {
       post({ type: 'copy', text })
     },
@@ -222,7 +256,12 @@ const editor = await InkKitEditor.mount(
     },
     clipboard: writeClipboard,
   },
-  { images, textInput: { smartPunctuation: false }, slashMenu: { enabled: false } },
+  {
+    images,
+    textInput: textInput(defaultPreferences),
+    display: { foldHeadings: defaultPreferences.foldHeadings },
+    slashMenu: { enabled: false },
+  },
 )
 countsEditor = editor
 diagnosticsEditor = editor
@@ -467,6 +506,10 @@ const facade = {
   setTextSize: (px: number) => document.documentElement.style.setProperty('font-size', `${px}px`),
   setKeymap: editor.setKeymap.bind(editor),
   setSlashMenuEnabled: editor.setSlashMenuEnabled.bind(editor),
+  setPreferences(preferences: Preferences) {
+    editor.setTextInputPreferences(textInput(preferences))
+    editor.setDisplayPreferences({ foldHeadings: preferences.foldHeadings })
+  },
 }
 Object.assign(window, { editor: facade })
 window.addEventListener('error', () => post({ type: 'error', classification: 'script-error' }))

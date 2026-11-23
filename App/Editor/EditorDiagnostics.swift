@@ -4,7 +4,7 @@ import Observation
 
 /// Native and JavaScript failures share codes; technical messages never become report data.
 struct EditorIncident: Equatable, Sendable {
-    static let codes: Set<String> = ["not-ready", "destroyed", "stale-document", "composition", "operation-pending", "read-only", "invalid-argument", "invalid-range", "preservation", "image-unavailable", "diagram-unavailable", "file-unavailable", "clipboard-unavailable", "slash-command-failed", "internal", "script", "navigation", "unavailable", "invalid-response"]
+    static let codes: Set<String> = ["not-ready", "destroyed", "stale-document", "composition", "operation-pending", "read-only", "invalid-argument", "invalid-range", "hidden-text", "preservation", "image-unavailable", "image-unsupported", "diagram-unavailable", "file-unavailable", "clipboard-unavailable", "slash-command-failed", "internal", "script", "navigation", "unavailable", "invalid-response"]
     static let reasons: Set<String> = ["matching-budget", "source-location", "reopen-mismatch", "parse-refusal", "unexpected", "script-error", "unhandled-rejection"]
     let code: String
     let reason: String?
@@ -50,6 +50,7 @@ struct EditorIncident: Equatable, Sendable {
         case "operation-pending": "An image is still being added. Try again in a moment."
         case "not-ready": "The editor is still loading. Try again in a moment."
         case "stale-document": "Your memo changed. Try again."
+        case "hidden-text": "That text was in a folded section, which is now open. Try again."
         case "preservation": "That edit couldn’t be applied. Your previous text is unchanged."
         default: "The editor couldn’t complete that action. Your text is still open."
         }
@@ -237,7 +238,7 @@ final class EditorDiagnostics {
 
     private static func sanitizeFields(_ raw: [String: Any]) -> [String: Any] {
         var result: [String: Any] = [:]
-        let numeric: Set<String> = ["fontWeight", "headingLevel", "fontSize", "lineHeight", "triggerSequence", "sequence", "elapsedMs", "generation", "revision", "from", "to", "width", "height", "top", "bottom", "left", "right", "schemaVersion"]
+        let numeric: Set<String> = ["fontWeight", "headingLevel", "fontSize", "lineHeight", "triggerSequence", "sequence", "count", "elapsedMs", "generation", "revision", "from", "to", "width", "height", "top", "bottom", "left", "right", "schemaVersion"]
         let booleans: Set<String> = ["editable", "pending", "enabled", "composing", "ready", "truncated"]
         let enums: [String: Set<String>] = [
             "code": EditorIncident.codes, "reason": EditorIncident.reasons,

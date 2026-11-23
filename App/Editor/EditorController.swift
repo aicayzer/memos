@@ -62,6 +62,9 @@ final class EditorController: NSObject, Editing {
     var slashCommands = false {
         didSet { applySlashCommands() }
     }
+    var preferences = EditorPreferences() {
+        didSet { if preferences != oldValue { applyPreferences() } }
+    }
     /// The editor's key bindings, by shortcut name; the app owns them, since Settings edits them.
     var keymap: [String: [String]] = [:] {
         didSet { applyKeymap() }
@@ -591,6 +594,56 @@ final class EditorController: NSObject, Editing {
         menu.popUp(positioning: nil, at: webView.mirrored(point), in: webView)
     }
 
+    /// InkKit has already selected the link, so editing and removing act on it through `format`.
+    private func showLinkMenu(href: String, openable: Bool, at point: CGPoint) {
+        guard webView.window != nil else { return }
+        let scope = LinkMenu.Scope(href: href, generation: generation, documentID: documentID)
+        let menu = LinkMenu.make(for: scope, openable: openable, target: self,
+                                 open: #selector(openLinkFromMenu), copy: #selector(copyLinkFromMenu),
+                                 edit: #selector(editLinkFromMenu), remove: #selector(removeLinkFromMenu))
+        menu.popUp(positioning: nil, at: webView.mirrored(point), in: webView)
+    }
+
+    private func linkScope(_ item: NSMenuItem) -> LinkMenu.Scope? {
+        guard let scope = item.representedObject as? LinkMenu.Scope,
+              scope.generation == generation, scope.documentID == documentID else { return nil }
+        return scope
+    }
+
+    @objc private func openLinkFromMenu(_ item: NSMenuItem) {
+        guard let scope = linkScope(item), let url = URL(string: scope.href) else { return }
+        onOpenLink(url)
+    }
+
+    @objc private func copyLinkFromMenu(_ item: NSMenuItem) {
+        guard let scope = item.representedObject as? LinkMenu.Scope else { return }
+        onCopy(scope.href)
+    }
+
+    @objc private func editLinkFromMenu(_ item: NSMenuItem) {
+        guard let scope = linkScope(item), let window = webView.window else { return }
+        let alert = NSAlert()
+        alert.messageText = "Edit Link"
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+        let field = NSTextField(string: scope.href)
+        field.placeholderString = "https://"
+        field.frame = NSRect(x: 0, y: 0, width: 260, height: 22)
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn,
+                  scope.generation == self.generation, scope.documentID == self.documentID else { return }
+            let address = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if address.isEmpty { self.format(.link) } else { self.format(.link, argument: address) }
+        }
+    }
+
+    @objc private func removeLinkFromMenu(_ item: NSMenuItem) {
+        guard linkScope(item) != nil else { return }
+        format(.link)
+    }
+
     @objc private func saveImageFromMenu(_ item: NSMenuItem) {
         guard let reference = item.representedObject as? String else { return }
         Task { await saveImage(reference, choosingDestination: { await self.chooseDestination(for: $0) }) }
@@ -711,6 +764,11 @@ final class EditorController: NSObject, Editing {
         call("setSlashMenuEnabled", json(slashCommands))
     }
 
+    private func applyPreferences() {
+        guard isReady else { return }
+        call("setPreferences", json(preferences))
+    }
+
     @objc private func systemColorsDidChange() {
         applyAccent()
     }
@@ -736,6 +794,7 @@ final class EditorController: NSObject, Editing {
             applyAccent()
             applyTextSize()
             applySlashCommands()
+            applyPreferences()
             applyKeymap()
             call("setDiagnosticsEnabled", diagnostics?.enabled == true ? "true" : "false")
             if let pendingMarkdown {
@@ -774,6 +833,8 @@ final class EditorController: NSObject, Editing {
             if let url = URL(string: href) { onOpenLink(url) }
         case .imageMenu(let reference, let point):
             showImageMenu(for: reference, at: point)
+        case .linkMenu(let href, let openable, let point):
+            showLinkMenu(href: href, openable: openable, at: point)
         case .copy(let text):
             onCopy(text)
         case .warning(let message):

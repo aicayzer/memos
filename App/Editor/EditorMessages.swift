@@ -59,6 +59,7 @@ enum EditorMessage: Sendable {
     case searchState(EditorSearchState, documentID: String, generation: Int)
     case openLink(String)
     case imageMenu(reference: String, at: CGPoint)
+    case linkMenu(href: String, openable: Bool, at: CGPoint)
     case copy(String)
     case warning(String)
     case incident(EditorIncident)
@@ -104,6 +105,11 @@ enum EditorMessage: Sendable {
                   let x = (dict["x"] as? NSNumber)?.doubleValue, let y = (dict["y"] as? NSNumber)?.doubleValue,
                   x.isFinite, y.isFinite else { return nil }
             self = .imageMenu(reference: reference, at: CGPoint(x: x, y: y))
+        case "linkMenu":
+            guard let href = dict["href"] as? String, let openable = dict["openable"] as? Bool,
+                  let x = (dict["x"] as? NSNumber)?.doubleValue, let y = (dict["y"] as? NSNumber)?.doubleValue,
+                  x.isFinite, y.isFinite else { return nil }
+            self = .linkMenu(href: href, openable: openable, at: CGPoint(x: x, y: y))
         case "copy":
             guard let text = dict["text"] as? String else { return nil }
             self = .copy(text)
