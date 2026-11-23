@@ -43,6 +43,7 @@ final class FakeEditor: Editing {
     var accentOverride: NSColor?
     var textSize = TextSize.medium.points
     var slashCommands = false
+    var preferences = EditorPreferences()
     var keymap: [String: [String]] = [:]
     let contentView = NSView()
 

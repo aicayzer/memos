@@ -18,6 +18,8 @@ export function userMessage(code: string): string {
       return 'The editor is still loading. Try again in a moment.'
     case 'stale-document':
       return 'Your memo changed. Try again.'
+    case 'hidden-text':
+      return 'That text was in a folded section, which is now open. Try again.'
     case 'preservation':
       return 'That edit couldn’t be applied. Your previous text is unchanged.'
     default:

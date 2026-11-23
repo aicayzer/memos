@@ -181,7 +181,66 @@ final class MemosUITests: XCTestCase {
         expectText("/heading", in: editor)
         app.typeText("[[No note suggestions]]")
         expectText("[[No note suggestions]]", in: editor)
+
+        app.typeKey("n", modifierFlags: .command)
+        app.menuBars.menuBarItems["View"].click()
+        app.menuItems["Markdown Source"].click()
+        app.typeText("- milk")
+        app.typeKey(.return, modifierFlags: [])
+        app.typeText("bread (fresh")
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.contains("- milk\n- bread (fresh") && !$0.contains("(fresh)") }
         attach(app, name: "InkKit editing preferences")
+    }
+
+    func testEditingSettingsReachTheEditor() throws {
+        let fixture = try launchMemos(["-continueLists", "NO", "-pairBrackets", "YES", "-plainTextPaste", "YES", "-foldHeadings", "YES"])
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
+        let previousClipboard = captureClipboard()
+        defer { restoreClipboard(previousClipboard) }
+        app.menuBars.menuBarItems["View"].click()
+        app.menuItems["Markdown Source"].click()
+        app.typeText("- milk")
+        app.typeKey(.return, modifierFlags: [])
+        app.typeText("bread (fresh")
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.contains("- milk\nbread (fresh)") }
+
+        app.typeKey("n", modifierFlags: .command)
+        let rich = NSPasteboardItem()
+        rich.setString("<b>Bold</b> words", forType: .html)
+        rich.setString("Bold words", forType: .string)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([rich])
+        app.typeKey("v", modifierFlags: .command)
+        expectText("Bold words", in: editor)
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.hasPrefix("Bold words") }
+
+        app.typeKey("n", modifierFlags: .command)
+        app.typeText("# Groceries\nMilk")
+        let fold = app.webViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Fold section")).firstMatch
+        XCTAssertTrue(fold.waitForExistence(timeout: 5), app.debugDescription)
+        attach(app, name: "Editing settings")
+    }
+
+    func testAFinalSpaceSurvivesTheMemoBeingSaved() throws {
+        let fixture = try launchMemos()
+        let app = fixture.app
+        let editor = app.webViews.textViews.firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 15), app.debugDescription)
+        let previousClipboard = captureClipboard()
+        defer { restoreClipboard(previousClipboard) }
+        app.typeText("Milk and ")
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0 == "Milk and\n" }
+        // Past the save and the store watcher, which rereads the memo the app has just written.
+        Thread.sleep(forTimeInterval: 3)
+        app.typeText("bread")
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0 == "Milk and bread\n" }
     }
 
     func testLinkAddressIsPreparedBeforeItIsStored() throws {
@@ -204,6 +263,27 @@ final class MemosUITests: XCTestCase {
         app.typeText("example.com\n")
         app.typeKey("c", modifierFlags: [.command, .shift])
         expectClipboard { $0.contains("[Docs](https://example.com)") }
+
+        let anchor = app.webViews.links.firstMatch
+        XCTAssertTrue(anchor.waitForExistence(timeout: 5), app.debugDescription)
+        anchor.rightClick()
+        for title in ["Open Link", "Copy Link", "Remove Link"] {
+            XCTAssertTrue(app.menuItems[title].waitForExistence(timeout: 5), app.debugDescription)
+        }
+        app.menuItems["Edit Link…"].click()
+        let field = app.sheets.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5), app.debugDescription)
+        field.click()
+        app.typeKey("a", modifierFlags: .command)
+        app.typeText("example.org")
+        app.sheets.buttons["Save"].click()
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.contains("[Docs](https://example.org)") }
+
+        anchor.rightClick()
+        app.menuItems["Remove Link"].click()
+        app.typeKey("c", modifierFlags: [.command, .shift])
+        expectClipboard { $0.hasPrefix("Docs") && !$0.contains("](") }
     }
 
     func testExistingMemoSelectionReadsUntilClickAndNewMemoComposes() throws {
@@ -487,7 +567,8 @@ final class MemosUITests: XCTestCase {
         let expectation = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             matches(NSPasteboard.general.string(forType: .string) ?? "")
         }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 10), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 10), .completed,
+                       "Clipboard: \(NSPasteboard.general.string(forType: .string)?.debugDescription ?? "none")")
     }
 
     private func captureClipboard() -> [NSPasteboardItem] {
@@ -511,7 +592,7 @@ final class MemosUITests: XCTestCase {
         let bundleIdentifier: String
     }
 
-    private func launchMemos() throws -> Fixture {
+    private func launchMemos(_ settings: [String] = []) throws -> Fixture {
         continueAfterFailure = false
         try IsolatedSession.require()
         let testBundleID = try XCTUnwrap(Bundle(for: Self.self).bundleIdentifier)
@@ -536,7 +617,7 @@ final class MemosUITests: XCTestCase {
         app.launchArguments = ["-showInDock", "YES", "-menuBarItem", "NO", "-floating", "NO",
                                "-sidePaneAtLaunch", "NO", "-shortcuts", "invalid",
                                "-KeyboardShortcuts_toggleWindow", #""{\"carbonKeyCode\":11,\"carbonModifiers\":6400}""#,
-                               "-KeyboardShortcuts_newMemo", #""{\"carbonKeyCode\":46,\"carbonModifiers\":6400}""#]
+                               "-KeyboardShortcuts_newMemo", #""{\"carbonKeyCode\":46,\"carbonModifiers\":6400}""#] + settings
         let fixture = Fixture(app: app, folder: folder, bundleIdentifier: bundleIdentifier)
         addTeardownBlock { @MainActor in self.finish(fixture) }
         app.launch()

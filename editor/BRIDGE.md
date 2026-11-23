@@ -10,6 +10,8 @@ The editor build generates host dependency notices and copies Inkkit's license a
 
 `blur(expectedGeneration)` releases focus only from the editor’s text surface in the current generation, because native responder resignation does not clear WebKit’s retained DOM focus. Native reading selection submits this before resigning the editor’s responder. It leaves embedded controls and other responders focused; subsequent explicit focus remains ordered after it. `focus(expectedGeneration)` is scoped the same way.
 
+Spaces and tabs after the last text of a block an edit reaches are not part of the snapshot. The editor keeps the typed space and the caret after it, but `snapshot`, `changed` and `refresh` all report the text without it, and a space that changes nothing else posts no `changed`. Native code compares only snapshot text with the store, never what the page shows, so its own save of `Milk` after `Milk ` is typed reads back as unchanged and does not reload the memo over the space.
+
 `changed` carries the snapshot’s Markdown and generation, and a monotonically increasing host sequence, which keeps rising across reloads where InkKit’s revision restarts. Discard reports belonging to previous documents. Appearance and formatting changes do not reload source.
 
 Expected InkKit snapshot rejections return `snapshotError` and `message` to native code, which throws a typed retrieval error. This keeps a save or copy attempted during composition or an image import from becoming a global script failure; a later snapshot can succeed after the operation finishes. Genuine script failures still block snapshot-dependent actions.
@@ -50,7 +52,13 @@ The production `LibraryStore` deliberately retains image files rather than sweep
 
 The `link` format passes the typed address through Inkkit's `normalizeLinkAddress`, so a bare host gets `https://`, and refuses anything it cannot normalize with `invalid-argument`. The page posts `openLink` only for addresses `canOpenLink` allows (http, https, mailto and tel); native code opens the URL it receives.
 
+Return in a list item starts the next item in formatted and source mode. A code block's Copy icon shows while the pointer or selection is in the block and reaches native code through `copy`. No file adapter is supplied, so file cards and placeholders never appear.
+
 InkKit always enables the typed table-row shortcut; it has no option for it. Block movement defaults to Option-Up and Option-Down, and its Move Up and Move Down titles and keys come from the shared shortcut definitions, as every editor shortcut's do. The Format menu follows `commands.moveBlockUp` and `commands.moveBlockDown`. InkKit's smart punctuation and the slash menu are disabled at mount. The Slash commands setting, off by default, turns the menu on through `setSlashMenuEnabled`, sent when the page is ready and whenever the setting changes. No wiki-link adapter is supplied, so `[[` stays literal.
+
+`setPreferences({ pairBrackets, continueLists, foldHeadings, plainTextPaste })` carries the Editing settings, sent when the page is ready and whenever one changes. The page passes the whole set to `setTextInputPreferences`, with smart punctuation still off and `paste: 'plainText'` for plain-text paste, and `foldHeadings` to `setDisplayPreferences`. The defaults are InkKit's: list continuation on, the rest off. Indentation and code line numbers keep InkKit's defaults. An edit that would change text a fold hides is refused with `hidden-text`, which opens the section; native code shows it through the refusal path.
+
+A link shows InkKit's open hint after the pointer rests on it, and Command-click opens it through `openLink`. Right-clicking a Markdown link posts `linkMenu` with the trimmed `href`, `openable` (InkKit's own check and `canOpenLink` both allow it) and the click point as `x` and `y`. InkKit has already selected the link and suppressed the web view's menu, whose Open Link item would try to load the page in the editor. Native code shows Open Link, Copy Link, Edit Link… and Remove Link. Open and Copy use the posted address. Edit and Remove call `format('link')` with or without a destination on the selected link, and are ignored if the memo or its generation changed while the menu was open.
 
 Format menu items for editor shortcuts are disabled unless the editor owns the first responder, so their keys reach a focused native field. A queued `moveBlock` also rechecks its window, responder, and document before it runs.
 
@@ -73,6 +81,8 @@ Appearance settings can hide the count. The count also hides while the formattin
 ## Local diagnostics
 
 About Settings contains **Record diagnostic activity**, off by default and persisted in preferences, and **Copy Diagnostic Report**. Recording stays on this Mac. It records bounded native operation, input, focus, snapshot, and save categories alongside Inkkit's public diagnostic report. Native history keeps 200 events and an incident with up to 40 subsequent events. The report includes the actual app version, build, bundled editor version, bounded numeric macOS version, and random session identifiers. It contains no hardware identifiers or arbitrary OS description strings. It excludes memo content and identities, filenames, paths, links, clipboard data, raw event data, and arbitrary exception messages.
+
+Consecutive identical engine events share one entry, whose optional `count` gives how many occurrences it stands for; the native sanitizer keeps it as a number.
 
 `setDiagnosticsEnabled(enabled)` forwards the setting through Inkkit's public API. `diagnosticReport()` retrieves the engine report without taking a snapshot or requiring a document generation. Native collection times out after two seconds, validates the current controller and recording session, and accepts only documented enum, boolean, numeric, UUID, and restricted presentation fields. Geometry is collected only for an incident or an explicit report request. Global JavaScript failures forward only `script-error` or `unhandled-rejection` classifications.
 

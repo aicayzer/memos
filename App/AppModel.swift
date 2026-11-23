@@ -71,6 +71,17 @@ final class AppModel {
         }
     }
 
+    /// Typing aids and display options from Settings, each remembered under its own key.
+    var editorPreferences: EditorPreferences {
+        didSet {
+            defaults.set(editorPreferences.pairBrackets, forKey: Self.pairBracketsKey)
+            defaults.set(editorPreferences.continueLists, forKey: Self.continueListsKey)
+            defaults.set(editorPreferences.foldHeadings, forKey: Self.foldHeadingsKey)
+            defaults.set(editorPreferences.plainTextPaste, forKey: Self.plainTextPasteKey)
+            editor.preferences = editorPreferences
+        }
+    }
+
     var editorCountUnit: EditorCountUnit {
         didSet { defaults.set(editorCountUnit.rawValue, forKey: Self.editorCountUnitKey) }
     }
@@ -187,6 +198,10 @@ final class AppModel {
     private static let formatBarHiddenKey = "formatBarHidden"
     private static let showEditorCountKey = "showEditorCount"
     private static let slashCommandsKey = "slashCommands"
+    private static let pairBracketsKey = "pairBrackets"
+    private static let continueListsKey = "continueLists"
+    private static let foldHeadingsKey = "foldHeadings"
+    private static let plainTextPasteKey = "plainTextPaste"
     private static let editorCountUnitKey = "editorCountUnit"
     private static let sidePaneWidthKey = "sidePaneWidth"
     private static let sidePaneAtLaunchKey = "sidePaneAtLaunch"
@@ -235,6 +250,16 @@ final class AppModel {
         formatBarHidden = defaults.object(forKey: Self.formatBarHiddenKey) as? Bool ?? true
         showEditorCount = defaults.object(forKey: Self.showEditorCountKey) as? Bool ?? true
         slashCommands = defaults.bool(forKey: Self.slashCommandsKey)
+        let standard = EditorPreferences()
+        func flag(_ key: String, _ fallback: Bool) -> Bool {
+            defaults.object(forKey: key) == nil ? fallback : defaults.bool(forKey: key)
+        }
+        editorPreferences = EditorPreferences(
+            pairBrackets: flag(Self.pairBracketsKey, standard.pairBrackets),
+            continueLists: flag(Self.continueListsKey, standard.continueLists),
+            foldHeadings: flag(Self.foldHeadingsKey, standard.foldHeadings),
+            plainTextPaste: flag(Self.plainTextPasteKey, standard.plainTextPaste)
+        )
         editorCountUnit = defaults.string(forKey: Self.editorCountUnitKey).flatMap(EditorCountUnit.init(rawValue:)) ?? .characters
         let storedPaneWidth = defaults.object(forKey: Self.sidePaneWidthKey) as? Double ?? Chrome.paneWidth
         sidePaneWidth = storedPaneWidth.isFinite ? min(Chrome.maximumPaneWidth, max(Chrome.paneWidth, storedPaneWidth)) : Chrome.paneWidth
@@ -258,6 +283,7 @@ final class AppModel {
         editor.accentOverride = accent.color
         editor.textSize = textSize
         editor.slashCommands = slashCommands
+        editor.preferences = editorPreferences
         editor.keymap = shortcuts.editorKeymap
         shortcuts.onChange = { [weak self] in
             guard let self else { return }

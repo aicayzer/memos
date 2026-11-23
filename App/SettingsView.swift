@@ -96,6 +96,19 @@ struct SettingsView: View {
                 Text("Type / on an empty line to add a heading, list, table and more.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                Toggle("Continue lists", isOn: $model.editorPreferences.continueLists)
+                Text("Press Return in a list item to start the next one, in formatted and source views.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Toggle("Pair brackets and quotes", isOn: $model.editorPreferences.pairBrackets)
+                Toggle("Paste as plain text", isOn: $model.editorPreferences.plainTextPaste)
+                Text("Pasted text keeps its words and drops its formatting.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Toggle("Fold headings", isOn: $model.editorPreferences.foldHeadings)
+                Text("Show a control beside each heading that hides the section below it.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
             Section("Appearance") {
                 Picker("Accent", selection: Binding(

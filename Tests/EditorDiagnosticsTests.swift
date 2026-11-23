@@ -153,6 +153,18 @@ import Testing
         #expect(report.contains("truncated"))
     }
 
+    @Test func mergedEngineEventsKeepTheirCountAndFoldRefusalsKeepTheirCode() throws {
+        let report = EditorDiagnostics.sanitizeReport(["events": [
+            ["kind": "input", "sequence": 9, "elapsedMs": 4, "count": 3, "code": "hidden-text"],
+            ["kind": "input", "sequence": 10, "count": "3"],
+        ]])
+        let events = try #require(report["events"] as? [[String: Any]])
+        #expect(events[0]["count"] as? Int == 3)
+        #expect(events[0]["code"] as? String == "hidden-text")
+        #expect(events[1]["count"] == nil)
+        #expect(EditorIncident(code: "hidden-text").userMessage == "That text was in a folded section, which is now open. Try again.")
+    }
+
     @Test func firstNativeIncidentKeepsTwoHundredEventsAndFortyFollowups() throws {
         let (recorder, defaults, folder, name) = try fixture()
         defer { discard(folder); defaults.removePersistentDomain(forName: name) }
